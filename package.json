@@ -1,0 +1,39 @@
+{
+  "name": "atri-editor",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A framework-agnostic rich text editor based on Tiptap v3 with AI integration",
+  "scripts": {
+    "dev": "pnpm -C packages/core dev",
+    "demo": "cd demos/vanilla && vite",
+    "build": "pnpm -r build",
+    "build:core": "pnpm -C packages/core build",
+    "build:extensions": "pnpm -C packages/extensions build",
+    "build:themes": "pnpm -C packages/themes build",
+    "lint": "oxlint packages/core/src",
+    "lint:eslint": "eslint packages --ext .ts,.tsx",
+    "format": "oxfmt --write packages",
+    "format:prettier": "prettier --write packages/**/*.ts",
+    "check": "oxlint packages/core/src && oxfmt --check packages/core/src",
+    "test": "vitest",
+    "clean": "rimraf packages/*/dist"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "eslint": "^8.57.0",
+    "oxfmt": "^0.65.0",
+    "oxlint": "^1.80.0",
+    "prettier": "^3.2.0",
+    "rimraf": "^5.0.0",
+    "typescript": "^7.0.0",
+    "vite": "^5.2.0",
+    "vitest": "^1.4.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "packageManager": "pnpm@8.15.0"
+}
