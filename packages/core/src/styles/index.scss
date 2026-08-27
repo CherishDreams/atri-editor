@@ -1,0 +1,316 @@
+// Atri Editor - Base Styles
+@import './variables';
+
+// CSS Custom Properties for runtime theme switching
+:root {
+  --atri-color-primary: #1890ff;
+  --atri-color-primary-hover: #40a9ff;
+  --atri-color-primary-active: #096dd9;
+  --atri-color-success: #52c41a;
+  --atri-color-warning: #faad14;
+  --atri-color-error: #ff4d4f;
+
+  --atri-bg-color: #ffffff;
+  --atri-bg-color-secondary: #f5f5f5;
+  --atri-bg-color-hover: #e8e8e8;
+
+  --atri-text-color: #333333;
+  --atri-text-color-secondary: #666666;
+  --atri-text-color-disabled: #999999;
+
+  --atri-border-color: #d9d9d9;
+  --atri-border-color-hover: #40a9ff;
+}
+
+.atri-theme-dark {
+  --atri-bg-color: #1f1f1f;
+  --atri-bg-color-secondary: #2d2d2d;
+  --atri-bg-color-hover: #3d3d3d;
+
+  --atri-text-color: #e8e8e8;
+  --atri-text-color-secondary: #a8a8a8;
+  --atri-text-color-disabled: #666666;
+
+  --atri-border-color: #434343;
+  --atri-border-color-hover: #1890ff;
+}
+
+// Editor Container
+.atri-editor {
+  position: relative;
+  width: 100%;
+  font-family: $font-family;
+  font-size: $font-size;
+  line-height: $line-height;
+  color: var(--atri-text-color);
+  background-color: var(--atri-bg-color);
+  border: 1px solid var(--atri-border-color);
+  border-radius: $border-radius;
+  box-sizing: border-box;
+
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
+}
+
+// Toolbar
+.atri-editor-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  padding: $spacing-xs $spacing-sm;
+  border-bottom: 1px solid var(--atri-border-color);
+  background-color: var(--atri-bg-color-secondary);
+}
+
+.atri-editor-toolbar-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: $toolbar-btn-size;
+  height: $toolbar-btn-size;
+  padding: 0;
+  border: none;
+  border-radius: $border-radius;
+  background: transparent;
+  color: var(--atri-text-color);
+  cursor: pointer;
+  transition: $transition;
+
+  &:hover {
+    background-color: var(--atri-bg-color-hover);
+  }
+
+  &.active {
+    background-color: var(--atri-color-primary);
+    color: white;
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  svg {
+    width: $toolbar-icon-size;
+    height: $toolbar-icon-size;
+  }
+}
+
+.atri-editor-toolbar-separator {
+  width: 1px;
+  height: $toolbar-separator-height;
+  background-color: var(--atri-border-color);
+  margin: 0 4px;
+}
+
+// Content Wrapper
+.atri-editor-content-wrapper {
+  position: relative;
+  min-height: 200px;
+  padding: $spacing-md;
+  overflow-y: auto;
+}
+
+// Editor Content (ProseMirror)
+.atri-editor-content {
+  outline: none;
+  min-height: 150px;
+
+  &:focus {
+    outline: none;
+  }
+}
+
+// Placeholder
+.atri-editor-content.is-editor-empty > *:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--atri-text-color-disabled);
+  pointer-events: none;
+  height: 0;
+}
+
+// Typography
+.atri-editor-content {
+  h1 {
+    font-size: 2em;
+    font-weight: 600;
+    margin: 0.67em 0;
+  }
+
+  h2 {
+    font-size: 1.5em;
+    font-weight: 600;
+    margin: 0.75em 0;
+  }
+
+  h3 {
+    font-size: 1.25em;
+    font-weight: 600;
+    margin: 0.83em 0;
+  }
+
+  h4 {
+    font-size: 1em;
+    font-weight: 600;
+    margin: 1em 0;
+  }
+
+  p {
+    margin: 0.5em 0;
+  }
+
+  ul, ol {
+    padding-left: 1.5em;
+    margin: 0.5em 0;
+  }
+
+  li {
+    margin: 0.25em 0;
+  }
+
+  blockquote {
+    border-left: 4px solid var(--atri-border-color);
+    padding-left: 1em;
+    margin: 0.5em 0;
+    color: var(--atri-text-color-secondary);
+  }
+
+  code {
+    background-color: var(--atri-bg-color-secondary);
+    border-radius: 3px;
+    padding: 0.2em 0.4em;
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    font-size: 0.9em;
+  }
+
+  pre {
+    background-color: var(--atri-bg-color-secondary);
+    border-radius: $border-radius;
+    padding: 1em;
+    overflow-x: auto;
+    margin: 0.5em 0;
+
+    code {
+      background: none;
+      padding: 0;
+    }
+  }
+
+  a {
+    color: var(--atri-color-primary);
+    text-decoration: none;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+
+  img {
+    max-width: 100%;
+    height: auto;
+  }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 0.5em 0;
+
+    td, th {
+      border: 1px solid var(--atri-border-color);
+      padding: $spacing-sm $spacing-md;
+      text-align: left;
+    }
+
+    th {
+      background-color: var(--atri-bg-color-secondary);
+      font-weight: 600;
+    }
+  }
+}
+
+// Task List
+.atri-editor-content {
+  ul[data-type='taskList'] {
+    list-style: none;
+    padding-left: 0;
+
+    li {
+      display: flex;
+      align-items: flex-start;
+
+      label {
+        margin-right: $spacing-sm;
+
+        input[type='checkbox'] {
+          margin-top: 0.25em;
+        }
+      }
+    }
+  }
+}
+
+// Selection
+.atri-editor-content ::selection {
+  background-color: rgba(24, 144, 255, 0.2);
+}
+
+// AI Command Menu
+.atri-ai-command-menu {
+  position: fixed;
+  z-index: $z-dropdown;
+  background-color: var(--atri-bg-color);
+  border: 1px solid var(--atri-border-color);
+  border-radius: $border-radius-lg;
+  box-shadow: $shadow-md;
+  padding: $spacing-xs;
+  min-width: 200px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.atri-ai-command-menu-item {
+  display: flex;
+  align-items: center;
+  padding: $spacing-sm $spacing-md;
+  border-radius: $border-radius;
+  cursor: pointer;
+  transition: $transition;
+
+  &:hover, &.active {
+    background-color: var(--atri-bg-color-hover);
+  }
+}
+
+.atri-ai-command-menu-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin-right: $spacing-sm;
+  color: var(--atri-text-color-secondary);
+
+  svg {
+    width: 16px;
+    height: 16px;
+  }
+}
+
+.atri-ai-command-menu-name {
+  flex: 1;
+  font-size: $font-size;
+}
+
+// Responsive
+@media (max-width: 768px) {
+  .atri-editor {
+    border-radius: 0;
+  }
+
+  .atri-editor-content-wrapper {
+    padding: $spacing-sm;
+  }
+}

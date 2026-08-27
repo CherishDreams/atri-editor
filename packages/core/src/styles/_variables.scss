@@ -1,0 +1,39 @@
+// Atri Editor - SCSS Variables
+// 编译时变量：结构、尺寸、间距等
+// 运行时主题色通过 CSS 自定义属性（在 :root 中定义）
+
+// 字体
+$font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+$font-size: 14px;
+$font-size-sm: 12px;
+$font-size-lg: 16px;
+$line-height: 1.6;
+
+// 间距
+$spacing-xs: 4px;
+$spacing-sm: 8px;
+$spacing-md: 12px;
+$spacing-lg: 16px;
+$spacing-xl: 24px;
+
+// 圆角
+$border-radius: 4px;
+$border-radius-lg: 8px;
+
+// 阴影
+$shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
+$shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+$shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.15);
+
+// Z-index
+$z-dropdown: 1000;
+$z-modal: 1050;
+$z-tooltip: 1100;
+
+// 过渡
+$transition: all 0.2s ease;
+
+// 工具栏
+$toolbar-btn-size: 32px;
+$toolbar-icon-size: 18px;
+$toolbar-separator-height: 20px;
