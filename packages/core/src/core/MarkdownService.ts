@@ -4,12 +4,14 @@
 import type { Editor } from '@tiptap/core';
 import type { AtriMarkdownConfig } from '../types';
 import { simpleMarkdownToHtml, simpleHtmlToMarkdown } from '../utils/markdown';
+import type { ExtensionManager } from './ExtensionManager';
 
 export class MarkdownService {
   private editor: Editor;
   private config: AtriMarkdownConfig;
+  private extensionManager?: ExtensionManager;
 
-  constructor(editor: Editor, config: AtriMarkdownConfig = {}) {
+  constructor(editor: Editor, config: AtriMarkdownConfig = {}, extensionManager?: ExtensionManager) {
     this.editor = editor;
     this.config = {
       enabled: true,
@@ -17,6 +19,7 @@ export class MarkdownService {
       shortcuts: true,
       ...config,
     };
+    this.extensionManager = extensionManager;
   }
 
   /**
@@ -26,10 +29,132 @@ export class MarkdownService {
     const editorWithMarkdown = this.editor as Editor & {
       markdown?: { serialize: (content: object) => string };
     };
+    
     if (editorWithMarkdown.markdown) {
-      return editorWithMarkdown.markdown.serialize(this.editor.getJSON());
+      const json = this.editor.getJSON() as any;
+      
+      // 如果有自定义序列化规则，应用它们
+      if (this.extensionManager) {
+        const serializers = this.extensionManager.getMarkdownSerializers();
+        if (serializers.size > 0) {
+          return this.serializeWithCustomRules(json, serializers);
+        }
+      }
+      
+      return editorWithMarkdown.markdown.serialize(json);
     }
+    
     return simpleHtmlToMarkdown(this.editor.getHTML());
+  }
+
+  /**
+   * 使用自定义规则序列化 JSON 为 Markdown
+   */
+  private serializeWithCustomRules(
+    json: any,
+    serializers: Map<string, (node: any) => string>
+  ): string {
+    if (!json.content || !Array.isArray(json.content)) {
+      return '';
+    }
+
+    const lines: string[] = [];
+
+    for (const node of json.content) {
+      // 检查是否有自定义序列化规则
+      if (serializers.has(node.type)) {
+        const serializer = serializers.get(node.type)!;
+        lines.push(serializer(node));
+      } else {
+        // 使用默认序列化
+        lines.push(this.serializeNode(node));
+      }
+    }
+
+    return lines.join('\n\n');
+  }
+
+  /**
+   * 序列化内联内容（处理文本节点的 marks）
+   */
+  private serializeInlineContent(nodes: any[]): string {
+    if (!Array.isArray(nodes)) return '';
+
+    return nodes
+      .map((node: any) => {
+        if (node.type !== 'text') return '';
+
+        let text = node.text || '';
+
+        // 应用 marks（从内到外：code > bold > italic > strike > underline）
+        if (node.marks && Array.isArray(node.marks)) {
+          const markTypes = node.marks.map((m: any) => m.type);
+
+          if (markTypes.includes('code')) {
+            text = '`' + text + '`';
+          }
+          if (markTypes.includes('bold')) {
+            text = '**' + text + '**';
+          }
+          if (markTypes.includes('italic')) {
+            text = '*' + text + '*';
+          }
+          if (markTypes.includes('strike')) {
+            text = '~~' + text + '~~';
+          }
+        }
+
+        return text;
+      })
+      .join('');
+  }
+
+  /**
+   * 序列化单个节点为 Markdown
+   */
+  private serializeNode(node: any): string {
+    if (!node.content || !Array.isArray(node.content)) {
+      return '';
+    }
+
+    const text = this.serializeInlineContent(
+      node.content.filter((n: any) => n.type === 'text')
+    );
+
+    switch (node.type) {
+      case 'paragraph':
+        return text;
+      case 'heading':
+        const level = node.attrs?.level || 1;
+        return '#'.repeat(level) + ' ' + text;
+      case 'blockquote':
+        return text.split('\n').map((line: string) => '> ' + line).join('\n');
+      case 'bulletList':
+        return node.content
+          .map((item: any) => {
+            const listItemContent = item.content?.[0]?.content || [];
+            const itemText = this.serializeInlineContent(
+              listItemContent.filter((n: any) => n.type === 'text')
+            );
+            return '- ' + itemText;
+          })
+          .join('\n');
+      case 'orderedList':
+        return node.content
+          .map((item: any, index: number) => {
+            const listItemContent = item.content?.[0]?.content || [];
+            const itemText = this.serializeInlineContent(
+              listItemContent.filter((n: any) => n.type === 'text')
+            );
+            return (index + 1) + '. ' + itemText;
+          })
+          .join('\n');
+      case 'codeBlock':
+        const language = node.attrs?.language || '';
+        return '```' + language + '\n' + text + '\n```';
+      default:
+        return text;
+    }
   }
 
   /**

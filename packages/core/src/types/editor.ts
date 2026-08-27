@@ -1,6 +1,7 @@
 import type { Editor, Extension } from '@tiptap/core';
 import type { AtriAIConfig } from './ai';
 import type { AtriMarkdownConfig } from './markdown';
+import type { AtriNodeViewConfig } from './extension';
 
 /**
  * 工具栏配置
@@ -88,6 +89,8 @@ export interface AtriEditorOptions {
   bubbleMenu?: BubbleMenuConfig | false;
   /** 扩展列表 */
   extensions?: Extension[];
+  /** NodeView 自定义组件配置 */
+  nodeViews?: AtriNodeViewConfig[];
   /** AI 配置 */
   ai?: AtriAIConfig;
   /** Markdown 配置 */

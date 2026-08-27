@@ -27,9 +27,52 @@
       border-radius: 8px;
       box-shadow: 0 2px 8px rgba(0,0,0,0.1);
       padding: 20px;
+      margin-bottom: 20px;
     }
     #editor {
       min-height: 400px;
+    }
+    .nodeview-demo {
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .nodeview-demo h2 {
+      margin-top: 0;
+      color: #333;
+    }
+    .custom-card {
+      border: 2px solid #1890ff;
+      border-radius: 8px;
+      padding: 16px;
+      margin: 10px 0;
+      background: #f0f7ff;
+    }
+    .custom-card h3 {
+      margin: 0 0 8px 0;
+      color: #1890ff;
+    }
+    .custom-card p {
+      margin: 0;
+      color: #666;
+    }
+    .custom-video {
+      border: 2px solid #52c41a;
+      border-radius: 8px;
+      padding: 16px;
+      margin: 10px 0;
+      background: #f6ffed;
+    }
+    .custom-video h3 {
+      margin: 0 0 8px 0;
+      color: #52c41a;
+    }
+    .custom-video video {
+      width: 100%;
+      max-height: 200px;
+      border-radius: 4px;
     }
     .controls {
       margin-top: 20px;
@@ -79,6 +122,16 @@
       <div id="editor"></div>
     </div>
 
+    <div class="nodeview-demo">
+      <h2>NodeView 自定义组件演示</h2>
+      <p>点击下方按钮在编辑器中插入自定义组件：</p>
+      <div class="controls" style="margin-top: 10px;">
+        <button id="btn-insertCard">插入卡片组件</button>
+        <button id="btn-insertVideo">插入视频组件</button>
+        <button id="btn-showNodeViews">查看已注册 NodeView</button>
+      </div>
+    </div>
+
     <div class="controls">
       <button id="btn-getHTML">获取 HTML</button>
       <button id="btn-getMarkdown">获取 Markdown</button>
@@ -106,6 +159,76 @@
       console.error('[Atri Editor] Unhandled rejection:', e.reason);
     });
 
+    // NodeView 自定义组件配置
+    const nodeViews = [
+      {
+        name: 'customCard',
+        inline: false,
+        atom: true,
+        group: 'block',
+        description: '自定义卡片组件',
+        attributes: {
+          title: { default: '卡片标题' },
+          content: { default: '卡片内容' },
+        },
+        parseHTML: () => [{
+          tag: 'custom-card',
+          getAttrs: (el) => ({
+            title: el.getAttribute('title') || '卡片标题',
+            content: el.getAttribute('content') || '卡片内容',
+          }),
+        }],
+        renderHTML: ({ HTMLAttributes }) => {
+          return ['custom-card', HTMLAttributes];
+        },
+        nodeView: (props) => {
+          const dom = document.createElement('div');
+          dom.className = 'custom-card';
+          dom.innerHTML = `
+            <h3>${props.node.attrs.title}</h3>
+            <p>${props.node.attrs.content}</p>
+          `;
+          return { dom };
+        },
+        markdownSerialize: (node) => {
+          return `> **${node.attrs.title}**\n> ${node.attrs.content}\n`;
+        },
+      },
+      {
+        name: 'customVideo',
+        inline: false,
+        atom: true,
+        group: 'block',
+        description: '自定义视频组件',
+        attributes: {
+          src: { default: '' },
+          title: { default: '视频标题' },
+        },
+        parseHTML: () => [{
+          tag: 'custom-video',
+          getAttrs: (el) => ({
+            src: el.getAttribute('src') || '',
+            title: el.getAttribute('title') || '视频标题',
+          }),
+        }],
+        renderHTML: ({ HTMLAttributes }) => {
+          return ['custom-video', HTMLAttributes];
+        },
+        nodeView: (props) => {
+          const dom = document.createElement('div');
+          dom.className = 'custom-video';
+          dom.innerHTML = `
+            <h3>${props.node.attrs.title}</h3>
+            <video src="${props.node.attrs.src}" controls></video>
+          `;
+          return { dom };
+        },
+        markdownSerialize: (node) => {
+          return `**视频**: ${node.attrs.title}\n${node.attrs.src}\n`;
+        },
+      },
+    ];
+
     // 创建编辑器实例
     try {
       window.editor = new AtriEditor({
@@ -113,6 +236,7 @@
         placeholder: '开始输入内容...',
         theme: 'light',
         content: '<h2>欢迎使用 Atri Editor</h2><p>这是一个基于 <strong>Tiptap v3</strong> 的富文本编辑器。</p><ul><li>支持 Markdown 语法</li><li>支持 AI 集成</li><li>框架无关设计</li></ul>',
+        nodeViews: nodeViews,
         markdown: {
           enabled: true,
         },
@@ -249,6 +373,63 @@
         window.editor.toggleTheme();
       } catch (err) {
         console.error('[Atri Editor] toggleTheme failed:', err);
+      }
+    });
+
+    // NodeView 按钮事件
+    document.getElementById('btn-insertCard').addEventListener('click', function() {
+      try {
+        if (!window.editor) {
+          console.error('[Atri Editor] Editor instance not initialized');
+          return;
+        }
+        const tiptapEditor = window.editor.editor;
+        tiptapEditor.chain().focus().insertContent({
+          type: 'customCard',
+          attrs: {
+            title: '示例卡片',
+            content: '这是一个自定义卡片组件的示例内容。',
+          },
+        }).run();
+        console.log('[Atri Editor] Inserted customCard');
+      } catch (err) {
+        console.error('[Atri Editor] insertCard failed:', err);
+      }
+    });
+
+    document.getElementById('btn-insertVideo').addEventListener('click', function() {
+      try {
+        if (!window.editor) {
+          console.error('[Atri Editor] Editor instance not initialized');
+          return;
+        }
+        const tiptapEditor = window.editor.editor;
+        tiptapEditor.chain().focus().insertContent({
+          type: 'customVideo',
+          attrs: {
+            src: 'https://www.w3schools.com/html/mov_bbb.mp4',
+            title: '示例视频',
+          },
+        }).run();
+        console.log('[Atri Editor] Inserted customVideo');
+      } catch (err) {
+        console.error('[Atri Editor] insertVideo failed:', err);
+      }
+    });
+
+    document.getElementById('btn-showNodeViews').addEventListener('click', function() {
+      try {
+        if (!window.editor) {
+          console.error('[Atri Editor] Editor instance not initialized');
+          showOutput('Error: Editor not initialized');
+          return;
+        }
+        const nodeViews = window.editor.getNodeViews();
+        const nodeViewList = Array.from(nodeViews.keys());
+        showOutput('已注册的 NodeView:\n' + nodeViewList.join('\n'));
+        console.log('[Atri Editor] NodeViews:', nodeViewList);
+      } catch (err) {
+        console.error('[Atri Editor] showNodeViews failed:', err);
       }
     });
 

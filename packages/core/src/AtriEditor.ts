@@ -3,7 +3,7 @@
  */
 import type { Editor } from '@tiptap/core';
 import { getTextBetween } from '@tiptap/core';
-import type { AtriEditorOptions, IAtriEditor, SetContentOptions, AtriAIConfig } from './types';
+import type { AtriEditorOptions, IAtriEditor, SetContentOptions, AtriAIConfig, AtriNodeViewConfig } from './types';
 import { CoreEditor } from './core/CoreEditor';
 import { MarkdownService } from './core/MarkdownService';
 import { ThemeManager } from './core/ThemeManager';
@@ -45,6 +45,11 @@ export class AtriEditor implements IAtriEditor {
     // 初始化扩展管理器
     this.extensionManager = new ExtensionManager();
 
+    // 注册 NodeView 自定义组件（在创建编辑器之前）
+    if (options.nodeViews && options.nodeViews.length > 0) {
+      this.extensionManager.registerNodeViews(options.nodeViews);
+    }
+
     // 创建工具栏容器（如果 toolbar 不为 false）
     let toolbarContainer: HTMLDivElement | null = null;
     if (options.toolbar !== false) {
@@ -63,7 +68,10 @@ export class AtriEditor implements IAtriEditor {
       contentFormat: options.contentFormat,
       editable: options.editable,
       placeholder: options.placeholder,
-      extensions: options.extensions,
+      extensions: [
+        ...(options.extensions || []),
+        ...this.extensionManager.getAll(),
+      ],
       markdown: options.markdown,
       onCreate: () => {
         this.onEditorCreated();
@@ -83,7 +91,7 @@ export class AtriEditor implements IAtriEditor {
     });
 
     // 初始化 Markdown 服务
-    this.markdownService = new MarkdownService(this.editor, options.markdown);
+    this.markdownService = new MarkdownService(this.editor, options.markdown, this.extensionManager);
 
     // 初始化工具栏
     if (toolbarContainer && options.toolbar !== false) {
@@ -114,6 +122,75 @@ export class AtriEditor implements IAtriEditor {
 
   private initAI(config: AtriAIConfig): void {
     this.aiService = new AIService(this.editor, config, this.markdownService);
+  }
+
+  /**
+   * 重新创建编辑器（用于动态注册 NodeView 后更新 schema）
+   */
+  private recreateEditor(): void {
+    // 保存当前内容
+    const currentContent = this.coreEditor.getHTML();
+
+    // 销毁旧编辑器
+    this.coreEditor.destroy();
+    this.toolbarManager?.destroy();
+    this.aiMenuManager?.destroy();
+
+    // 找到编辑区域容器
+    const editorElement = this.container.querySelector('.atri-editor-content-wrapper') as HTMLElement;
+    const toolbarContainer = this.container.querySelector('.atri-editor-toolbar') as HTMLElement;
+
+    // 创建新的编辑区域
+    const newEditorElement = createContainer('atri-editor-content-wrapper');
+    if (editorElement) {
+      editorElement.replaceWith(newEditorElement);
+    } else {
+      this.container.appendChild(newEditorElement);
+    }
+
+    // 重新创建核心编辑器
+    this.coreEditor = new CoreEditor({
+      element: newEditorElement,
+      content: currentContent,
+      contentFormat: this.options.contentFormat,
+      editable: this.options.editable,
+      placeholder: this.options.placeholder,
+      extensions: [
+        ...(this.options.extensions || []),
+        ...this.extensionManager.getAll(),
+      ],
+      markdown: this.options.markdown,
+      onCreate: () => {
+        this.onEditorCreated();
+      },
+      onUpdate: () => {
+        this.options.onChange?.(this);
+      },
+      onFocus: () => {
+        this.options.onFocus?.(this);
+      },
+      onBlur: () => {
+        this.options.onBlur?.(this);
+      },
+      onDestroy: () => {
+        this.options.onDestroy?.(this);
+      },
+    });
+
+    // 重新初始化 Markdown 服务
+    this.markdownService = new MarkdownService(this.editor, this.options.markdown, this.extensionManager);
+
+    // 重新初始化工具栏
+    if (toolbarContainer && this.options.toolbar !== false) {
+      this.toolbarManager = new ToolbarManager(this.editor, toolbarContainer, this.options.toolbar);
+    }
+
+    // 重新初始化 AI 服务
+    if (this.options.ai) {
+      this.initAI(this.options.ai);
+    }
+
+    console.log('[Atri Editor] Editor recreated with updated schema');
   }
 
   /**
@@ -303,6 +380,37 @@ export class AtriEditor implements IAtriEditor {
     if (this.aiService) {
       this.aiService.updateConfig(config);
     }
+  }
+
+  /**
+   * 注册自定义 NodeView 组件
+   * 注意：如果编辑器已创建，会重新创建编辑器以更新 schema
+   */
+  registerNodeView(config: AtriNodeViewConfig): void {
+    this.extensionManager.registerNodeView(config);
+    // 如果编辑器已创建，需要重新创建以更新 schema
+    if (this.coreEditor) {
+      this.recreateEditor();
+    }
+  }
+
+  /**
+   * 批量注册 NodeView
+   * 注意：如果编辑器已创建，会重新创建编辑器以更新 schema
+   */
+  registerNodeViews(configs: AtriNodeViewConfig[]): void {
+    this.extensionManager.registerNodeViews(configs);
+    // 如果编辑器已创建，需要重新创建以更新 schema
+    if (this.coreEditor) {
+      this.recreateEditor();
+    }
+  }
+
+  /**
+   * 获取所有已注册的 NodeView
+   */
+  getNodeViews(): Map<string, AtriNodeViewConfig> {
+    return this.extensionManager.getNodeViews();
   }
 
   /**
