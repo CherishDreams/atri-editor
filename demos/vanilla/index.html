@@ -187,10 +187,12 @@
           nodeView: (props) => {
             const dom = document.createElement('div');
             dom.className = 'custom-card';
-            dom.innerHTML = `
-            <h3>${props.node.attrs.title}</h3>
-            <p>${props.node.attrs.content}</p>
-          `;
+            // 属性值来自文档数据（可能由粘贴或外部内容解析而来），不能拼进 innerHTML
+            const title = document.createElement('h3');
+            title.textContent = props.node.attrs.title;
+            const body = document.createElement('p');
+            body.textContent = props.node.attrs.content;
+            dom.append(title, body);
             return { dom };
           },
           markdownSerialize: (node) => {
@@ -222,10 +224,12 @@
           nodeView: (props) => {
             const dom = document.createElement('div');
             dom.className = 'custom-video';
-            dom.innerHTML = `
-            <h3>${props.node.attrs.title}</h3>
-            <video src="${props.node.attrs.src}" controls></video>
-          `;
+            const title = document.createElement('h3');
+            title.textContent = props.node.attrs.title;
+            const video = document.createElement('video');
+            video.controls = true;
+            video.src = props.node.attrs.src;
+            dom.append(title, video);
             return { dom };
           },
           markdownSerialize: (node) => {

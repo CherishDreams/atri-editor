@@ -33,10 +33,3 @@ export function createContainer(className?: string): HTMLDivElement {
 export function isBrowser(): boolean {
   return typeof window !== 'undefined' && typeof document !== 'undefined';
 }
-
-/**
- * 安全地设置 innerHTML
- */
-export function setHTML(element: HTMLElement, html: string): void {
-  element.innerHTML = html;
-}

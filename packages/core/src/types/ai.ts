@@ -8,7 +8,7 @@ export interface AtriAIFunction {
   name: string;
   /** hover 提示描述 */
   description?: string;
-  /** 图标（SVG 字符串或 URL） */
+  /** 图标：SVG 标记字符串，按原样插入，需来自可信配置 */
   icon?: string;
   /** 预设 Prompt 模板，支持 {selection} {cursor} {document} 及随 scope 解析的 {content} */
   prompt?: string;

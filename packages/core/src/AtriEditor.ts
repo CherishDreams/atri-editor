@@ -29,6 +29,8 @@ export class AtriEditor implements IAtriEditor {
   private toolbarManager: ToolbarManager | null = null;
   private aiService: AIService | null = null;
   private aiMenuManager: AICommandMenuManager | null = null;
+  /** 重建后待恢复的选区，新视图就绪时应用 */
+  private pendingViewState: { from: number; to: number } | null = null;
   private container: HTMLDivElement;
   private options: AtriEditorOptions;
 
@@ -113,6 +115,18 @@ export class AtriEditor implements IAtriEditor {
   }
 
   private onEditorCreated(): void {
+    // 视图就绪后才能恢复重建前的选区
+    if (this.pendingViewState) {
+      const { from, to } = this.pendingViewState;
+      this.pendingViewState = null;
+
+      const limit = this.editor.state.doc.content.size;
+      this.editor.commands.setTextSelection({
+        from: Math.min(from, limit),
+        to: Math.min(to, limit),
+      });
+    }
+
     // 初始化 AI 命令菜单
     if (this.options.ai?.functions) {
       this.aiMenuManager = new AICommandMenuManager(
@@ -134,10 +148,14 @@ export class AtriEditor implements IAtriEditor {
 
   /**
    * 重新创建编辑器（用于动态注册 NodeView 后更新 schema）
+   * 会整体替换编辑器视图，因此内容与选区都要手动恢复
    */
   private recreateEditor(): void {
-    // 保存当前内容
+    // 保存当前内容与光标位置，待新视图就绪后恢复选区
+    const previousEditor = this.coreEditor.getEditor();
     const currentContent = this.coreEditor.getHTML();
+    const { from, to } = previousEditor.state.selection;
+    this.pendingViewState = { from, to };
 
     // 销毁旧编辑器
     this.coreEditor.destroy();
@@ -202,8 +220,6 @@ export class AtriEditor implements IAtriEditor {
     if (this.options.ai) {
       this.initAI(this.options.ai);
     }
-
-    console.log('[Atri Editor] Editor recreated with updated schema');
   }
 
   /**
@@ -397,7 +413,8 @@ export class AtriEditor implements IAtriEditor {
 
   /**
    * 注册自定义 NodeView 组件
-   * 注意：如果编辑器已创建，会重新创建编辑器以更新 schema
+   * 注意：编辑器已创建时，每次调用都会重建一次编辑器以更新 schema；
+   * 连续注册多个组件请改用 registerNodeViews，只需重建一次
    */
   registerNodeView(config: AtriNodeViewConfig): void {
     this.extensionManager.registerNodeView(config);

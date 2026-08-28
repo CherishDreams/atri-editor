@@ -1,28 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
+import { customCardNodeView } from './fixtures';
 import { mount } from './utils';
-import type { AtriNodeViewConfig } from '../src/types';
-
-const customCard: AtriNodeViewConfig = {
-  name: 'customCard',
-  group: 'block',
-  atom: true,
-  attributes: {
-    title: { default: 'T' },
-    content: { default: 'C' },
-  },
-  parseHTML: () => [
-    {
-      tag: 'custom-card',
-      getAttrs: (el) => ({
-        title: el.getAttribute('title') || 'T',
-        content: el.getAttribute('content') || 'C',
-      }),
-    },
-  ],
-  renderHTML: ({ HTMLAttributes }) => ['custom-card', HTMLAttributes],
-  nodeView: () => ({ dom: document.createElement('div') }),
-  markdownSerialize: (node) => `> **${node.attrs.title}**\n> ${node.attrs.content}\n`,
-};
 
 describe('Markdown 内容链路', () => {
   it('contentFormat 为 markdown 的初始内容会被解析', async () => {
@@ -50,7 +28,7 @@ describe('Markdown 内容链路', () => {
   it('注册带 markdownSerialize 的 NodeView 后，整篇导出仍走官方序列化器', async () => {
     const editor = await mount({
       content: '<p>intro</p>',
-      nodeViews: [customCard],
+      nodeViews: [customCardNodeView],
     });
     editor.setContent(
       '<p>see <a href="https://example.com">the docs</a></p><ul><li>top</li></ul><hr>' +
