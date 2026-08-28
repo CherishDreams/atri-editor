@@ -16,6 +16,12 @@ export default defineConfig({
       },
     ],
   },
+  css: {
+    // legacy JS API 在 Dart Sass 2.0 移除，显式走 modern compiler
+    preprocessorOptions: {
+      scss: { api: 'modern-compiler' },
+    },
+  },
   server: {
     port: 3000,
     open: true,

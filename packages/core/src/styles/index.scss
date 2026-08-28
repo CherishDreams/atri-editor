@@ -1,5 +1,5 @@
 // Atri Editor - Base Styles
-@import './variables';
+@use './variables' as *;
 
 // CSS Custom Properties for runtime theme switching
 :root {
