@@ -87,3 +87,30 @@ describe('emitUpdate', () => {
     expect(editor.getHTML()).toContain('<h1>silent md</h1>');
   });
 });
+
+describe('markdown.indentation', () => {
+  const nested = '- a\n  - b';
+
+  it('未配置时按两个空格缩进嵌套列表', async () => {
+    const editor = await mount({ contentFormat: 'markdown', content: nested });
+
+    expect(editor.getMarkdown()).toContain('- a\n  - b');
+  });
+
+  it('导出缩进跟随配置，且 style 与 size 可单独给出', async () => {
+    const fourSpaces = await mount({
+      contentFormat: 'markdown',
+      content: nested,
+      markdown: { indentation: { size: 4 } },
+    });
+    const oneTab = await mount({
+      contentFormat: 'markdown',
+      content: nested,
+      markdown: { indentation: { style: 'tab', size: 1 } },
+    });
+
+    // 只有一条生效路径：配置原样转发给 Markdown 扩展，服务层不再各自留一份默认值
+    expect(fourSpaces.getMarkdown()).toContain('- a\n    - b');
+    expect(oneTab.getMarkdown()).toContain('- a\n\t- b');
+  });
+});

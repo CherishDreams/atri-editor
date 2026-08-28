@@ -197,7 +197,7 @@ toolbar: {
 | 属性 | 类型 | 说明 |
 |------|------|------|
 | `enabled` | `boolean` | 是否启用 Markdown 解析与序列化（默认 true） |
-| `indentation` | `{ style: 'space' \| 'tab'; size: number }` | 列表与代码块缩进 |
+| `indentation` | `{ style?: 'space' \| 'tab'; size?: number }` | 列表与代码块缩进，默认 `{ style: 'space', size: 2 }` |
 | `markedOptions` | `{ gfm?; breaks?; pedantic? }` | 传给 `marked` 的解析选项 |
 | `shortcuts` | `boolean` | 输入时实时转换（`**粗体**`、`# ` 等），默认 true；不影响粘贴与序列化 |
 

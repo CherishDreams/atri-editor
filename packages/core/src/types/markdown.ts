@@ -4,10 +4,12 @@
 export interface AtriMarkdownConfig {
   /** 是否启用 Markdown 支持（默认 true） */
   enabled?: boolean;
-  /** 缩进样式 */
+  /**
+   * 列表与代码块的缩进，原样转发给 Tiptap 的 Markdown 扩展，默认 `{ style: 'space', size: 2 }`
+   */
   indentation?: {
-    style: 'space' | 'tab';
-    size: number;
+    style?: 'space' | 'tab';
+    size?: number;
   };
   /** marked 配置选项 */
   markedOptions?: {

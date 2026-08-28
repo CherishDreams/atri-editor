@@ -20,7 +20,6 @@ export class MarkdownService {
     this.editor = editor;
     this.config = {
       enabled: true,
-      indentation: { style: 'space', size: 2 },
       ...config,
     };
   }
