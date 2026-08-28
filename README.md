@@ -129,9 +129,12 @@ atri-editor/
 │       │   ├── AtriEditor.ts    # 编辑器主类
 │       │   ├── AtriEditorElement.ts  # Web Component
 │       │   └── index.ts         # 主入口
+│       ├── tests/               # 回归测试（vitest + jsdom）
 │       └── dist/                # 构建输出
-├── demos/                       # 示例项目
-└── docs/                        # 文档
+├── demos/
+│   └── vanilla/                 # 原生 JS 示例
+└── .github/
+    └── workflows/               # CI：check → test → build
 ```
 
 ## API 参考
