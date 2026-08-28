@@ -145,22 +145,23 @@ export class AICommandMenuManager {
 
     const { view } = this.editor;
     const { from } = view.state.selection;
-    const coords = view.coordsAtPos(from);
-
-    const virtualReference = {
-      getBoundingClientRect(): DOMRect {
-        return new DOMRect(coords.left, coords.top, 0, coords.bottom - coords.top);
-      },
-    };
 
     let x: number;
     let y: number;
     try {
+      const coords = view.coordsAtPos(from);
+      const virtualReference = {
+        getBoundingClientRect(): DOMRect {
+          return new DOMRect(coords.left, coords.top, 0, coords.bottom - coords.top);
+        },
+      };
+
       ({ x, y } = await computePosition(virtualReference as any, menuElement, {
         placement: 'bottom-start',
         middleware: [offset(8), flip(), shift()],
       }));
     } catch {
+      // 测量或定位失败时保持菜单可见，仅跳过定位
       return;
     }
 

@@ -8,28 +8,20 @@
     "demo": "cd demos/vanilla && vite",
     "build": "pnpm -r build",
     "build:core": "pnpm -C packages/core build",
-    "build:extensions": "pnpm -C packages/extensions build",
-    "build:themes": "pnpm -C packages/themes build",
+    "typecheck": "pnpm -C packages/core typecheck",
     "lint": "oxlint packages/core/src",
-    "lint:eslint": "eslint packages --ext .ts,.tsx",
-    "format": "oxfmt --write packages",
-    "format:prettier": "prettier --write packages/**/*.ts",
-    "check": "oxlint packages/core/src && oxfmt --check packages/core/src",
-    "test": "vitest",
+    "format": "oxfmt --write packages demos",
+    "check": "pnpm typecheck && pnpm lint && oxfmt --check packages demos",
+    "test": "pnpm -r --if-present test",
     "clean": "rimraf packages/*/dist"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
-    "@typescript-eslint/eslint-plugin": "^7.0.0",
-    "@typescript-eslint/parser": "^7.0.0",
-    "eslint": "^8.57.0",
     "oxfmt": "^0.65.0",
     "oxlint": "^1.80.0",
-    "prettier": "^3.2.0",
     "rimraf": "^5.0.0",
     "typescript": "^7.0.0",
-    "vite": "^5.2.0",
-    "vitest": "^1.4.0"
+    "vite": "^5.2.0"
   },
   "engines": {
     "node": ">=18.0.0",

@@ -1,7 +1,13 @@
 /**
  * MarkdownService - Markdown 解析/序列化服务
  */
-import { generateHTML, generateJSON, type Editor, type JSONContent } from '@tiptap/core';
+import {
+  elementFromString,
+  getHTMLFromFragment,
+  type Editor,
+  type JSONContent,
+} from '@tiptap/core';
+import { DOMParser as ProseMirrorDOMParser, Node as ProseMirrorNode } from '@tiptap/pm/model';
 import type { MarkdownManager } from '@tiptap/markdown';
 import type { AtriMarkdownConfig } from '../types';
 import { simpleMarkdownToHtml, simpleHtmlToMarkdown } from '../utils/markdown';
@@ -59,7 +65,11 @@ export class MarkdownService {
     if (!manager) {
       return simpleMarkdownToHtml(markdown);
     }
-    return generateHTML(manager.parse(markdown), this.editor.extensionManager.extensions);
+    const { schema } = this.editor;
+    return getHTMLFromFragment(
+      ProseMirrorNode.fromJSON(schema, manager.parse(markdown)).content,
+      schema
+    );
   }
 
   /**
@@ -70,7 +80,10 @@ export class MarkdownService {
     if (!manager) {
       return simpleHtmlToMarkdown(html);
     }
-    return manager.serialize(generateJSON(html, this.editor.extensionManager.extensions));
+    const parsed = ProseMirrorDOMParser.fromSchema(this.editor.schema).parse(
+      elementFromString(html)
+    );
+    return manager.serialize(parsed.toJSON());
   }
 
   /**

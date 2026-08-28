@@ -7,9 +7,6 @@ dist/
 build/
 *.local
 
-# Lock files (optional, can be committed if needed)
-pnpm-lock.yaml
-
 # IDE
 .vscode/
 .idea/
