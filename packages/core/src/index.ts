@@ -3,10 +3,9 @@
  *
  * 一个基于 Tiptap v3 的框架无关富文本编辑器
  * 支持 Web Component、Markdown、AI 集成
+ *
+ * 样式需显式导入：import '@atri-editor/core/styles';
  */
-
-// 导入样式
-import './styles/index.scss';
 
 // 导出主类
 export { AtriEditor } from './AtriEditor';

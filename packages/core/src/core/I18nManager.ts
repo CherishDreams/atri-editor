@@ -1,7 +1,7 @@
 /**
  * I18nManager - 国际化支持
  */
-import i18next from 'i18next';
+import i18next, { type i18n as I18nInstance } from 'i18next';
 
 // 默认中文资源
 const zhResources = {
@@ -11,7 +11,11 @@ const zhResources = {
     italic: '斜体',
     underline: '下划线',
     strikethrough: '删除线',
+    code: '行内代码',
     heading: '标题',
+    heading1: '标题 1',
+    heading2: '标题 2',
+    heading3: '标题 3',
     paragraph: '正文',
     bulletList: '无序列表',
     orderedList: '有序列表',
@@ -48,7 +52,11 @@ const enResources = {
     italic: 'Italic',
     underline: 'Underline',
     strikethrough: 'Strikethrough',
+    code: 'Inline Code',
     heading: 'Heading',
+    heading1: 'Heading 1',
+    heading2: 'Heading 2',
+    heading3: 'Heading 3',
     paragraph: 'Paragraph',
     bulletList: 'Bullet List',
     orderedList: 'Ordered List',
@@ -78,45 +86,49 @@ const enResources = {
 };
 
 export class I18nManager {
-  private initialized = false;
+  private instance: I18nInstance;
 
   constructor(lang: string = 'zh') {
-    this.init(lang);
-  }
-
-  private async init(lang: string): Promise<void> {
-    if (this.initialized) return;
-
-    await i18next.init({
+    // 每个编辑器独立实例：i18next 默认导出是全局单例，共用会让多个编辑器互相切换语言
+    this.instance = i18next.createInstance();
+    // 资源为内联对象，initImmediate: false 让初始化同步完成，构造后 t() 立即可用
+    this.instance.init({
       lng: lang,
       fallbackLng: 'zh',
+      initImmediate: false,
       resources: {
         zh: { translation: zhResources },
         en: { translation: enResources },
       },
     });
-
-    this.initialized = true;
   }
 
   /**
    * 翻译
    */
   t(key: string, options?: Record<string, unknown>): string {
-    return i18next.t(key, options);
+    return this.instance.t(key, options);
   }
 
   /**
    * 切换语言
    */
   async changeLanguage(lang: string): Promise<void> {
-    await i18next.changeLanguage(lang);
+    await this.instance.changeLanguage(lang);
+  }
+
+  /**
+   * 监听语言变更，返回取消订阅的函数
+   */
+  onLanguageChanged(handler: (lang: string) => void): () => void {
+    this.instance.on('languageChanged', handler);
+    return () => this.instance.off('languageChanged', handler);
   }
 
   /**
    * 获取当前语言
    */
   getLanguage(): string {
-    return i18next.language || 'zh';
+    return this.instance.language || 'zh';
   }
 }

@@ -4,6 +4,7 @@
  */
 import type { Editor } from '@tiptap/core';
 import type { ToolbarConfig } from '../types';
+import type { I18nManager } from './I18nManager';
 import { icons } from './icons';
 
 /**
@@ -19,21 +20,55 @@ interface ToolbarItemDef {
 }
 
 /**
+ * 工具栏项与 i18n 词条的映射（缺词条时回退到 tooltip 文案）
+ */
+const TOOLTIP_KEYS: Record<string, string> = {
+  undo: 'editor.undo',
+  redo: 'editor.redo',
+  heading1: 'editor.heading1',
+  heading2: 'editor.heading2',
+  heading3: 'editor.heading3',
+  paragraph: 'editor.paragraph',
+  bold: 'editor.bold',
+  italic: 'editor.italic',
+  underline: 'editor.underline',
+  strike: 'editor.strikethrough',
+  code: 'editor.code',
+  bulletList: 'editor.bulletList',
+  orderedList: 'editor.orderedList',
+  blockquote: 'editor.blockquote',
+  codeBlock: 'editor.codeBlock',
+  alignLeft: 'editor.alignLeft',
+  alignCenter: 'editor.alignCenter',
+  alignRight: 'editor.alignRight',
+};
+
+/**
  * 工具栏管理器
  */
 export class ToolbarManager {
   private container: HTMLElement;
   private editor: Editor;
+  private i18n?: I18nManager;
+  private unsubscribeLanguage?: () => void;
   private buttons: Map<string, HTMLButtonElement> = new Map();
   private itemDefs: Map<string, ToolbarItemDef>;
   private createdElements: HTMLElement[] = [];
 
-  constructor(editor: Editor, container: HTMLElement, _config?: ToolbarConfig) {
+  constructor(
+    editor: Editor,
+    container: HTMLElement,
+    _config?: ToolbarConfig,
+    i18n?: I18nManager
+  ) {
     this.editor = editor;
     this.container = container;
+    this.i18n = i18n;
     this.itemDefs = this.getDefaultItems();
     this.createToolbarDOM();
     this.bindEditorEvents();
+
+    this.unsubscribeLanguage = this.i18n?.onLanguageChanged(() => this.applyTooltips());
   }
 
   /**
@@ -86,6 +121,23 @@ export class ToolbarManager {
         this.buttons.set(itemId, button);
         this.createdElements.push(button);
       });
+    });
+
+    this.applyTooltips();
+  }
+
+  /**
+   * 按当前语言刷新按钮 tooltip
+   */
+  private applyTooltips(): void {
+    this.buttons.forEach((button, itemId) => {
+      const itemDef = this.itemDefs.get(itemId);
+      if (!itemDef) return;
+
+      const key = TOOLTIP_KEYS[itemId];
+      const translated = key ? this.i18n?.t(key) : undefined;
+      // 未注入 i18n 或词条缺失时回退到定义里的文案
+      button.title = translated && translated !== key ? translated : itemDef.tooltip;
     });
   }
 
@@ -322,6 +374,8 @@ export class ToolbarManager {
    * 销毁工具栏
    */
   destroy(): void {
+    this.unsubscribeLanguage?.();
+    this.unsubscribeLanguage = undefined;
     this.buttons.clear();
     this.createdElements.forEach((el) => el.remove());
     this.createdElements = [];

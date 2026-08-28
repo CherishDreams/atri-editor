@@ -91,11 +91,16 @@ export class AtriEditor implements IAtriEditor {
     });
 
     // 初始化 Markdown 服务
-    this.markdownService = new MarkdownService(this.editor, options.markdown, this.extensionManager);
+    this.markdownService = new MarkdownService(this.editor, options.markdown);
 
     // 初始化工具栏
     if (toolbarContainer && options.toolbar !== false) {
-      this.toolbarManager = new ToolbarManager(this.editor, toolbarContainer, options.toolbar);
+      this.toolbarManager = new ToolbarManager(
+        this.editor,
+        toolbarContainer,
+        options.toolbar,
+        this.i18nManager
+      );
     }
 
     // 初始化 AI 服务
@@ -152,7 +157,8 @@ export class AtriEditor implements IAtriEditor {
     this.coreEditor = new CoreEditor({
       element: newEditorElement,
       content: currentContent,
-      contentFormat: this.options.contentFormat,
+      // 当前内容取自 getHTML()，重建时按 html 回填，不能沿用用户的 contentFormat
+      contentFormat: 'html',
       editable: this.options.editable,
       placeholder: this.options.placeholder,
       extensions: [
@@ -178,11 +184,16 @@ export class AtriEditor implements IAtriEditor {
     });
 
     // 重新初始化 Markdown 服务
-    this.markdownService = new MarkdownService(this.editor, this.options.markdown, this.extensionManager);
+    this.markdownService = new MarkdownService(this.editor, this.options.markdown);
 
     // 重新初始化工具栏
     if (toolbarContainer && this.options.toolbar !== false) {
-      this.toolbarManager = new ToolbarManager(this.editor, toolbarContainer, this.options.toolbar);
+      this.toolbarManager = new ToolbarManager(
+        this.editor,
+        toolbarContainer,
+        this.options.toolbar,
+        this.i18nManager
+      );
     }
 
     // 重新初始化 AI 服务
@@ -229,7 +240,7 @@ export class AtriEditor implements IAtriEditor {
     const emitUpdate = options?.emitUpdate ?? true;
 
     if (format === 'markdown' && typeof content === 'string') {
-      this.setMarkdown(content);
+      this.markdownService.setMarkdown(content, emitUpdate);
     } else {
       this.coreEditor.setContent(content, emitUpdate);
     }

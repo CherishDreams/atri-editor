@@ -1,7 +1,7 @@
 /**
  * CoreEditor - Tiptap v3 编辑器封装
  */
-import { Editor, type EditorOptions } from '@tiptap/core';
+import { Editor, type Content, type EditorOptions } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import { Markdown } from '@tiptap/markdown';
 import { Placeholder } from '@tiptap/extensions';
@@ -35,14 +35,6 @@ export class CoreEditor {
   private createEditor(): Editor {
     const { element, content, contentFormat, editable, placeholder, extensions } = this.config;
 
-    // 处理初始内容格式
-    let initialContent = content;
-    if (typeof content === 'string' && contentFormat === 'markdown') {
-      // Markdown 内容先转为 HTML 再传入
-      // 实际 Markdown 解析由 @tiptap/markdown 处理
-      initialContent = content;
-    }
-
     const editorExtensions: EditorOptions['extensions'] = [
       StarterKit.configure({
         // StarterKit v3 默认包含 Underline, Link, TrailingNode
@@ -66,7 +58,8 @@ export class CoreEditor {
     );
 
     // 添加 Markdown 扩展
-    if (this.config.markdown?.enabled !== false) {
+    const markdownEnabled = this.config.markdown?.enabled !== false;
+    if (markdownEnabled) {
       editorExtensions.push(
         Markdown.configure({
           indentation: this.config.markdown?.indentation,
@@ -75,6 +68,10 @@ export class CoreEditor {
       );
     }
 
+    // markdown 内容依赖 Markdown 扩展解析，扩展未启用时不声明该格式
+    const contentType =
+      contentFormat === 'markdown' && !markdownEnabled ? undefined : contentFormat;
+
     // 添加用户自定义扩展
     if (extensions) {
       editorExtensions.push(...extensions);
@@ -82,7 +79,8 @@ export class CoreEditor {
 
     const editor = new Editor({
       element,
-      content: initialContent,
+      content,
+      contentType,
       editable: editable ?? true,
       extensions: editorExtensions,
       editorProps: {
@@ -142,8 +140,8 @@ export class CoreEditor {
   /**
    * 设置内容
    */
-  setContent(content: string | object, _emitUpdate: boolean = true): void {
-    this.editor.commands.setContent(content as any);
+  setContent(content: string | object, emitUpdate = true): void {
+    this.editor.commands.setContent(content as Content, { emitUpdate });
   }
 
   /**

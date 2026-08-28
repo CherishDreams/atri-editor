@@ -8,7 +8,6 @@ import type { AtriExtensionMeta, AtriNodeViewConfig } from '../types';
 export class ExtensionManager {
   private extensions: Map<string, AnyExtension> = new Map();
   private nodeViews: Map<string, AtriNodeViewConfig> = new Map();
-  private markdownSerializers: Map<string, (node: any) => string> = new Map();
 
   /**
    * 注册扩展
@@ -52,9 +51,9 @@ export class ExtensionManager {
         return config.parseHTML?.() || [{ tag: config.name }];
       },
 
-      renderHTML({ HTMLAttributes }) {
+      renderHTML({ HTMLAttributes, node }) {
         if (config.renderHTML) {
-          return config.renderHTML({ HTMLAttributes, node: this });
+          return config.renderHTML({ HTMLAttributes, node });
         }
         return [config.name, mergeAttributes(HTMLAttributes)];
       },
@@ -62,6 +61,11 @@ export class ExtensionManager {
       addNodeView() {
         return config.nodeView;
       },
+
+      // 由 Tiptap 的 MarkdownManager 按节点名调用，签名见 @tiptap/core NodeConfig.renderMarkdown
+      renderMarkdown: config.markdownSerialize
+        ? (node) => config.markdownSerialize!(node)
+        : undefined,
     });
 
     // 注册到扩展管理器
@@ -71,11 +75,6 @@ export class ExtensionManager {
       category: 'custom',
       description: config.description,
     });
-
-    // 注册 Markdown 序列化规则
-    if (config.markdownSerialize) {
-      this.markdownSerializers.set(config.name, config.markdownSerialize);
-    }
   }
 
   /**
@@ -115,13 +114,6 @@ export class ExtensionManager {
   }
 
   /**
-   * 获取所有 Markdown 序列化规则
-   */
-  getMarkdownSerializers(): Map<string, (node: any) => string> {
-    return this.markdownSerializers;
-  }
-
-  /**
    * 是否已注册
    */
   has(name: string): boolean {
@@ -134,6 +126,5 @@ export class ExtensionManager {
   clear(): void {
     this.extensions.clear();
     this.nodeViews.clear();
-    this.markdownSerializers.clear();
   }
 }
