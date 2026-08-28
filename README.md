@@ -164,8 +164,25 @@ atri-editor/
 | `requestEndpoint` | `(ctx) => Promise<AIResponse>` | 请求端点 |
 | `interceptors` | `AtriAIInterceptors` | 拦截器链 |
 | `autoTranslateMarkdownToHTML` | `boolean` | 自动转换 Markdown（默认 true） |
-| `streamEnabled` | `boolean` | 流式响应支持 |
 | `onError` | `(err, ctx) => void` | 错误处理 |
+
+`prompt` 模板支持的变量：
+
+| 变量 | 取值 |
+|------|------|
+| `{selection}` | 当前选区文本（无选区为空串） |
+| `{cursor}` | 光标前文本（当前段落，最多 500 字） |
+| `{document}` | 全文纯文本 |
+| `{content}` | 主输入，由功能的 `scope` 决定：`selection` / `cursor` / `document`；省略 `scope` 时为「选区，否则光标前文」 |
+
+### Markdown 配置
+
+| 属性 | 类型 | 说明 |
+|------|------|------|
+| `enabled` | `boolean` | 是否启用 Markdown 解析与序列化（默认 true） |
+| `indentation` | `{ style: 'space' \| 'tab'; size: number }` | 列表与代码块缩进 |
+| `markedOptions` | `{ gfm?; breaks?; pedantic? }` | 传给 `marked` 的解析选项 |
+| `shortcuts` | `boolean` | 输入时实时转换（`**粗体**`、`# ` 等），默认 true；不影响粘贴与序列化 |
 
 ## 开发
 

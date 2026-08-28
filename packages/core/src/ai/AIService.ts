@@ -53,15 +53,25 @@ export class AIService {
     const cursorContext = getCursorContext(this.editor);
     const documentText = getDocumentText(this.editor);
 
-    // 处理 prompt 模板变量
-    let prompt = func.prompt;
-    if (prompt) {
-      prompt = prompt.replace(/\{selection\}/g, selection);
-      prompt = prompt.replace(/\{content\}/g, selection || cursorContext);
-    }
+    // scope 只决定「主输入」{content}，三个上下文字段始终完整提供给端点
+    const scopeContent: Record<NonNullable<AtriAIFunction['scope']>, string> = {
+      selection,
+      cursor: cursorContext,
+      document: documentText,
+    };
+    const values: Record<string, string> = {
+      selection,
+      cursor: cursorContext,
+      document: documentText,
+      content: func.scope ? scopeContent[func.scope] : selection || cursorContext,
+    };
+
+    // 未识别的 {xxx} 原样保留，交给端点自行处理
+    const prompt = func.prompt?.replace(/\{(\w+)\}/g, (raw, key: string) => values[key] ?? raw);
 
     return {
       functionId: func.id,
+      scope: func.scope,
       selection,
       cursorContext,
       document: documentText,

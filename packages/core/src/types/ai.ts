@@ -10,9 +10,9 @@ export interface AtriAIFunction {
   description?: string;
   /** 图标（SVG 字符串或 URL） */
   icon?: string;
-  /** 预设 Prompt 模板，支持 {selection} {content} 变量 */
+  /** 预设 Prompt 模板，支持 {selection} {cursor} {document} 及随 scope 解析的 {content} */
   prompt?: string;
-  /** 作用域 */
+  /** 作用域：决定 {content} 取选区、光标前文还是全文；省略时 {content} 为「选区，否则光标前文」 */
   scope?: 'selection' | 'cursor' | 'document';
   /** 输出模式 */
   outputMode?: 'replace' | 'insert' | 'append';
@@ -24,6 +24,8 @@ export interface AtriAIFunction {
 export interface AIRequestContext {
   /** 触发的功能 ID */
   functionId: string;
+  /** 本次功能的作用域（决定 prompt 中 {content} 的取值） */
+  scope?: AtriAIFunction['scope'];
   /** 当前选区文本 */
   selection: string;
   /** 光标前文本 */
@@ -44,8 +46,6 @@ export interface AIResponse {
   content: string;
   /** 内容类型 */
   contentType?: 'html' | 'text' | 'markdown';
-  /** 是否完成（流式场景） */
-  done?: boolean;
 }
 
 /**
@@ -72,8 +72,6 @@ export interface AtriAIConfig {
   requestEndpoint: (context: AIRequestContext) => Promise<AIResponse>;
   /** 拦截器链 */
   interceptors?: AtriAIInterceptors;
-  /** 流式响应支持 */
-  streamEnabled?: boolean;
   /** 自动将 AI 返回的 Markdown 转换为 HTML（默认 true） */
   autoTranslateMarkdownToHTML?: boolean;
   /** 全局错误处理 */

@@ -28,34 +28,6 @@ export interface ToolbarItem {
 }
 
 /**
- * 气泡菜单配置
- */
-export interface BubbleMenuConfig {
-  /** 是否启用 */
-  enabled?: boolean;
-  /** 菜单项 */
-  items?: string[];
-}
-
-/**
- * 上传配置
- */
-export interface UploadConfig {
-  /** 上传地址 */
-  url?: string;
-  /** 请求头 */
-  headers?: Record<string, string>;
-  /** 表单字段名 */
-  fieldName?: string;
-  /** 自定义上传函数 */
-  customUpload?: (file: File) => Promise<string>;
-  /** 最大文件大小（字节） */
-  maxSize?: number;
-  /** 允许的文件类型 */
-  accept?: string;
-}
-
-/**
  * 设置内容选项
  */
 export interface SetContentOptions {
@@ -85,8 +57,6 @@ export interface AtriEditorOptions {
   placeholder?: string;
   /** 工具栏配置 */
   toolbar?: ToolbarConfig | false;
-  /** 气泡菜单配置 */
-  bubbleMenu?: BubbleMenuConfig | false;
   /** 扩展列表 */
   extensions?: Extension[];
   /** NodeView 自定义组件配置 */
@@ -95,8 +65,6 @@ export interface AtriEditorOptions {
   ai?: AtriAIConfig;
   /** Markdown 配置 */
   markdown?: AtriMarkdownConfig;
-  /** 上传配置 */
-  upload?: UploadConfig;
   /** 创建完成回调 */
   onCreate?: (editor: IAtriEditor) => void;
   /** 内容变更回调 */

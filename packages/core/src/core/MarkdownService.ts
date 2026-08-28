@@ -15,7 +15,6 @@ export class MarkdownService {
     this.config = {
       enabled: true,
       indentation: { style: 'space', size: 2 },
-      shortcuts: true,
       ...config,
     };
   }

@@ -72,6 +72,9 @@ export class CoreEditor {
     const contentType =
       contentFormat === 'markdown' && !markdownEnabled ? undefined : contentFormat;
 
+    // 输入实时转换由 StarterKit 各扩展的 input rules 提供，与 Markdown 扩展启停无关
+    const enableInputRules = this.config.markdown?.shortcuts !== false;
+
     // 添加用户自定义扩展
     if (extensions) {
       editorExtensions.push(...extensions);
@@ -81,6 +84,7 @@ export class CoreEditor {
       element,
       content,
       contentType,
+      enableInputRules,
       editable: editable ?? true,
       extensions: editorExtensions,
       editorProps: {
