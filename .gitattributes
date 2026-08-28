@@ -1,0 +1,3 @@
+# 统一按 LF 检出与提交：oxfmt 会把文件规范化为 LF，
+# 不锁行尾会让 Windows 上的改动反复产生整文件 diff。
+* text=auto eol=lf

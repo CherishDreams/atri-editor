@@ -1,446 +1,464 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Atri Editor Demo</title>
-  <style>
-    * {
-      box-sizing: border-box;
-    }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      margin: 0;
-      padding: 20px;
-      background: #f5f5f5;
-    }
-    .container {
-      max-width: 900px;
-      margin: 0 auto;
-    }
-    h1 {
-      color: #333;
-      margin-bottom: 20px;
-    }
-    .editor-wrapper {
-      background: white;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-      padding: 20px;
-      margin-bottom: 20px;
-    }
-    #editor {
-      min-height: 400px;
-    }
-    .nodeview-demo {
-      background: white;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-      padding: 20px;
-      margin-bottom: 20px;
-    }
-    .nodeview-demo h2 {
-      margin-top: 0;
-      color: #333;
-    }
-    .custom-card {
-      border: 2px solid #1890ff;
-      border-radius: 8px;
-      padding: 16px;
-      margin: 10px 0;
-      background: #f0f7ff;
-    }
-    .custom-card h3 {
-      margin: 0 0 8px 0;
-      color: #1890ff;
-    }
-    .custom-card p {
-      margin: 0;
-      color: #666;
-    }
-    .custom-video {
-      border: 2px solid #52c41a;
-      border-radius: 8px;
-      padding: 16px;
-      margin: 10px 0;
-      background: #f6ffed;
-    }
-    .custom-video h3 {
-      margin: 0 0 8px 0;
-      color: #52c41a;
-    }
-    .custom-video video {
-      width: 100%;
-      max-height: 200px;
-      border-radius: 4px;
-    }
-    .controls {
-      margin-top: 20px;
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-    button {
-      padding: 8px 16px;
-      border: 1px solid #d9d9d9;
-      border-radius: 4px;
-      background: white;
-      cursor: pointer;
-      font-size: 14px;
-      transition: all 0.2s;
-    }
-    button:hover {
-      border-color: #1890ff;
-      color: #1890ff;
-    }
-    .output {
-      margin-top: 20px;
-      padding: 15px;
-      background: #f9f9f9;
-      border-radius: 4px;
-      border: 1px solid #e8e8e8;
-    }
-    .output h3 {
-      margin-top: 0;
-      color: #666;
-    }
-    pre {
-      background: #282c34;
-      color: #abb2bf;
-      padding: 15px;
-      border-radius: 4px;
-      overflow-x: auto;
-      font-size: 13px;
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <h1>Atri Editor Demo</h1>
-    
-    <div class="editor-wrapper">
-      <div id="editor"></div>
-    </div>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Atri Editor Demo</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        margin: 0;
+        padding: 20px;
+        background: #f5f5f5;
+      }
+      .container {
+        max-width: 900px;
+        margin: 0 auto;
+      }
+      h1 {
+        color: #333;
+        margin-bottom: 20px;
+      }
+      .editor-wrapper {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+        margin-bottom: 20px;
+      }
+      #editor {
+        min-height: 400px;
+      }
+      .nodeview-demo {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+        margin-bottom: 20px;
+      }
+      .nodeview-demo h2 {
+        margin-top: 0;
+        color: #333;
+      }
+      .custom-card {
+        border: 2px solid #1890ff;
+        border-radius: 8px;
+        padding: 16px;
+        margin: 10px 0;
+        background: #f0f7ff;
+      }
+      .custom-card h3 {
+        margin: 0 0 8px 0;
+        color: #1890ff;
+      }
+      .custom-card p {
+        margin: 0;
+        color: #666;
+      }
+      .custom-video {
+        border: 2px solid #52c41a;
+        border-radius: 8px;
+        padding: 16px;
+        margin: 10px 0;
+        background: #f6ffed;
+      }
+      .custom-video h3 {
+        margin: 0 0 8px 0;
+        color: #52c41a;
+      }
+      .custom-video video {
+        width: 100%;
+        max-height: 200px;
+        border-radius: 4px;
+      }
+      .controls {
+        margin-top: 20px;
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      button {
+        padding: 8px 16px;
+        border: 1px solid #d9d9d9;
+        border-radius: 4px;
+        background: white;
+        cursor: pointer;
+        font-size: 14px;
+        transition: all 0.2s;
+      }
+      button:hover {
+        border-color: #1890ff;
+        color: #1890ff;
+      }
+      .output {
+        margin-top: 20px;
+        padding: 15px;
+        background: #f9f9f9;
+        border-radius: 4px;
+        border: 1px solid #e8e8e8;
+      }
+      .output h3 {
+        margin-top: 0;
+        color: #666;
+      }
+      pre {
+        background: #282c34;
+        color: #abb2bf;
+        padding: 15px;
+        border-radius: 4px;
+        overflow-x: auto;
+        font-size: 13px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Atri Editor Demo</h1>
 
-    <div class="nodeview-demo">
-      <h2>NodeView 自定义组件演示</h2>
-      <p>点击下方按钮在编辑器中插入自定义组件：</p>
-      <div class="controls" style="margin-top: 10px;">
-        <button id="btn-insertCard">插入卡片组件</button>
-        <button id="btn-insertVideo">插入视频组件</button>
-        <button id="btn-showNodeViews">查看已注册 NodeView</button>
+      <div class="editor-wrapper">
+        <div id="editor"></div>
+      </div>
+
+      <div class="nodeview-demo">
+        <h2>NodeView 自定义组件演示</h2>
+        <p>点击下方按钮在编辑器中插入自定义组件：</p>
+        <div class="controls" style="margin-top: 10px">
+          <button id="btn-insertCard">插入卡片组件</button>
+          <button id="btn-insertVideo">插入视频组件</button>
+          <button id="btn-showNodeViews">查看已注册 NodeView</button>
+        </div>
+      </div>
+
+      <div class="controls">
+        <button id="btn-getHTML">获取 HTML</button>
+        <button id="btn-getMarkdown">获取 Markdown</button>
+        <button id="btn-getJSON">获取 JSON</button>
+        <button id="btn-setContent">设置内容</button>
+        <button id="btn-clearContent">清空内容</button>
+        <button id="btn-toggleTheme">切换主题</button>
+      </div>
+
+      <div class="output" id="output" style="display: none">
+        <h3>输出:</h3>
+        <pre id="output-content"></pre>
       </div>
     </div>
 
-    <div class="controls">
-      <button id="btn-getHTML">获取 HTML</button>
-      <button id="btn-getMarkdown">获取 Markdown</button>
-      <button id="btn-getJSON">获取 JSON</button>
-      <button id="btn-setContent">设置内容</button>
-      <button id="btn-clearContent">清空内容</button>
-      <button id="btn-toggleTheme">切换主题</button>
-    </div>
+    <script type="module">
+      import { AtriEditor } from '@atri-editor/core';
+      import '@atri-editor/core/styles';
 
-    <div class="output" id="output" style="display: none;">
-      <h3>输出:</h3>
-      <pre id="output-content"></pre>
-    </div>
-  </div>
+      // 全局错误捕获
+      window.addEventListener('error', (e) => {
+        console.error('[Atri Editor] Global error:', e.error || e.message);
+      });
 
-  <script type="module">
-    import { AtriEditor } from '@atri-editor/core';
-    import '@atri-editor/core/styles';
+      window.addEventListener('unhandledrejection', (e) => {
+        console.error('[Atri Editor] Unhandled rejection:', e.reason);
+      });
 
-    // 全局错误捕获
-    window.addEventListener('error', (e) => {
-      console.error('[Atri Editor] Global error:', e.error || e.message);
-    });
-
-    window.addEventListener('unhandledrejection', (e) => {
-      console.error('[Atri Editor] Unhandled rejection:', e.reason);
-    });
-
-    // NodeView 自定义组件配置
-    const nodeViews = [
-      {
-        name: 'customCard',
-        inline: false,
-        atom: true,
-        group: 'block',
-        description: '自定义卡片组件',
-        attributes: {
-          title: { default: '卡片标题' },
-          content: { default: '卡片内容' },
-        },
-        parseHTML: () => [{
-          tag: 'custom-card',
-          getAttrs: (el) => ({
-            title: el.getAttribute('title') || '卡片标题',
-            content: el.getAttribute('content') || '卡片内容',
-          }),
-        }],
-        renderHTML: ({ HTMLAttributes }) => {
-          return ['custom-card', HTMLAttributes];
-        },
-        nodeView: (props) => {
-          const dom = document.createElement('div');
-          dom.className = 'custom-card';
-          dom.innerHTML = `
+      // NodeView 自定义组件配置
+      const nodeViews = [
+        {
+          name: 'customCard',
+          inline: false,
+          atom: true,
+          group: 'block',
+          description: '自定义卡片组件',
+          attributes: {
+            title: { default: '卡片标题' },
+            content: { default: '卡片内容' },
+          },
+          parseHTML: () => [
+            {
+              tag: 'custom-card',
+              getAttrs: (el) => ({
+                title: el.getAttribute('title') || '卡片标题',
+                content: el.getAttribute('content') || '卡片内容',
+              }),
+            },
+          ],
+          renderHTML: ({ HTMLAttributes }) => {
+            return ['custom-card', HTMLAttributes];
+          },
+          nodeView: (props) => {
+            const dom = document.createElement('div');
+            dom.className = 'custom-card';
+            dom.innerHTML = `
             <h3>${props.node.attrs.title}</h3>
             <p>${props.node.attrs.content}</p>
           `;
-          return { dom };
+            return { dom };
+          },
+          markdownSerialize: (node) => {
+            return `> **${node.attrs.title}**\n> ${node.attrs.content}\n`;
+          },
         },
-        markdownSerialize: (node) => {
-          return `> **${node.attrs.title}**\n> ${node.attrs.content}\n`;
-        },
-      },
-      {
-        name: 'customVideo',
-        inline: false,
-        atom: true,
-        group: 'block',
-        description: '自定义视频组件',
-        attributes: {
-          src: { default: '' },
-          title: { default: '视频标题' },
-        },
-        parseHTML: () => [{
-          tag: 'custom-video',
-          getAttrs: (el) => ({
-            src: el.getAttribute('src') || '',
-            title: el.getAttribute('title') || '视频标题',
-          }),
-        }],
-        renderHTML: ({ HTMLAttributes }) => {
-          return ['custom-video', HTMLAttributes];
-        },
-        nodeView: (props) => {
-          const dom = document.createElement('div');
-          dom.className = 'custom-video';
-          dom.innerHTML = `
+        {
+          name: 'customVideo',
+          inline: false,
+          atom: true,
+          group: 'block',
+          description: '自定义视频组件',
+          attributes: {
+            src: { default: '' },
+            title: { default: '视频标题' },
+          },
+          parseHTML: () => [
+            {
+              tag: 'custom-video',
+              getAttrs: (el) => ({
+                src: el.getAttribute('src') || '',
+                title: el.getAttribute('title') || '视频标题',
+              }),
+            },
+          ],
+          renderHTML: ({ HTMLAttributes }) => {
+            return ['custom-video', HTMLAttributes];
+          },
+          nodeView: (props) => {
+            const dom = document.createElement('div');
+            dom.className = 'custom-video';
+            dom.innerHTML = `
             <h3>${props.node.attrs.title}</h3>
             <video src="${props.node.attrs.src}" controls></video>
           `;
-          return { dom };
-        },
-        markdownSerialize: (node) => {
-          return `**视频**: ${node.attrs.title}\n${node.attrs.src}\n`;
-        },
-      },
-    ];
-
-    // 创建编辑器实例
-    try {
-      window.editor = new AtriEditor({
-        element: '#editor',
-        placeholder: '开始输入内容...',
-        theme: 'light',
-        content: '<h2>欢迎使用 Atri Editor</h2><p>这是一个基于 <strong>Tiptap v3</strong> 的富文本编辑器。</p><ul><li>支持 Markdown 语法</li><li>支持 AI 集成</li><li>框架无关设计</li></ul>',
-        nodeViews: nodeViews,
-        markdown: {
-          enabled: true,
-        },
-        ai: {
-          functions: [
-            {
-              id: 'continue',
-              name: 'AI 续写',
-              description: '根据上下文继续扩展内容',
-              scope: 'cursor',
-              outputMode: 'insert',
-            },
-            {
-              id: 'translate',
-              name: '翻译为英文',
-              description: '将选中内容翻译为英文',
-              scope: 'selection',
-              outputMode: 'replace',
-              prompt: '请将以下内容翻译为英文：{selection}',
-            },
-          ],
-          requestEndpoint: async (context) => {
-            // 模拟 AI 响应
-            console.log('AI Request:', context);
-            await new Promise(resolve => setTimeout(resolve, 500));
-            return {
-              content: `**[AI 响应]** 这是模拟的 AI 输出内容。功能ID: ${context.functionId}`,
-              contentType: 'markdown',
-            };
+            return { dom };
           },
-          autoTranslateMarkdownToHTML: true,
+          markdownSerialize: (node) => {
+            return `**视频**: ${node.attrs.title}\n${node.attrs.src}\n`;
+          },
         },
-        onCreate: (editor) => {
-          console.log('[Atri Editor] Editor created successfully!', editor);
-          const tiptapEditor = editor.editor;
-          console.log('[Atri Editor] Schema nodes:', Object.keys(tiptapEditor.schema.nodes));
-          console.log('[Atri Editor] Schema marks:', Object.keys(tiptapEditor.schema.marks));
-        },
-        onChange: (editor) => {
-          console.log('Content changed');
-        },
+      ];
+
+      // 创建编辑器实例
+      try {
+        window.editor = new AtriEditor({
+          element: '#editor',
+          placeholder: '开始输入内容...',
+          theme: 'light',
+          content:
+            '<h2>欢迎使用 Atri Editor</h2><p>这是一个基于 <strong>Tiptap v3</strong> 的富文本编辑器。</p><ul><li>支持 Markdown 语法</li><li>支持 AI 集成</li><li>框架无关设计</li></ul>',
+          nodeViews: nodeViews,
+          markdown: {
+            enabled: true,
+          },
+          ai: {
+            functions: [
+              {
+                id: 'continue',
+                name: 'AI 续写',
+                description: '根据上下文继续扩展内容',
+                scope: 'cursor',
+                outputMode: 'insert',
+              },
+              {
+                id: 'translate',
+                name: '翻译为英文',
+                description: '将选中内容翻译为英文',
+                scope: 'selection',
+                outputMode: 'replace',
+                prompt: '请将以下内容翻译为英文：{selection}',
+              },
+            ],
+            requestEndpoint: async (context) => {
+              // 模拟 AI 响应
+              console.log('AI Request:', context);
+              await new Promise((resolve) => setTimeout(resolve, 500));
+              return {
+                content: `**[AI 响应]** 这是模拟的 AI 输出内容。功能ID: ${context.functionId}`,
+                contentType: 'markdown',
+              };
+            },
+            autoTranslateMarkdownToHTML: true,
+          },
+          onCreate: (editor) => {
+            console.log('[Atri Editor] Editor created successfully!', editor);
+            const tiptapEditor = editor.editor;
+            console.log('[Atri Editor] Schema nodes:', Object.keys(tiptapEditor.schema.nodes));
+            console.log('[Atri Editor] Schema marks:', Object.keys(tiptapEditor.schema.marks));
+          },
+          onChange: (editor) => {
+            console.log('Content changed');
+          },
+        });
+      } catch (err) {
+        console.error('[Atri Editor] Failed to create editor:', err);
+      }
+
+      // showOutput 辅助函数
+      function showOutput(content) {
+        const output = document.getElementById('output');
+        const outputContent = document.getElementById('output-content');
+        output.style.display = 'block';
+        outputContent.textContent = content;
+      }
+
+      // 绑定按钮事件
+      document.getElementById('btn-getHTML').addEventListener('click', function () {
+        try {
+          if (!window.editor) {
+            console.error('[Atri Editor] Editor instance not initialized');
+            showOutput('Error: Editor not initialized');
+            return;
+          }
+          console.log('[Atri Editor] Calling getHTML()...');
+          const html = window.editor.getHTML();
+          console.log('[Atri Editor] getHTML() returned:', html.substring(0, 200));
+          showOutput(html);
+        } catch (err) {
+          console.error('[Atri Editor] getHTML failed:', err);
+          console.error('[Atri Editor] Error stack:', err.stack);
+          showOutput('Error: ' + (err.message || String(err)));
+        }
       });
-    } catch (err) {
-      console.error('[Atri Editor] Failed to create editor:', err);
-    }
 
-    // showOutput 辅助函数
-    function showOutput(content) {
-      const output = document.getElementById('output');
-      const outputContent = document.getElementById('output-content');
-      output.style.display = 'block';
-      outputContent.textContent = content;
-    }
-
-    // 绑定按钮事件
-    document.getElementById('btn-getHTML').addEventListener('click', function() {
-      try {
-        if (!window.editor) {
-          console.error('[Atri Editor] Editor instance not initialized');
-          showOutput('Error: Editor not initialized');
-          return;
+      document.getElementById('btn-getMarkdown').addEventListener('click', function () {
+        try {
+          if (!window.editor) {
+            console.error('[Atri Editor] Editor instance not initialized');
+            showOutput('Error: Editor not initialized');
+            return;
+          }
+          const md = window.editor.getMarkdown();
+          showOutput(md);
+        } catch (err) {
+          console.error('[Atri Editor] getMarkdown failed:', err);
+          showOutput('Error: ' + (err.message || String(err)));
         }
-        console.log('[Atri Editor] Calling getHTML()...');
-        const html = window.editor.getHTML();
-        console.log('[Atri Editor] getHTML() returned:', html.substring(0, 200));
-        showOutput(html);
-      } catch (err) {
-        console.error('[Atri Editor] getHTML failed:', err);
-        console.error('[Atri Editor] Error stack:', err.stack);
-        showOutput('Error: ' + (err.message || String(err)));
-      }
-    });
+      });
 
-    document.getElementById('btn-getMarkdown').addEventListener('click', function() {
-      try {
-        if (!window.editor) {
-          console.error('[Atri Editor] Editor instance not initialized');
-          showOutput('Error: Editor not initialized');
-          return;
+      document.getElementById('btn-getJSON').addEventListener('click', function () {
+        try {
+          if (!window.editor) {
+            console.error('[Atri Editor] Editor instance not initialized');
+            showOutput('Error: Editor not initialized');
+            return;
+          }
+          const json = window.editor.getJSON();
+          showOutput(JSON.stringify(json, null, 2));
+        } catch (err) {
+          console.error('[Atri Editor] getJSON failed:', err);
+          showOutput('Error: ' + (err.message || String(err)));
         }
-        const md = window.editor.getMarkdown();
-        showOutput(md);
-      } catch (err) {
-        console.error('[Atri Editor] getMarkdown failed:', err);
-        showOutput('Error: ' + (err.message || String(err)));
-      }
-    });
+      });
 
-    document.getElementById('btn-getJSON').addEventListener('click', function() {
-      try {
-        if (!window.editor) {
-          console.error('[Atri Editor] Editor instance not initialized');
-          showOutput('Error: Editor not initialized');
-          return;
+      document.getElementById('btn-setContent').addEventListener('click', function () {
+        try {
+          if (!window.editor) {
+            console.error('[Atri Editor] Editor instance not initialized');
+            return;
+          }
+          window.editor.setContent(
+            '<p>这是新设置的内容！</p><p>支持 <strong>富文本</strong> 和 <em>格式化</em>。</p>'
+          );
+        } catch (err) {
+          console.error('[Atri Editor] setContent failed:', err);
         }
-        const json = window.editor.getJSON();
-        showOutput(JSON.stringify(json, null, 2));
-      } catch (err) {
-        console.error('[Atri Editor] getJSON failed:', err);
-        showOutput('Error: ' + (err.message || String(err)));
-      }
-    });
+      });
 
-    document.getElementById('btn-setContent').addEventListener('click', function() {
-      try {
-        if (!window.editor) {
-          console.error('[Atri Editor] Editor instance not initialized');
-          return;
+      document.getElementById('btn-clearContent').addEventListener('click', function () {
+        try {
+          if (!window.editor) {
+            console.error('[Atri Editor] Editor instance not initialized');
+            return;
+          }
+          window.editor.clearContent();
+        } catch (err) {
+          console.error('[Atri Editor] clearContent failed:', err);
         }
-        window.editor.setContent('<p>这是新设置的内容！</p><p>支持 <strong>富文本</strong> 和 <em>格式化</em>。</p>');
-      } catch (err) {
-        console.error('[Atri Editor] setContent failed:', err);
-      }
-    });
+      });
 
-    document.getElementById('btn-clearContent').addEventListener('click', function() {
-      try {
-        if (!window.editor) {
-          console.error('[Atri Editor] Editor instance not initialized');
-          return;
+      document.getElementById('btn-toggleTheme').addEventListener('click', function () {
+        try {
+          if (!window.editor) {
+            console.error('[Atri Editor] Editor instance not initialized');
+            return;
+          }
+          window.editor.toggleTheme();
+        } catch (err) {
+          console.error('[Atri Editor] toggleTheme failed:', err);
         }
-        window.editor.clearContent();
-      } catch (err) {
-        console.error('[Atri Editor] clearContent failed:', err);
-      }
-    });
+      });
 
-    document.getElementById('btn-toggleTheme').addEventListener('click', function() {
-      try {
-        if (!window.editor) {
-          console.error('[Atri Editor] Editor instance not initialized');
-          return;
+      // NodeView 按钮事件
+      document.getElementById('btn-insertCard').addEventListener('click', function () {
+        try {
+          if (!window.editor) {
+            console.error('[Atri Editor] Editor instance not initialized');
+            return;
+          }
+          const tiptapEditor = window.editor.editor;
+          tiptapEditor
+            .chain()
+            .focus()
+            .insertContent({
+              type: 'customCard',
+              attrs: {
+                title: '示例卡片',
+                content: '这是一个自定义卡片组件的示例内容。',
+              },
+            })
+            .run();
+          console.log('[Atri Editor] Inserted customCard');
+        } catch (err) {
+          console.error('[Atri Editor] insertCard failed:', err);
         }
-        window.editor.toggleTheme();
-      } catch (err) {
-        console.error('[Atri Editor] toggleTheme failed:', err);
-      }
-    });
+      });
 
-    // NodeView 按钮事件
-    document.getElementById('btn-insertCard').addEventListener('click', function() {
-      try {
-        if (!window.editor) {
-          console.error('[Atri Editor] Editor instance not initialized');
-          return;
+      document.getElementById('btn-insertVideo').addEventListener('click', function () {
+        try {
+          if (!window.editor) {
+            console.error('[Atri Editor] Editor instance not initialized');
+            return;
+          }
+          const tiptapEditor = window.editor.editor;
+          tiptapEditor
+            .chain()
+            .focus()
+            .insertContent({
+              type: 'customVideo',
+              attrs: {
+                src: 'https://www.w3schools.com/html/mov_bbb.mp4',
+                title: '示例视频',
+              },
+            })
+            .run();
+          console.log('[Atri Editor] Inserted customVideo');
+        } catch (err) {
+          console.error('[Atri Editor] insertVideo failed:', err);
         }
-        const tiptapEditor = window.editor.editor;
-        tiptapEditor.chain().focus().insertContent({
-          type: 'customCard',
-          attrs: {
-            title: '示例卡片',
-            content: '这是一个自定义卡片组件的示例内容。',
-          },
-        }).run();
-        console.log('[Atri Editor] Inserted customCard');
-      } catch (err) {
-        console.error('[Atri Editor] insertCard failed:', err);
-      }
-    });
+      });
 
-    document.getElementById('btn-insertVideo').addEventListener('click', function() {
-      try {
-        if (!window.editor) {
-          console.error('[Atri Editor] Editor instance not initialized');
-          return;
+      document.getElementById('btn-showNodeViews').addEventListener('click', function () {
+        try {
+          if (!window.editor) {
+            console.error('[Atri Editor] Editor instance not initialized');
+            showOutput('Error: Editor not initialized');
+            return;
+          }
+          const nodeViews = window.editor.getNodeViews();
+          const nodeViewList = Array.from(nodeViews.keys());
+          showOutput('已注册的 NodeView:\n' + nodeViewList.join('\n'));
+          console.log('[Atri Editor] NodeViews:', nodeViewList);
+        } catch (err) {
+          console.error('[Atri Editor] showNodeViews failed:', err);
         }
-        const tiptapEditor = window.editor.editor;
-        tiptapEditor.chain().focus().insertContent({
-          type: 'customVideo',
-          attrs: {
-            src: 'https://www.w3schools.com/html/mov_bbb.mp4',
-            title: '示例视频',
-          },
-        }).run();
-        console.log('[Atri Editor] Inserted customVideo');
-      } catch (err) {
-        console.error('[Atri Editor] insertVideo failed:', err);
-      }
-    });
+      });
 
-    document.getElementById('btn-showNodeViews').addEventListener('click', function() {
-      try {
-        if (!window.editor) {
-          console.error('[Atri Editor] Editor instance not initialized');
-          showOutput('Error: Editor not initialized');
-          return;
-        }
-        const nodeViews = window.editor.getNodeViews();
-        const nodeViewList = Array.from(nodeViews.keys());
-        showOutput('已注册的 NodeView:\n' + nodeViewList.join('\n'));
-        console.log('[Atri Editor] NodeViews:', nodeViewList);
-      } catch (err) {
-        console.error('[Atri Editor] showNodeViews failed:', err);
+      // 初始化确认
+      console.log('[Atri Editor] Module loaded, window.editor =', !!window.editor);
+      if (window.editor) {
+        console.log(
+          '[Atri Editor] Available methods:',
+          Object.getOwnPropertyNames(Object.getPrototypeOf(window.editor)).filter(
+            (m) => !m.startsWith('_')
+          )
+        );
       }
-    });
-
-    // 初始化确认
-    console.log('[Atri Editor] Module loaded, window.editor =', !!window.editor);
-    if (window.editor) {
-      console.log('[Atri Editor] Available methods:', 
-        Object.getOwnPropertyNames(Object.getPrototypeOf(window.editor)).filter(m => !m.startsWith('_'))
-      );
-    }
-  </script>
-</body>
+    </script>
+  </body>
 </html>

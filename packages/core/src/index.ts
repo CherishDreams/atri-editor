@@ -16,7 +16,14 @@ export * from './types';
 export type { AtriNodeViewConfig, NodeViewAttribute } from './types/extension';
 
 // 导出核心模块
-export { CoreEditor, MarkdownService, ThemeManager, I18nManager, ExtensionManager, ToolbarManager } from './core';
+export {
+  CoreEditor,
+  MarkdownService,
+  ThemeManager,
+  I18nManager,
+  ExtensionManager,
+  ToolbarManager,
+} from './core';
 
 export type { CoreEditorConfig, ThemeType } from './core';
 

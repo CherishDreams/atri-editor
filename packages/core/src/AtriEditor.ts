@@ -3,7 +3,13 @@
  */
 import type { Editor } from '@tiptap/core';
 import { getTextBetween } from '@tiptap/core';
-import type { AtriEditorOptions, IAtriEditor, SetContentOptions, AtriAIConfig, AtriNodeViewConfig } from './types';
+import type {
+  AtriEditorOptions,
+  IAtriEditor,
+  SetContentOptions,
+  AtriAIConfig,
+  AtriNodeViewConfig,
+} from './types';
 import { CoreEditor } from './core/CoreEditor';
 import { MarkdownService } from './core/MarkdownService';
 import { ThemeManager } from './core/ThemeManager';
@@ -68,10 +74,7 @@ export class AtriEditor implements IAtriEditor {
       contentFormat: options.contentFormat,
       editable: options.editable,
       placeholder: options.placeholder,
-      extensions: [
-        ...(options.extensions || []),
-        ...this.extensionManager.getAll(),
-      ],
+      extensions: [...(options.extensions || []), ...this.extensionManager.getAll()],
       markdown: options.markdown,
       onCreate: () => {
         this.onEditorCreated();
@@ -142,7 +145,9 @@ export class AtriEditor implements IAtriEditor {
     this.aiMenuManager?.destroy();
 
     // 找到编辑区域容器
-    const editorElement = this.container.querySelector('.atri-editor-content-wrapper') as HTMLElement;
+    const editorElement = this.container.querySelector(
+      '.atri-editor-content-wrapper'
+    ) as HTMLElement;
     const toolbarContainer = this.container.querySelector('.atri-editor-toolbar') as HTMLElement;
 
     // 创建新的编辑区域
@@ -161,10 +166,7 @@ export class AtriEditor implements IAtriEditor {
       contentFormat: 'html',
       editable: this.options.editable,
       placeholder: this.options.placeholder,
-      extensions: [
-        ...(this.options.extensions || []),
-        ...this.extensionManager.getAll(),
-      ],
+      extensions: [...(this.options.extensions || []), ...this.extensionManager.getAll()],
       markdown: this.options.markdown,
       onCreate: () => {
         this.onEditorCreated();

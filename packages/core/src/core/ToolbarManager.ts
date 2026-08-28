@@ -57,12 +57,7 @@ export class ToolbarManager {
   private itemDefs: Map<string, ToolbarItemDef>;
   private createdElements: HTMLElement[] = [];
 
-  constructor(
-    editor: Editor,
-    container: HTMLElement,
-    config?: ToolbarConfig,
-    i18n?: I18nManager
-  ) {
+  constructor(editor: Editor, container: HTMLElement, config?: ToolbarConfig, i18n?: I18nManager) {
     this.editor = editor;
     this.container = container;
     this.config = config;
