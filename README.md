@@ -64,6 +64,8 @@ editor.setMarkdown('# Hello\n\nWorld');
 </script>
 ```
 
+`theme` / `editable` / `lang` / `placeholder` 四个属性是响应式的，改了立即生效；`placeholder` 置为空串即移除占位符。初始内容只读一次 `data-content`，运行期改内容请用 `setContent()`。
+
 ### AI 集成
 
 ```typescript
@@ -153,6 +155,7 @@ atri-editor/
 | `markdownToHTML(md)` | Markdown 转 HTML |
 | `htmlToMarkdown(html)` | HTML 转 Markdown |
 | `setEditable(editable)` | 设置可编辑状态 |
+| `setPlaceholder(placeholder)` | 设置占位符，空串即移除 |
 | `focus()` | 聚焦 |
 | `blur()` | 失焦 |
 | `setTheme(theme)` | 设置主题 |

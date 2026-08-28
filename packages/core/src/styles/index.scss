@@ -125,8 +125,9 @@
   }
 }
 
-// Placeholder
-.atri-editor-content.is-editor-empty > *:first-child::before {
+// Placeholder：类与 data-placeholder 由装饰写在空块本身上，不在容器上。
+// 扩展无条件注册，因此还要排掉空占位符，避免生成一个空的 ::before 浮动盒
+.atri-editor-content > .is-editor-empty:not([data-placeholder=''])::before {
   content: attr(data-placeholder);
   float: left;
   color: var(--atri-text-color-disabled);

@@ -113,6 +113,8 @@ export interface IAtriEditor {
   getSelectedText(): string;
   /** 插入内容 */
   insertContent(content: string): void;
+  /** 设置占位符 */
+  setPlaceholder(placeholder: string): void;
 
   /** 设置可编辑状态 */
   setEditable(editable: boolean): void;

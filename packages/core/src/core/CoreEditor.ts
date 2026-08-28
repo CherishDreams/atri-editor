@@ -26,14 +26,17 @@ export interface CoreEditorConfig {
 export class CoreEditor {
   private editor: Editor;
   private config: CoreEditorConfig;
+  /** 占位符文本：由 Placeholder 扩展以函数形式每次读取，改值即可生效 */
+  private placeholderText: string;
 
   constructor(config: CoreEditorConfig) {
     this.config = config;
+    this.placeholderText = config.placeholder ?? '';
     this.editor = this.createEditor();
   }
 
   private createEditor(): Editor {
-    const { element, content, contentFormat, editable, placeholder, extensions } = this.config;
+    const { element, content, contentFormat, editable, extensions } = this.config;
 
     const editorExtensions: EditorOptions['extensions'] = [
       StarterKit.configure({
@@ -41,14 +44,14 @@ export class CoreEditor {
       }),
     ];
 
-    // 添加 Placeholder 扩展（当编辑器为空时添加 is-editor-empty class）
-    if (placeholder) {
-      editorExtensions.push(
-        Placeholder.configure({
-          placeholder,
-        })
-      );
-    }
+    // 添加 Placeholder 扩展：空段带上 is-empty / is-editor-empty 类与 data-placeholder。
+    // 无条件注册，且用函数取文本——插件创建时会快照 options 对象，
+    // 之后再改 extension.options 是看不见的，函数则每次重算装饰都重新读取
+    editorExtensions.push(
+      Placeholder.configure({
+        placeholder: () => this.placeholderText,
+      })
+    );
 
     // 添加 TextAlign 扩展
     editorExtensions.push(
@@ -195,6 +198,16 @@ export class CoreEditor {
    */
   insertContent(content: string): void {
     this.editor.commands.insertContent(content);
+  }
+
+  /**
+   * 设置占位符
+   * 占位符写在节点装饰上，只在状态重算时重新取值，因此派发一个空事务刷新视图；
+   * 空事务不改动文档，Tiptap 不会据此触发 update
+   */
+  setPlaceholder(placeholder: string): void {
+    this.placeholderText = placeholder;
+    this.editor.view.dispatch(this.editor.state.tr);
   }
 
   /**

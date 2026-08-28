@@ -63,7 +63,9 @@ export class AtriEditorElement extends HTMLElement {
         }
         break;
       case 'placeholder':
-        // 占位符变更需要重新创建编辑器
+        if (this.editor) {
+          this.editor.setPlaceholder(newValue ?? '');
+        }
         break;
     }
   }

@@ -326,6 +326,15 @@ export class AtriEditor implements IAtriEditor {
   }
 
   /**
+   * 设置占位符
+   */
+  setPlaceholder(placeholder: string): void {
+    // 重建编辑器时占位符取自 options，不同步会退回旧值
+    this.options.placeholder = placeholder;
+    this.coreEditor.setPlaceholder(placeholder);
+  }
+
+  /**
    * 设置可编辑状态
    */
   setEditable(editable: boolean): void {
