@@ -7,23 +7,26 @@ import type { AtriNodeViewConfig } from './extension';
  * 工具栏配置
  */
 export interface ToolbarConfig {
-  /** 工具栏项 */
-  items: (string | ToolbarItem)[];
+  /**
+   * 工具栏项，按顺序渲染；省略时使用默认全集
+   * 字符串为内置项 id，ToolbarItem 可在内置项基础上覆盖图标与文案
+   */
+  items?: (string | ToolbarItem)[];
 }
 
 /**
  * 工具栏项
  */
 export interface ToolbarItem {
-  /** 唯一标识 */
+  /** 内置项标识 */
   id: string;
-  /** 显示名称 */
+  /** 显示名称（无 icon 时以文字渲染按钮） */
   label?: string;
-  /** 图标 */
+  /** 图标（SVG 字符串，优先于 label 与内置图标） */
   icon?: string;
-  /** 提示文字 */
+  /** 提示文字，优先于当前语言的内置词条 */
   tooltip?: string;
-  /** 子菜单 */
+  /** 子菜单（尚未实现，声明后会被忽略） */
   children?: ToolbarItem[];
 }
 

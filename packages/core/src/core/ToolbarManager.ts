@@ -3,7 +3,7 @@
  * 负责创建工具栏 DOM、绑定按钮事件、更新按钮状态
  */
 import type { Editor } from '@tiptap/core';
-import type { ToolbarConfig } from '../types';
+import type { ToolbarConfig, ToolbarItem } from '../types';
 import type { I18nManager } from './I18nManager';
 import { icons } from './icons';
 
@@ -50,19 +50,22 @@ export class ToolbarManager {
   private container: HTMLElement;
   private editor: Editor;
   private i18n?: I18nManager;
+  private config?: ToolbarConfig;
   private unsubscribeLanguage?: () => void;
   private buttons: Map<string, HTMLButtonElement> = new Map();
+  private customTooltips: Map<string, string> = new Map();
   private itemDefs: Map<string, ToolbarItemDef>;
   private createdElements: HTMLElement[] = [];
 
   constructor(
     editor: Editor,
     container: HTMLElement,
-    _config?: ToolbarConfig,
+    config?: ToolbarConfig,
     i18n?: I18nManager
   ) {
     this.editor = editor;
     this.container = container;
+    this.config = config;
     this.i18n = i18n;
     this.itemDefs = this.getDefaultItems();
     this.createToolbarDOM();
@@ -75,6 +78,20 @@ export class ToolbarManager {
    * 创建工具栏 DOM - 直接将按钮插入 container
    */
   private createToolbarDOM(): void {
+    const items = this.config?.items;
+
+    if (items) {
+      items.forEach((item) => {
+        const resolved = this.resolveItem(item);
+        if (!resolved) return;
+        const button = this.createButton(resolved.id, resolved.def, resolved.overrides);
+        this.container.appendChild(button);
+        this.createdElements.push(button);
+      });
+      this.applyTooltips();
+      return;
+    }
+
     // 默认工具栏布局（分组）
     const layout = [
       ['undo', 'redo'],
@@ -96,34 +113,78 @@ export class ToolbarManager {
         const itemDef = this.itemDefs.get(itemId);
         if (!itemDef) return;
 
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'atri-editor-toolbar-btn';
-        button.setAttribute('data-toolbar-item', itemId);
-        button.title = itemDef.tooltip;
-        button.innerHTML = itemDef.icon;
-
-        // 确保 SVG 图标有正确的尺寸
-        const svg = button.querySelector('svg');
-        if (svg) {
-          svg.setAttribute('width', '18');
-          svg.setAttribute('height', '18');
-        }
-
-        button.addEventListener('click', (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          itemDef.command(this.editor);
-          this.editor.commands.focus();
-        });
-
+        const button = this.createButton(itemId, itemDef);
         this.container.appendChild(button);
-        this.buttons.set(itemId, button);
         this.createdElements.push(button);
       });
     });
 
     this.applyTooltips();
+  }
+
+  /**
+   * 解析配置项：字符串按 id 取内置定义，ToolbarItem 允许覆盖展示文案
+   */
+  private resolveItem(
+    item: string | ToolbarItem
+  ): { id: string; def: ToolbarItemDef; overrides?: ToolbarItem } | null {
+    const id = typeof item === 'string' ? item : item.id;
+    const def = this.itemDefs.get(id);
+
+    if (!def) {
+      console.warn(`[Atri Editor] Unknown toolbar item "${id}" was skipped.`);
+      return null;
+    }
+
+    if (typeof item === 'string') {
+      return { id, def };
+    }
+
+    if (item.children?.length) {
+      console.warn(`[Atri Editor] Toolbar item "${id}" declares children, which is not supported.`);
+    }
+
+    return { id, def, overrides: item };
+  }
+
+  private createButton(
+    itemId: string,
+    itemDef: ToolbarItemDef,
+    overrides?: ToolbarItem
+  ): HTMLButtonElement {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'atri-editor-toolbar-btn';
+    button.setAttribute('data-toolbar-item', itemId);
+
+    if (overrides?.icon) {
+      button.innerHTML = overrides.icon;
+    } else if (overrides?.label) {
+      button.textContent = overrides.label;
+    } else {
+      button.innerHTML = itemDef.icon;
+    }
+
+    // 确保 SVG 图标有正确的尺寸
+    const svg = button.querySelector('svg');
+    if (svg) {
+      svg.setAttribute('width', '18');
+      svg.setAttribute('height', '18');
+    }
+
+    if (overrides?.tooltip) {
+      this.customTooltips.set(itemId, overrides.tooltip);
+    }
+
+    button.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      itemDef.command(this.editor);
+      this.editor.commands.focus();
+    });
+
+    this.buttons.set(itemId, button);
+    return button;
   }
 
   /**
@@ -133,6 +194,12 @@ export class ToolbarManager {
     this.buttons.forEach((button, itemId) => {
       const itemDef = this.itemDefs.get(itemId);
       if (!itemDef) return;
+
+      const custom = this.customTooltips.get(itemId);
+      if (custom) {
+        button.title = custom;
+        return;
+      }
 
       const key = TOOLTIP_KEYS[itemId];
       const translated = key ? this.i18n?.t(key) : undefined;
@@ -377,6 +444,7 @@ export class ToolbarManager {
     this.unsubscribeLanguage?.();
     this.unsubscribeLanguage = undefined;
     this.buttons.clear();
+    this.customTooltips.clear();
     this.createdElements.forEach((el) => el.remove());
     this.createdElements = [];
   }

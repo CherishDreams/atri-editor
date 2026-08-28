@@ -175,6 +175,23 @@ atri-editor/
 | `{document}` | 全文纯文本 |
 | `{content}` | 主输入，由功能的 `scope` 决定：`selection` / `cursor` / `document`；省略 `scope` 时为「选区，否则光标前文」 |
 
+### 工具栏配置
+
+| 属性 | 类型 | 说明 |
+|------|------|------|
+| `toolbar` | `ToolbarConfig \| false` | `false` 时不渲染工具栏 |
+| `toolbar.items` | `(string \| ToolbarItem)[]` | 按顺序渲染，省略时使用默认全集 |
+
+内置项 id：`undo` `redo` `heading1` `heading2` `heading3` `paragraph` `bold` `italic` `underline` `strike` `code` `bulletList` `orderedList` `blockquote` `codeBlock` `alignLeft` `alignCenter` `alignRight`。
+
+`ToolbarItem` 只能挂在内置项上：`icon`（SVG 字符串）优先于 `label`（文字按钮）优先于内置图标；`tooltip` 优先于当前语言的内置词条；`children` 尚未实现，声明后会被忽略。未知 id 会告警并跳过。
+
+```ts
+toolbar: {
+  items: ['bold', 'italic', { id: 'codeBlock', label: '代码块', tooltip: '插入代码块' }],
+}
+```
+
 ### Markdown 配置
 
 | 属性 | 类型 | 说明 |

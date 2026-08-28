@@ -26,6 +26,7 @@ export class AICommandMenuManager {
   private selectedIndex = 0;
   private triggerChar: string;
   private onSelect?: (func: AtriAIFunction) => void;
+  private detachKeyListener?: () => void;
 
   constructor(
     editor: Editor,
@@ -38,6 +39,23 @@ export class AICommandMenuManager {
     this.triggerChar = triggerChar;
     this.onSelect = onSelect;
     this.setupKeyboardListener();
+    this.setupMenuKeyListener();
+  }
+
+  /**
+   * 让键盘导航可达
+   * 监听挂在 document 捕获阶段：ProseMirror 在 view.dom 上已有 keymap，
+   * 若等它先处理，Enter 会被用来拆段而不是选中菜单项
+   */
+  private setupMenuKeyListener(): void {
+    const handler = (event: KeyboardEvent) => {
+      if (!this.isVisible || !this.editor.isFocused) return;
+      if (this.handleKeyDown(event)) {
+        event.stopPropagation();
+      }
+    };
+    document.addEventListener('keydown', handler, true);
+    this.detachKeyListener = () => document.removeEventListener('keydown', handler, true);
   }
 
   private setupKeyboardListener(): void {
@@ -122,7 +140,8 @@ export class AICommandMenuManager {
   }
 
   private async positionMenu(): Promise<void> {
-    if (!this.menuElement) return;
+    const menuElement = this.menuElement;
+    if (!menuElement) return;
 
     const { view } = this.editor;
     const { from } = view.state.selection;
@@ -134,14 +153,23 @@ export class AICommandMenuManager {
       },
     };
 
-    const { x, y } = await computePosition(virtualReference as any, this.menuElement, {
-      placement: 'bottom-start',
-      middleware: [offset(8), flip(), shift()],
-    });
+    let x: number;
+    let y: number;
+    try {
+      ({ x, y } = await computePosition(virtualReference as any, menuElement, {
+        placement: 'bottom-start',
+        middleware: [offset(8), flip(), shift()],
+      }));
+    } catch {
+      return;
+    }
 
-    this.menuElement.style.position = 'fixed';
-    this.menuElement.style.left = `${x}px`;
-    this.menuElement.style.top = `${y}px`;
+    // 异步定位期间菜单可能已关闭或被重建
+    if (this.menuElement !== menuElement) return;
+
+    menuElement.style.position = 'fixed';
+    menuElement.style.left = `${x}px`;
+    menuElement.style.top = `${y}px`;
   }
 
   private selectItem(index: number): void {
@@ -174,6 +202,9 @@ export class AICommandMenuManager {
   private deleteTriggerChar(): void {
     const { state, view } = this.editor;
     const { from } = state.selection;
+    if (from <= 0 || state.doc.textBetween(from - 1, from) !== this.triggerChar) {
+      return;
+    }
     const tr = state.tr.delete(from - 1, from);
     view.dispatch(tr);
   }
@@ -216,6 +247,8 @@ export class AICommandMenuManager {
    * 销毁
    */
   destroy(): void {
+    this.detachKeyListener?.();
+    this.detachKeyListener = undefined;
     this.hide();
   }
 }

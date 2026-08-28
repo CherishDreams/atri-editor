@@ -1,7 +1,7 @@
 /**
  * MarkdownService - Markdown 解析/序列化服务
  */
-import { generateJSON, type Editor, type JSONContent } from '@tiptap/core';
+import { generateHTML, generateJSON, type Editor, type JSONContent } from '@tiptap/core';
 import type { MarkdownManager } from '@tiptap/markdown';
 import type { AtriMarkdownConfig } from '../types';
 import { simpleMarkdownToHtml, simpleHtmlToMarkdown } from '../utils/markdown';
@@ -52,11 +52,14 @@ export class MarkdownService {
 
   /**
    * Markdown 转 HTML
+   * 与 htmlToMarkdown 方向对称：解析为 JSON 后再按当前 schema 序列化为 HTML
    */
   markdownToHTML(markdown: string): string {
-    // 使用简单的 HTML 转换作为降级方案
-    // 完整的转换需要 DOMSerializer，这里使用简单方法
-    return simpleMarkdownToHtml(markdown);
+    const manager = this.manager;
+    if (!manager) {
+      return simpleMarkdownToHtml(markdown);
+    }
+    return generateHTML(manager.parse(markdown), this.editor.extensionManager.extensions);
   }
 
   /**
