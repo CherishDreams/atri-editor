@@ -2,7 +2,12 @@
  * AtriEditorElement - Web Component 封装
  */
 import { AtriEditor } from './AtriEditor';
-import type { AtriEditorOptions } from './types';
+import type {
+  AtriEditorOptions,
+  InsertAttachmentOptions,
+  InsertImageOptions,
+  MediaKind,
+} from './types';
 
 const ELEMENT_NAME = 'atri-editor';
 
@@ -167,6 +172,41 @@ export class AtriEditorElement extends HTMLElement {
    */
   clearContent(): void {
     this.editor?.clearContent();
+  }
+
+  /**
+   * 在选区处插入图片
+   */
+  insertImage(options: InsertImageOptions): void {
+    this.editor?.insertImage(options);
+  }
+
+  /**
+   * 在选区处插入附件卡片
+   */
+  insertAttachment(options: InsertAttachmentOptions): void {
+    this.editor?.insertAttachment(options);
+  }
+
+  /**
+   * 走上传管线插入本地文件
+   */
+  async uploadFiles(files: File[] | FileList, kind?: MediaKind): Promise<void> {
+    await this.editor?.uploadFiles(files, kind);
+  }
+
+  /**
+   * 重试所有失败的上传
+   */
+  async retryFailedUploads(): Promise<void> {
+    await this.editor?.retryFailedUploads();
+  }
+
+  /**
+   * 是否有文件还没落到服务端（上传中与失败都算），保存前可据此提示
+   */
+  hasPendingUploads(): boolean {
+    return this.editor?.hasPendingUploads() ?? false;
   }
 
   /**
