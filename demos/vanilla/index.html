@@ -315,6 +315,8 @@
             image: {
               resize: true,
               allowBase64: false,
+              // 勾上「模拟上传失败」再传图：图会内联进文档保住，红框与「重试」还在
+              fallbackToBase64: true,
               accept: 'image/*',
             },
             attachment: {
