@@ -9,6 +9,7 @@
 - **TypeScript 7** - 使用 TypeScript 7.x 开发，享受 10x 编译速度提升
 - **Markdown 支持** - 内置双向 Markdown 支持，AI 输出自动转换
 - **AI 集成** - 开放式 AI 集成架构，支持自定义 AI 服务商
+- **图片与附件** - 上传通道可插拔（回调或内置 XHR），支持拖拽与粘贴投放、图片缩放手柄、上传进度与失败重试、类型与大小白名单
 - **主题系统** - 支持亮色/暗色主题切换
 - **国际化** - 内置中英文支持，可扩展其他语言
 
@@ -47,6 +48,38 @@ editor.setContent('<p>New content</p>');
 editor.setMarkdown('# Hello\n\nWorld');
 ```
 
+### 图片与附件
+
+工具栏的「图片」「附件」按钮打开浮层：填地址、选本地文件，或者直接把文件拖进编辑区、从截图工具粘贴。
+
+```typescript
+const editor = new AtriEditor({
+  element: '#editor',
+  media: {
+    // 内置上传通道：multipart/form-data + XHR，带上传进度
+    upload: { endpoint: '/api/upload', fieldName: 'file' },
+    // 或者完全接管：库不发请求，只把结果写回文档
+    // upload: async (file, { onProgress, signal }) => ({ url: await myUpload(file, signal) }),
+    maxFileSize: 10 * 1024 * 1024,
+    image: { resize: true, allowBase64: false, accept: 'image/*' },
+    attachment: { accept: ['.pdf', '.zip'] },
+    onError: ({ file, reason }) => console.warn(file.name, reason),
+  },
+});
+
+editor.insertImage({ src: 'https://cdn.example.com/a.png', alt: '封面' });
+editor.insertAttachment({ src: 'https://cdn.example.com/a.pdf', name: '报告.pdf', size: 2048 });
+await editor.uploadFiles(input.files, 'attachment');
+
+// 上传中保存会把本地预览地址写进内容，保存前据此提示或阻断
+if (editor.hasPendingUploads()) await editor.retryFailedUploads();
+```
+
+- **进度与失败**：附件卡片自带逐文件进度条，失败后图片与卡片显示失败态，编辑区右下角状态条汇总「上传中 2 个 · 60%」「1 个文件上传失败 / 重试」。撤销一步回到插入前，不会停在带预览地址的中间态。
+- **不配上传通道时**：图片可在 `image.allowBase64: true` 时退化为 data URL 内联；附件没有合理退路，回调 `onError({ reason: 'no-upload' })` 且不插节点。外链图片与粘贴远程 `<img>` 不需要上传通道。
+- **Markdown**：图片走标准 `![alt](src)`；附件用自定义语法 `!file[名字](url "大小")`，双向不丢。关闭 `markdown.enabled` 时两者都以字面文本进来——与其余标记语法在同样条件下的行为一致。
+- `media: false` 完全不注册图片与附件扩展，工具栏对应两项随之消失（显式声明则告警跳过），留给接入方自带扩展。
+
 ### Web Component 使用
 
 ```html
@@ -64,7 +97,7 @@ editor.setMarkdown('# Hello\n\nWorld');
 </script>
 ```
 
-`theme` / `editable` / `lang` / `placeholder` 四个属性是响应式的，改了立即生效；`placeholder` 置为空串即移除占位符。初始内容只读一次 `data-content`，运行期改内容请用 `setContent()`。
+`theme` / `editable` / `lang` / `placeholder` 四个属性是响应式的，改了立即生效；`placeholder` 置为空串即移除占位符。初始内容只读一次 `data-content`，运行期改内容请用 `setContent()`。媒体配置不是属性可表达的，用 `setOptions({ media })` 传入；`insertImage()` / `insertAttachment()` / `uploadFiles()` / `retryFailedUploads()` / `hasPendingUploads()` 在自定义元素上同名可用。
 
 ### AI 集成
 
@@ -125,6 +158,8 @@ atri-editor/
 │       ├── src/
 │       │   ├── types/           # 类型定义
 │       │   ├── core/            # 核心模块
+│       │   ├── extensions/      # 图片 / 附件等节点扩展
+│       │   ├── media/           # 上传通道、拖放粘贴、插入浮层
 │       │   ├── ai/              # AI 模块
 │       │   ├── utils/           # 工具函数
 │       │   ├── styles/          # 样式文件
@@ -156,6 +191,11 @@ atri-editor/
 | `htmlToMarkdown(html)` | HTML 转 Markdown |
 | `setEditable(editable)` | 设置可编辑状态 |
 | `setPlaceholder(placeholder)` | 设置占位符，空串即移除 |
+| `insertImage(options)` | 在选区处插入图片（外链地址，不进上传队列） |
+| `insertAttachment(options)` | 在选区处插入附件卡片 |
+| `uploadFiles(files, kind?)` | 走上传管线插入本地文件，`kind` 缺省时按 MIME 分流 |
+| `retryFailedUploads()` | 重试所有失败的上传 |
+| `hasPendingUploads()` | 是否有文件还没落到服务端（上传中与失败都算） |
 | `focus()` | 聚焦 |
 | `blur()` | 失焦 |
 | `setTheme(theme)` | 设置主题 |
@@ -188,7 +228,7 @@ atri-editor/
 | `toolbar` | `ToolbarConfig \| false` | `false` 时不渲染工具栏 |
 | `toolbar.items` | `(string \| ToolbarItem)[]` | 按顺序渲染，省略时使用默认全集 |
 
-内置项 id：`undo` `redo` `heading1` `heading2` `heading3` `paragraph` `bold` `italic` `underline` `strike` `code` `bulletList` `orderedList` `blockquote` `codeBlock` `alignLeft` `alignCenter` `alignRight`。
+内置项 id：`undo` `redo` `heading1` `heading2` `heading3` `paragraph` `bold` `italic` `underline` `strike` `code` `bulletList` `orderedList` `blockquote` `codeBlock` `alignLeft` `alignCenter` `alignRight` `insertImage` `insertAttachment`。后两项打开插入浮层，媒体扩展未注册时（`media: false`）不存在。
 
 `ToolbarItem` 只能挂在内置项上：`icon`（SVG 字符串）优先于 `label`（文字按钮）优先于内置图标；`tooltip` 优先于当前语言的内置词条；`children` 尚未实现，声明后会被忽略。未知 id 会告警并跳过。
 
@@ -206,6 +246,33 @@ toolbar: {
 | `indentation` | `{ style?: 'space' \| 'tab'; size?: number }` | 列表与代码块缩进，默认 `{ style: 'space', size: 2 }` |
 | `markedOptions` | `{ gfm?; breaks?; pedantic? }` | 传给 `marked` 的解析选项 |
 | `shortcuts` | `boolean` | 输入时实时转换（`**粗体**`、`# ` 等），默认 true；不影响粘贴与序列化 |
+
+### 媒体配置
+
+| 属性 | 类型 | 说明 |
+|------|------|------|
+| `media` | `AtriMediaConfig \| false` | `false` 时不注册图片与附件扩展 |
+| `media.upload` | `AtriUploadConfig \| UploadHandler` | 上传通道；省略时本地文件无从上传（图片可选 base64 内联） |
+| `media.maxFileSize` | `number` | 单个文件上限（字节），默认 10MB |
+| `media.maxFiles` | `number` | 一次投放/选择的文件数上限，默认 10；超出的逐个回调 `onError` |
+| `media.onError` | `(rejection) => void` | 校验不通过或上传失败时回调，编辑器不弹任何默认提示 |
+| `media.image.inline` | `boolean` | 作为内联节点插入，默认 false（块级） |
+| `media.image.allowBase64` | `boolean` | 允许 data URL；同时是没有上传通道时的退路开关，默认 false |
+| `media.image.resize` | `boolean` | 显示缩放手柄，默认 true |
+| `media.image.accept` / `media.attachment.accept` | `string \| string[]` | 类型白名单，支持 `.pdf`、`image/*`、`image/png` 三种写法 |
+
+`upload` 给对象时走内置 XHR：
+
+| 属性 | 类型 | 说明 |
+|------|------|------|
+| `endpoint` | `string` | 接收 `multipart/form-data` 的接口地址 |
+| `fieldName` | `string` | 文件字段名，默认 `file` |
+| `headers` | `Record<string, string>` | 附加请求头，如授权令牌 |
+| `withCredentials` | `boolean` | 是否携带 Cookie |
+| `requestName` | `(file) => string` | 服务端要求的文件名与本地不同时使用 |
+| `transformResult` | `(body, file) => UploadResult` | 从响应体里挑出 `url`；缺省依次找 `url` / `data.url` / `location` |
+
+给函数时完全接管：`(file, { onProgress, signal }) => Promise<UploadResult>`。`onProgress({ percent, loaded, total })` 可不上报（附件卡片会走不定长动画），`signal` 在编辑器销毁或用户删掉节点时中止；`UploadResult` 为 `{ url, name?, size?, mime? }`，后三项缺省时沿用本地文件的值。
 
 ## 开发
 
