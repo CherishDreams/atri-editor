@@ -16,6 +16,7 @@ export default defineConfig({
         '@tiptap/extensions',
         '@tiptap/starter-kit',
         '@tiptap/markdown',
+        '@tiptap/extension-image',
         '@tiptap/extension-text-align',
         '@floating-ui/dom',
         'i18next',
