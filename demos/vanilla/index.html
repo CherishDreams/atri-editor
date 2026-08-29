@@ -32,14 +32,16 @@
       #editor {
         min-height: 400px;
       }
-      .nodeview-demo {
+      .nodeview-demo,
+      .media-demo {
         background: white;
         border-radius: 8px;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         padding: 20px;
         margin-bottom: 20px;
       }
-      .nodeview-demo h2 {
+      .nodeview-demo h2,
+      .media-demo h2 {
         margin-top: 0;
         color: #333;
       }
@@ -129,6 +131,24 @@
           <button id="btn-insertCard">插入卡片组件</button>
           <button id="btn-insertVideo">插入视频组件</button>
           <button id="btn-showNodeViews">查看已注册 NodeView</button>
+        </div>
+      </div>
+
+      <div class="media-demo">
+        <h2>图片与附件演示</h2>
+        <p>
+          工具栏的「图片」「附件」按钮打开插入浮层；也可以把文件直接拖进编辑区，或从截图工具粘贴。
+          上传通道下方已打桩，进度、失败与重试都能当场看到。
+        </p>
+        <div class="controls" style="margin-top: 10px">
+          <label
+            ><input type="checkbox" id="chk-fail" /> 让下一次上传失败（验状态条的「重试」）</label
+          >
+        </div>
+        <div class="controls" style="margin-top: 10px">
+          <button id="btn-insertImage">插入远程图片</button>
+          <button id="btn-insertAttachment">插入附件卡片</button>
+          <button id="btn-checkUploads">检查未落地的上传</button>
         </div>
       </div>
 
@@ -238,6 +258,46 @@
         },
       ];
 
+      // 打桩的上传通道：假装有网速，进度、失败、取消都能当场演一遍
+      function simulateUpload(file, { onProgress, signal }) {
+        return new Promise((resolve, reject) => {
+          const willFail = document.getElementById('chk-fail').checked;
+          let percent = 0;
+
+          const settle = () => {
+            if (willFail) {
+              reject(new Error('模拟上传失败'));
+              return;
+            }
+            // 回一个服务端地址：本地预览地址会被它换掉，卡片上的进度条同时消失
+            const isImage = file.type.indexOf('image/') === 0;
+            const url = isImage
+              ? `https://picsum.photos/seed/${encodeURIComponent(file.name)}/480/270`
+              : `https://cdn.example.com/uploads/${encodeURIComponent(file.name)}`;
+            resolve({ url, name: file.name });
+          };
+
+          const timer = setInterval(() => {
+            percent = Math.min(100, percent + 10);
+            onProgress({
+              percent,
+              loaded: Math.round((file.size * percent) / 100),
+              total: file.size,
+            });
+            if (percent >= 100) {
+              clearInterval(timer);
+              settle();
+            }
+          }, 120);
+
+          // 编辑器销毁或节点被删掉时请求要跟着停
+          signal.addEventListener('abort', () => {
+            clearInterval(timer);
+            reject(new DOMException('Aborted', 'AbortError'));
+          });
+        });
+      }
+
       // 创建编辑器实例
       try {
         window.editor = new AtriEditor({
@@ -247,6 +307,25 @@
           content:
             '<h2>欢迎使用 Atri Editor</h2><p>这是一个基于 <strong>Tiptap v3</strong> 的富文本编辑器。</p><ul><li>支持 Markdown 语法</li><li>支持 AI 集成</li><li>框架无关设计</li></ul>',
           nodeViews: nodeViews,
+          media: {
+            upload: simulateUpload,
+            // 上限故意压到 512KB，拖一张截图进去就能看到被拒绝的回调
+            maxFileSize: 512 * 1024,
+            maxFiles: 5,
+            image: {
+              resize: true,
+              allowBase64: false,
+              accept: 'image/*',
+            },
+            attachment: {
+              accept: ['.pdf', '.zip', '.txt', '.md'],
+            },
+            onError: ({ file, reason, cause }) => {
+              showOutput(
+                `文件 ${file.name} 被拒绝：${reason}${cause ? `（${String(cause)}）` : ''}`
+              );
+            },
+          },
           markdown: {
             enabled: true,
           },
@@ -450,6 +529,57 @@
           console.log('[Atri Editor] NodeViews:', nodeViewList);
         } catch (err) {
           console.error('[Atri Editor] showNodeViews failed:', err);
+        }
+      });
+
+      // 媒体按钮事件
+      document.getElementById('btn-insertImage').addEventListener('click', function () {
+        try {
+          if (!window.editor) {
+            console.error('[Atri Editor] Editor instance not initialized');
+            return;
+          }
+          window.editor.insertImage({
+            src: 'https://picsum.photos/seed/atri/480/270',
+            alt: '示例图片',
+            title: '一张远程图片',
+          });
+        } catch (err) {
+          console.error('[Atri Editor] insertImage failed:', err);
+        }
+      });
+
+      document.getElementById('btn-insertAttachment').addEventListener('click', function () {
+        try {
+          if (!window.editor) {
+            console.error('[Atri Editor] Editor instance not initialized');
+            return;
+          }
+          window.editor.insertAttachment({
+            src: 'https://cdn.example.com/uploads/spec.pdf',
+            name: '需求说明书.pdf',
+            size: 2621440,
+            mime: 'application/pdf',
+          });
+        } catch (err) {
+          console.error('[Atri Editor] insertAttachment failed:', err);
+        }
+      });
+
+      document.getElementById('btn-checkUploads').addEventListener('click', function () {
+        try {
+          if (!window.editor) {
+            console.error('[Atri Editor] Editor instance not initialized');
+            showOutput('Error: Editor not initialized');
+            return;
+          }
+          const pending = window.editor.hasPendingUploads();
+          showOutput(
+            `未落地的上传: ${pending ? '有（此时保存会把本地预览地址写进内容）' : '无'}\n\n` +
+              window.editor.getMarkdown()
+          );
+        } catch (err) {
+          console.error('[Atri Editor] checkUploads failed:', err);
         }
       });
 
