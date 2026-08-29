@@ -6,7 +6,9 @@ import StarterKit from '@tiptap/starter-kit';
 import { Markdown } from '@tiptap/markdown';
 import { Placeholder } from '@tiptap/extensions';
 import TextAlign from '@tiptap/extension-text-align';
-import type { AtriMarkdownConfig } from '../types';
+import { createMediaExtensions } from '../extensions/media';
+import { MediaRuntime } from '../media/MediaRuntime';
+import type { AtriMarkdownConfig, AtriMediaConfig } from '../types';
 
 export interface CoreEditorConfig {
   element: HTMLElement;
@@ -16,6 +18,13 @@ export interface CoreEditorConfig {
   placeholder?: string;
   extensions?: EditorOptions['extensions'];
   markdown?: AtriMarkdownConfig;
+  /** 媒体（图片 / 附件）配置，false 时不注册任何媒体节点 */
+  media?: AtriMediaConfig | false;
+  /**
+   * 复用外部的上传运行时
+   * AtriEditor 重建编辑器时会把同一个实例传进来，进行中的上传才不会丢
+   */
+  mediaRuntime?: MediaRuntime;
   onCreate?: () => void;
   onUpdate?: () => void;
   onFocus?: () => void;
@@ -28,10 +37,13 @@ export class CoreEditor {
   private config: CoreEditorConfig;
   /** 占位符文本：由 Placeholder 扩展以函数形式每次读取，改值即可生效 */
   private placeholderText: string;
+  private mediaRuntime: MediaRuntime | null;
 
   constructor(config: CoreEditorConfig) {
     this.config = config;
     this.placeholderText = config.placeholder ?? '';
+    this.mediaRuntime =
+      config.media === false ? null : (config.mediaRuntime ?? new MediaRuntime(config.media));
     this.editor = this.createEditor();
   }
 
@@ -75,6 +87,10 @@ export class CoreEditor {
     const contentType =
       contentFormat === 'markdown' && !markdownEnabled ? undefined : contentFormat;
 
+    // 图片 / 附件节点自带 markdown hook，注册时机不影响 Markdown 扩展的收集（它在构造时统一读取所有扩展），
+    // 但放在用户扩展之前可以让用户用同名扩展顶掉内置节点
+    editorExtensions.push(...createMediaExtensions(this.config.media, this.mediaRuntime));
+
     // 输入实时转换由 StarterKit 各扩展的 input rules 提供，与 Markdown 扩展启停无关
     const enableInputRules = this.config.markdown?.shortcuts !== false;
 
@@ -112,7 +128,17 @@ export class CoreEditor {
       },
     });
 
+    // 上传运行时换绑到新的 Editor 实例，并把进行中的任务状态补回文档
+    this.mediaRuntime?.bind(editor);
+
     return editor;
+  }
+
+  /**
+   * 获取上传运行时；media 为 false 时为 null
+   */
+  getMediaRuntime(): MediaRuntime | null {
+    return this.mediaRuntime;
   }
 
   /**

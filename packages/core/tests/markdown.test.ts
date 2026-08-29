@@ -131,4 +131,13 @@ describe('正则降级链路（markdown.enabled 为 false）', () => {
       simpleHtmlToMarkdown('<p><img src="https://cdn.example.com/a.png" alt="封面"></p>')
     ).toBe('![封面](https://cdn.example.com/a.png)');
   });
+
+  it('编辑器关掉 Markdown 扩展后，getMarkdown 与 setMarkdown 仍认得图片', async () => {
+    const editor = await mount({
+      content: '<p><img src="https://cdn.example.com/a.png" alt="封面"></p>',
+      markdown: { enabled: false },
+    });
+
+    expect(editor.getMarkdown()).toBe('![封面](https://cdn.example.com/a.png)');
+  });
 });

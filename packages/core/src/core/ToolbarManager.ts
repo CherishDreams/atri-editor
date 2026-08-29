@@ -4,6 +4,8 @@
  */
 import type { Editor } from '@tiptap/core';
 import type { ToolbarConfig, ToolbarItem } from '../types';
+import { InsertPanel, type InsertPanelMode } from '../media/InsertPanel';
+import type { MediaRuntime } from '../media/MediaRuntime';
 import type { I18nManager } from './I18nManager';
 import { icons } from './icons';
 
@@ -14,7 +16,9 @@ interface ToolbarItemDef {
   id: string;
   icon: string;
   tooltip: string;
-  command: (editor: Editor) => void;
+  /** 打开浮层的项不能把焦点抢回编辑器，否则浮层里的输入框永远打不了字 */
+  popup?: boolean;
+  command: (editor: Editor, button: HTMLButtonElement) => void;
   isActive: (editor: Editor) => boolean;
   isDisabled: (editor: Editor) => boolean;
 }
@@ -41,6 +45,8 @@ const TOOLTIP_KEYS: Record<string, string> = {
   alignLeft: 'editor.alignLeft',
   alignCenter: 'editor.alignCenter',
   alignRight: 'editor.alignRight',
+  insertImage: 'editor.image',
+  insertAttachment: 'editor.attachment',
 };
 
 /**
@@ -51,22 +57,50 @@ export class ToolbarManager {
   private editor: Editor;
   private i18n?: I18nManager;
   private config?: ToolbarConfig;
+  private mediaRuntime: MediaRuntime | null;
   private unsubscribeLanguage?: () => void;
   private buttons: Map<string, HTMLButtonElement> = new Map();
   private customTooltips: Map<string, string> = new Map();
   private itemDefs: Map<string, ToolbarItemDef>;
   private createdElements: HTMLElement[] = [];
+  private panel: InsertPanel | null = null;
 
-  constructor(editor: Editor, container: HTMLElement, config?: ToolbarConfig, i18n?: I18nManager) {
+  constructor(
+    editor: Editor,
+    container: HTMLElement,
+    config?: ToolbarConfig,
+    i18n?: I18nManager,
+    mediaRuntime?: MediaRuntime | null
+  ) {
     this.editor = editor;
     this.container = container;
     this.config = config;
     this.i18n = i18n;
+    this.mediaRuntime = mediaRuntime ?? null;
     this.itemDefs = this.getDefaultItems();
     this.createToolbarDOM();
     this.bindEditorEvents();
 
     this.unsubscribeLanguage = this.i18n?.onLanguageChanged(() => this.applyTooltips());
+  }
+
+  /**
+   * 插入浮层按需创建：没点开过就不该有一个实例挂在编辑器上
+   */
+  private get insertPanel(): InsertPanel | null {
+    if (!this.mediaRuntime) return null;
+    this.panel ??= new InsertPanel({
+      editor: this.editor,
+      runtime: this.mediaRuntime,
+      i18n: this.i18n,
+      // 开合不改文档，等不到 transaction，得主动刷一次按钮状态
+      onOpenChange: () => this.updateButtonStates(),
+    });
+    return this.panel;
+  }
+
+  private openInsert(mode: InsertPanelMode, button: HTMLButtonElement): void {
+    this.insertPanel?.toggle(button, mode);
   }
 
   /**
@@ -94,6 +128,8 @@ export class ToolbarManager {
       ['bold', 'italic', 'underline', 'strike', 'code'],
       ['bulletList', 'orderedList', 'blockquote', 'codeBlock'],
       ['alignLeft', 'alignCenter', 'alignRight'],
+      // 媒体节点没注册时这两项压根不存在，默认布局里也不摆空位
+      ...(this.itemDefs.has('insertImage') ? [['insertImage', 'insertAttachment']] : []),
     ];
 
     layout.forEach((group, groupIndex) => {
@@ -171,11 +207,17 @@ export class ToolbarManager {
       this.customTooltips.set(itemId, overrides.tooltip);
     }
 
+    if (itemDef.popup) {
+      button.setAttribute('aria-haspopup', 'dialog');
+      button.setAttribute('aria-expanded', 'false');
+    }
+
     button.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      itemDef.command(this.editor);
-      this.editor.commands.focus();
+      itemDef.command(this.editor, button);
+      // 浮层项自己管焦点：抢回编辑器会让浮层里的输入框根本打不了字
+      if (!itemDef.popup) this.editor.commands.focus();
     });
 
     this.buttons.set(itemId, button);
@@ -208,6 +250,29 @@ export class ToolbarManager {
    */
   private getDefaultItems(): Map<string, ToolbarItemDef> {
     const items = new Map<string, ToolbarItemDef>();
+
+    // 媒体节点没注册（media:false）时这两个命令压根不存在，按钮也不提供
+    if (this.mediaRuntime) {
+      items.set('insertImage', {
+        id: 'insertImage',
+        icon: icons.image,
+        tooltip: '图片',
+        popup: true,
+        command: (_editor, button) => this.openInsert('image', button),
+        isActive: () => this.panel?.openMode === 'image',
+        isDisabled: (editor) => !editor.isEditable,
+      });
+
+      items.set('insertAttachment', {
+        id: 'insertAttachment',
+        icon: icons.paperclip,
+        tooltip: '附件',
+        popup: true,
+        command: (_editor, button) => this.openInsert('attachment', button),
+        isActive: () => this.panel?.openMode === 'attachment',
+        isDisabled: (editor) => !editor.isEditable,
+      });
+    }
 
     // 撤销
     items.set('undo', {
@@ -417,11 +482,9 @@ export class ToolbarManager {
       if (!itemDef) return;
 
       // 更新 active 状态
-      if (itemDef.isActive(this.editor)) {
-        button.classList.add('active');
-      } else {
-        button.classList.remove('active');
-      }
+      const active = itemDef.isActive(this.editor);
+      button.classList.toggle('active', active);
+      if (itemDef.popup) button.setAttribute('aria-expanded', String(active));
 
       // 更新 disabled 状态
       if (itemDef.isDisabled(this.editor)) {
@@ -438,6 +501,9 @@ export class ToolbarManager {
   destroy(): void {
     this.unsubscribeLanguage?.();
     this.unsubscribeLanguage = undefined;
+    // 面板挂在 document.body 上，不跟着工具栏一起收就会留在页面上
+    this.panel?.destroy();
+    this.panel = null;
     this.buttons.clear();
     this.customTooltips.clear();
     this.createdElements.forEach((el) => el.remove());

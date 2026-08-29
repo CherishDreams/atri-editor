@@ -1,6 +1,12 @@
 import type { Editor, Extension } from '@tiptap/core';
 import type { AtriAIConfig } from './ai';
 import type { AtriMarkdownConfig } from './markdown';
+import type {
+  AtriMediaConfig,
+  InsertAttachmentOptions,
+  InsertImageOptions,
+  MediaKind,
+} from './media';
 import type { AtriNodeViewConfig } from './extension';
 
 /**
@@ -68,6 +74,8 @@ export interface AtriEditorOptions {
   ai?: AtriAIConfig;
   /** Markdown 配置 */
   markdown?: AtriMarkdownConfig;
+  /** 媒体（图片 / 附件）配置，false 时不注册图片与附件节点 */
+  media?: AtriMediaConfig | false;
   /** 创建完成回调 */
   onCreate?: (editor: IAtriEditor) => void;
   /** 内容变更回调 */
@@ -115,6 +123,17 @@ export interface IAtriEditor {
   insertContent(content: string): void;
   /** 设置占位符 */
   setPlaceholder(placeholder: string): void;
+
+  /** 在选区处插入图片 */
+  insertImage(options: InsertImageOptions): void;
+  /** 在选区处插入附件卡片 */
+  insertAttachment(options: InsertAttachmentOptions): void;
+  /** 走上传管线插入本地文件，promise 在这批文件全部落定后 resolve */
+  uploadFiles(files: File[] | FileList, kind?: MediaKind): Promise<void>;
+  /** 重试所有失败的上传 */
+  retryFailedUploads(): Promise<void>;
+  /** 是否有文件还没落到服务端（上传中与失败都算） */
+  hasPendingUploads(): boolean;
 
   /** 设置可编辑状态 */
   setEditable(editable: boolean): void;

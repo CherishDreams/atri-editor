@@ -48,8 +48,11 @@ describe('ToolbarManager', () => {
       'alignLeft',
       'alignCenter',
       'alignRight',
+      // 媒体扩展默认注册，末组是插入图片与附件
+      'insertImage',
+      'insertAttachment',
     ]);
-    expect(separators).toBe(4);
+    expect(separators).toBe(5);
   });
 
   it('items 决定按钮内容与顺序', async () => {

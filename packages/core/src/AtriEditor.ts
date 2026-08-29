@@ -6,6 +6,9 @@ import { getTextBetween } from '@tiptap/core';
 import type {
   AtriEditorOptions,
   IAtriEditor,
+  InsertAttachmentOptions,
+  InsertImageOptions,
+  MediaKind,
   SetContentOptions,
   AtriAIConfig,
   AtriNodeViewConfig,
@@ -16,6 +19,8 @@ import { ThemeManager } from './core/ThemeManager';
 import { I18nManager } from './core/I18nManager';
 import { ExtensionManager } from './core/ExtensionManager';
 import { ToolbarManager } from './core/ToolbarManager';
+import { MediaRuntime } from './media/MediaRuntime';
+import { MediaStatusStrip } from './media/MediaStatusStrip';
 import { AIService } from './ai/AIService';
 import { AICommandMenuManager } from './ai/AICommandMenu';
 import { resolveElement, createContainer } from './utils/dom';
@@ -29,6 +34,8 @@ export class AtriEditor implements IAtriEditor {
   private toolbarManager: ToolbarManager | null = null;
   private aiService: AIService | null = null;
   private aiMenuManager: AICommandMenuManager | null = null;
+  private mediaRuntime: MediaRuntime | null;
+  private mediaStatus: MediaStatusStrip | null = null;
   /** 重建后待恢复的选区，新视图就绪时应用 */
   private pendingViewState: { from: number; to: number } | null = null;
   private container: HTMLDivElement;
@@ -69,6 +76,14 @@ export class AtriEditor implements IAtriEditor {
     const editorElement = createContainer('atri-editor-content-wrapper');
     this.container.appendChild(editorElement);
 
+    // 上传运行时只建一次：registerNodeView 会重建编辑器，进行中的上传得跟着这个实例走
+    this.mediaRuntime = options.media === false ? null : new MediaRuntime(options.media);
+
+    // 状态条也只建一次，挂在根容器上：卡片上没有文字状态，上传反馈全在这一条里
+    this.mediaStatus = this.mediaRuntime
+      ? new MediaStatusStrip(this.mediaRuntime, this.container, this.i18nManager)
+      : null;
+
     // 初始化核心编辑器
     this.coreEditor = new CoreEditor({
       element: editorElement,
@@ -78,6 +93,8 @@ export class AtriEditor implements IAtriEditor {
       placeholder: options.placeholder,
       extensions: [...(options.extensions || []), ...this.extensionManager.getAll()],
       markdown: options.markdown,
+      media: options.media,
+      mediaRuntime: this.mediaRuntime ?? undefined,
       onCreate: () => {
         this.onEditorCreated();
       },
@@ -104,7 +121,8 @@ export class AtriEditor implements IAtriEditor {
         this.editor,
         toolbarContainer,
         options.toolbar,
-        this.i18nManager
+        this.i18nManager,
+        this.mediaRuntime
       );
     }
 
@@ -186,6 +204,8 @@ export class AtriEditor implements IAtriEditor {
       placeholder: this.options.placeholder,
       extensions: [...(this.options.extensions || []), ...this.extensionManager.getAll()],
       markdown: this.options.markdown,
+      media: this.options.media,
+      mediaRuntime: this.mediaRuntime ?? undefined,
       onCreate: () => {
         this.onEditorCreated();
       },
@@ -212,7 +232,8 @@ export class AtriEditor implements IAtriEditor {
         this.editor,
         toolbarContainer,
         this.options.toolbar,
-        this.i18nManager
+        this.i18nManager,
+        this.mediaRuntime
       );
     }
 
@@ -323,6 +344,48 @@ export class AtriEditor implements IAtriEditor {
    */
   insertContent(content: string): void {
     this.coreEditor.insertContent(content);
+  }
+
+  /**
+   * 在选区处插入图片
+   */
+  insertImage(options: InsertImageOptions): void {
+    this.editor.chain().focus().setImage(options).run();
+  }
+
+  /**
+   * 在选区处插入附件卡片
+   */
+  insertAttachment(options: InsertAttachmentOptions): void {
+    this.editor.chain().focus().setAttachment(options).run();
+  }
+
+  /**
+   * 走上传管线插入本地文件
+   * kind 缺省时按 MIME 分流；promise 在这批文件全部落定（成功或失败）后 resolve
+   */
+  async uploadFiles(files: File[] | FileList, kind?: MediaKind): Promise<void> {
+    if (!this.mediaRuntime) {
+      console.warn('[Atri Editor] uploadFiles() ignored: media extensions are disabled.');
+      return;
+    }
+
+    await this.mediaRuntime.handleFiles(files, { kind });
+  }
+
+  /**
+   * 是否有文件还没落到服务端（上传中与失败都算）
+   * 此时保存会把本地预览地址写进内容，接入方应据此提示或阻断
+   */
+  hasPendingUploads(): boolean {
+    return this.mediaRuntime?.hasPendingUploads() ?? false;
+  }
+
+  /**
+   * 重试所有失败的上传，卡片原地回到上传中
+   */
+  async retryFailedUploads(): Promise<void> {
+    await this.mediaRuntime?.retryFailed();
   }
 
   /**
@@ -459,6 +522,9 @@ export class AtriEditor implements IAtriEditor {
     this.toolbarManager?.destroy();
     this.aiMenuManager?.destroy();
     this.coreEditor.destroy();
+    this.mediaStatus?.destroy();
+    // 在途请求随编辑器一起取消，不然回调会打到已销毁的视图上
+    this.mediaRuntime?.destroy();
     this.container.remove();
   }
 }

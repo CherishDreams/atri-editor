@@ -27,6 +27,14 @@ export {
 
 export type { CoreEditorConfig, ThemeType } from './core';
 
+// 导出媒体扩展：只要节点、自己配工具栏的接入方可以直接取用
+export { AtriImage } from './extensions/AtriImage';
+export { Attachment } from './extensions/Attachment';
+export { createMediaExtensions } from './extensions/media';
+export { MediaRuntime } from './media/MediaRuntime';
+
+export type { MediaState, MediaStatus } from './media/MediaRuntime';
+
 // 导出 AI 模块
 export { AIService, AIInterceptor, AICommandMenuManager } from './ai';
 
