@@ -9,7 +9,7 @@
 - **TypeScript 7** - 使用 TypeScript 7.x 开发，享受 10x 编译速度提升
 - **Markdown 支持** - 内置双向 Markdown 支持，AI 输出自动转换
 - **AI 集成** - 开放式 AI 集成架构，支持自定义 AI 服务商
-- **图片与附件** - 上传通道可插拔（回调或内置 XHR），支持拖拽与粘贴投放、图片缩放手柄、上传进度与失败重试、类型与大小白名单
+- **图片与附件** - 上传通道可插拔（回调或内置 XHR），支持拖拽与粘贴投放、图片缩放手柄、上传进度与失败重试（图片可内联兜底）、类型与大小白名单
 - **主题系统** - 支持亮色/暗色主题切换
 - **国际化** - 内置中英文支持，可扩展其他语言
 
@@ -76,7 +76,11 @@ if (editor.hasPendingUploads()) await editor.retryFailedUploads();
 ```
 
 - **进度与失败**：附件卡片自带逐文件进度条，失败后图片与卡片显示失败态，编辑区右下角状态条汇总「上传中 2 个 · 60%」「1 个文件上传失败 / 重试」。撤销一步回到插入前，不会停在带预览地址的中间态。
-- **不配上传通道时**：图片可在 `image.allowBase64: true` 时退化为 data URL 内联；附件没有合理退路，回调 `onError({ reason: 'no-upload' })` 且不插节点。外链图片与粘贴远程 `<img>` 不需要上传通道。
+- **上传失败后的 base64 兜底**：`image.fallbackToBase64: true` 时，图片传失败会就地读成 data URL（原位换 `src`，不插新节点，位置与撤销语义都不变），内容不再依赖一刷新就失效的本地预览地址。图片仍标着失败态、状态条仍给「重试」，重试成功后换成服务端地址；但 `hasPendingUploads()` 不再把它算作待处理——闸门挡的是「现在保存会丢内容」，不是「必须传到服务端」。兜底只对图片开：附件内联等于把几 MB 塞进 `!file[名字](data:…)` 那一行 Markdown。
+  - 它连带打开 `image.allowBase64`：编辑器重建时按 `getHTML()` 回填，节点不认 data URL 的话图片重建一次就静默没了。
+  - 代价是体积：data URL 约为原始文件的 1.37×，而 `maxFileSize` 校验的是文件本身，开启时建议把上限调小。
+  - `status` 是「写得出、读不回」的瞬时态，所以编辑器重建后这张图就是一张普通 data URL 图片，重试机会随之丢失（内容不丢）。
+- **不配上传通道时**：这是另一条 base64 退路，由 `image.allowBase64: true` 决定（外链图片与粘贴远程 `<img>` 都不需要上传通道）；附件没有合理退路，回调 `onError({ reason: 'no-upload' })` 且不插节点。
 - **Markdown**：图片走标准 `![alt](src)`；附件用自定义语法 `!file[名字](url "大小")`，双向不丢。关闭 `markdown.enabled` 时两者都以字面文本进来——与其余标记语法在同样条件下的行为一致。
 - `media: false` 完全不注册图片与附件扩展，工具栏对应两项随之消失（显式声明则告警跳过），留给接入方自带扩展。
 
@@ -195,7 +199,7 @@ atri-editor/
 | `insertAttachment(options)` | 在选区处插入附件卡片 |
 | `uploadFiles(files, kind?)` | 走上传管线插入本地文件，`kind` 缺省时按 MIME 分流 |
 | `retryFailedUploads()` | 重试所有失败的上传 |
-| `hasPendingUploads()` | 是否有文件还没落到服务端（上传中与失败都算） |
+| `hasPendingUploads()` | 是否还有文件的内容只存在于本地预览地址（上传中与失败都算；已内联成 data URL 的图片不算） |
 | `focus()` | 聚焦 |
 | `blur()` | 失焦 |
 | `setTheme(theme)` | 设置主题 |
@@ -257,7 +261,8 @@ toolbar: {
 | `media.maxFiles` | `number` | 一次投放/选择的文件数上限，默认 10；超出的逐个回调 `onError` |
 | `media.onError` | `(rejection) => void` | 校验不通过或上传失败时回调，编辑器不弹任何默认提示 |
 | `media.image.inline` | `boolean` | 作为内联节点插入，默认 false（块级） |
-| `media.image.allowBase64` | `boolean` | 允许 data URL；同时是没有上传通道时的退路开关，默认 false |
+| `media.image.allowBase64` | `boolean` | 认不认 data URL：决定 `img[src^="data:"]` 能否解析回来，也是没有上传通道时能否内联，默认 false |
+| `media.image.fallbackToBase64` | `boolean` | 上传失败后把图片内联成 data URL 兜底（只作用于图片），默认 false；开启即连带打开 `allowBase64` |
 | `media.image.resize` | `boolean` | 显示缩放手柄，默认 true |
 | `media.image.accept` / `media.attachment.accept` | `string \| string[]` | 类型白名单，支持 `.pdf`、`image/*`、`image/png` 三种写法 |
 
