@@ -24,6 +24,12 @@ export function simpleMarkdownToHtml(markdown: string): string {
   html = html.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code class="language-$1">$2</code></pre>');
   html = html.replace(/`(.+?)`/g, '<code>$1</code>');
 
+  // 图片：必须先于链接，否则 ![alt](src) 会被下面的链接规则从 ! 之后开始匹配，吞成一个 <a>
+  html = html.replace(
+    /!\[([^\]]*)\]\(\s*([^\s)]+)(?:\s+"([^"]*)")?\s*\)/g,
+    (_all, alt, src, title) => `<img src="${src}" alt="${alt}"${title ? ` title="${title}"` : ''}>`
+  );
+
   // 链接
   html = html.replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2">$1</a>');
 
@@ -67,6 +73,13 @@ export function simpleHtmlToMarkdown(html: string): string {
 
   // 链接
   md = md.replace(/<a[^>]*href="([^"]*)"[^>]*>(.+?)<\/a>/gi, '[$2]($1)');
+
+  // 图片：必须赶在剥除剩余标签之前，<img> 是自闭合的，被剥掉就再也找不回 src
+  md = md.replace(/<img\b[^>]*>/gi, (tag) => {
+    const src = /src="([^"]*)"/i.exec(tag)?.[1] ?? '';
+    const alt = /alt="([^"]*)"/i.exec(tag)?.[1] ?? '';
+    return src ? `![${alt}](${src})` : alt;
+  });
 
   // 代码
   md = md.replace(/<code[^>]*>(.+?)<\/code>/gi, '`$1`');

@@ -1,0 +1,314 @@
+// Atri Editor - 媒体样式（图片缩放 / 附件卡片）
+@use './variables' as *;
+
+.atri-editor-content {
+  // Tiptap 的 ResizableNodeView 只往缩放柄上写 data 属性与内联的 top/left 定位，
+  // 尺寸与外观完全交给样式表：不写宽高就是一堆 0×0 的盒子，看得见图也拖不动
+  [data-resize-wrapper] {
+    // JS 写死了 display:block，这里用 fit-content 让盒子收缩到图片实际宽度，
+    // 四角柄才会落在图片角上而不是编辑区左右边缘
+    width: fit-content;
+    max-width: 100%;
+    // 图片是行内盒，行盒会按字体撑出几 px，选中轮廓就比图高出一截
+    line-height: 0;
+  }
+
+  [data-resize-handle] {
+    width: 10px;
+    height: 10px;
+    background-color: var(--atri-bg-color);
+    border: 1px solid var(--atri-border-color-hover);
+    border-radius: 50%;
+    // 内联样式已把柄钉在角上，再平移自身的一半让它以角为中心
+    transform: translate(-50%, -50%);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+
+  [data-resize-wrapper]:hover [data-resize-handle],
+  // 选中就得看见抓手：只挂在 hover 上时，点中图片后屏幕上没有一处提示可以拖
+  .ProseMirror-selectednode [data-resize-handle] {
+    opacity: 1;
+  }
+
+  // 原子节点整块选中，没有这圈轮廓用户不知道选没选中。
+  // 描在内层 wrapper 上：外层 container 是 display:flex，描它会拉出一条占满整行的框
+  .ProseMirror-selectednode[data-resize-container] > [data-resize-wrapper],
+  .atri-attachment.ProseMirror-selectednode {
+    outline: 2px solid var(--atri-color-primary);
+    outline-offset: 2px;
+  }
+
+  [data-resize-handle='top-left'],
+  [data-resize-handle='bottom-right'] {
+    cursor: nwse-resize;
+  }
+
+  [data-resize-handle='top-right'],
+  [data-resize-handle='bottom-left'] {
+    cursor: nesw-resize;
+  }
+
+  [data-resize-handle='top-right'],
+  [data-resize-handle='bottom-right'] {
+    transform: translate(50%, -50%);
+  }
+
+  [data-resize-handle='bottom-left'] {
+    transform: translate(-50%, 50%);
+  }
+
+  [data-resize-handle='bottom-right'] {
+    transform: translate(50%, 50%);
+  }
+
+  .atri-attachment {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    margin: $spacing-md 0;
+    padding: $spacing-sm $spacing-md;
+    background-color: var(--atri-bg-color-secondary);
+    border: 1px solid var(--atri-border-color);
+    border-radius: $border-radius;
+    // 原子节点：整块选中，不该出现文字选区
+    user-select: none;
+
+    &[data-atri-upload-status='uploading'] {
+      border-color: var(--atri-color-primary);
+    }
+
+    &[data-atri-upload-status='error'] {
+      border-color: var(--atri-color-error);
+    }
+  }
+
+  .atri-attachment-icon {
+    flex: none;
+    width: 24px;
+    height: 24px;
+    background-color: var(--atri-text-color-secondary);
+    // 卡片结构由 renderHTML 产出，图标只能走 CSS：
+    // DOMOutputSpec 里写 SVG 会被 createElement 建成 HTML 元素而不是 SVG 命名空间
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z'/%3E%3Cpath d='M14 2v4a2 2 0 0 0 2 2h4'/%3E%3Cpath d='M10 9H8'/%3E%3Cpath d='M16 13H8'/%3E%3Cpath d='M16 17H8'/%3E%3C/svg%3E")
+      center / contain no-repeat;
+  }
+
+  .atri-attachment-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--atri-text-color);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .atri-attachment-size {
+    flex: none;
+    font-size: $font-size-sm;
+    color: var(--atri-text-color-secondary);
+  }
+
+  // 上传中的进度条：卡片上没有一处硬编码文案，状态全靠这层表达
+  .atri-attachment-progress {
+    display: block;
+    position: absolute;
+    left: $spacing-md;
+    right: $spacing-md;
+    bottom: 3px;
+    height: 2px;
+    border-radius: 1px;
+    background-color: var(--atri-border-color);
+    overflow: hidden;
+  }
+
+  .atri-attachment-progress-bar {
+    // 两层都是 span：行内盒子上 width / height 一概不生效，进度条画不出长度
+    display: block;
+    width: 40%;
+    height: 100%;
+    background-color: var(--atri-color-primary);
+    // 自定义 handler 可以完全不上报进度，这时走不定长动画而不是停在 0%
+    animation: atri-upload-indeterminate 1.1s ease-in-out infinite;
+  }
+
+  // data-atri-upload-progress 与内联的 --atri-upload-progress 同源，
+  // 有它才说明百分比是已知的
+  .atri-attachment[data-atri-upload-progress] .atri-attachment-progress-bar {
+    width: var(--atri-upload-progress);
+    animation: none;
+  }
+
+  .atri-attachment[data-atri-upload-status='error'] .atri-attachment-progress-bar {
+    width: 100%;
+    transform: none;
+    animation: none;
+    background-color: var(--atri-color-error);
+  }
+
+  // 图片只有整体进度（在状态条上），节点自身只表达"在传"与"失败"两态
+  img[data-atri-upload-status='uploading'] {
+    opacity: 0.55;
+  }
+
+  img[data-atri-upload-status='error'] {
+    outline: 1px solid var(--atri-color-error);
+    opacity: 0.7;
+  }
+}
+
+@keyframes atri-upload-indeterminate {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(250%);
+  }
+}
+
+// 插入浮层
+// 挂在 document.body 上，不在 .atri-editor 里：字体与 box-sizing 继承不到编辑器那套重置，
+// 位置由 JS 写死 fixed，所以这里不碰 top/left/z-index 之外的定位
+.atri-media-panel {
+  position: fixed;
+  z-index: $z-dropdown;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+  min-width: 260px;
+  padding: $spacing-md;
+  font-family: $font-family;
+  font-size: $font-size;
+  color: var(--atri-text-color);
+  background-color: var(--atri-bg-color);
+  border: 1px solid var(--atri-border-color);
+  border-radius: $border-radius-lg;
+  box-shadow: $shadow-lg;
+  box-sizing: border-box;
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  input {
+    width: 100%;
+    padding: $spacing-xs $spacing-sm;
+    font-family: inherit;
+    font-size: inherit;
+    color: var(--atri-text-color);
+    background-color: var(--atri-bg-color);
+    border: 1px solid var(--atri-border-color);
+    border-radius: $border-radius;
+    transition: $transition;
+
+    &::placeholder {
+      color: var(--atri-text-color-disabled);
+    }
+
+    &:focus {
+      outline: none;
+      border-color: var(--atri-border-color-hover);
+    }
+  }
+
+  // 借原生选择器但不露脸：input[type=file] 自带一坨 UA 外观，指望 [hidden] 盖不住
+  .atri-media-panel-file {
+    display: none;
+  }
+}
+
+.atri-media-panel-drop {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: $spacing-xs;
+  padding: $spacing-md;
+  color: var(--atri-text-color-secondary);
+  text-align: center;
+  border: 1px dashed var(--atri-border-color);
+  border-radius: $border-radius;
+}
+
+.atri-media-panel-browse,
+.atri-media-panel-insert {
+  padding: $spacing-xs $spacing-md;
+  font-family: inherit;
+  font-size: $font-size-sm;
+  border: 1px solid var(--atri-border-color);
+  border-radius: $border-radius;
+  background-color: var(--atri-bg-color-secondary);
+  color: var(--atri-text-color);
+  cursor: pointer;
+  transition: $transition;
+
+  &:hover {
+    background-color: var(--atri-bg-color-hover);
+  }
+}
+
+.atri-media-panel-insert {
+  border-color: var(--atri-color-primary);
+  background-color: var(--atri-color-primary);
+  color: var(--atri-bg-color);
+
+  &:hover {
+    background-color: var(--atri-color-primary-hover);
+    border-color: var(--atri-color-primary-hover);
+  }
+}
+
+// 上传状态条
+.atri-editor .atri-media-status {
+  position: absolute;
+  right: $spacing-md;
+  bottom: $spacing-md;
+  z-index: $z-dropdown;
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  padding: $spacing-xs $spacing-sm;
+  font-size: $font-size-sm;
+  background-color: var(--atri-bg-color);
+  border: 1px solid var(--atri-color-primary);
+  border-radius: $border-radius;
+  box-shadow: $shadow-sm;
+
+  // 作者样式表里的 display 会盖掉 UA 的 [hidden]，不补这条空闲时也会露一条空壳
+  &[hidden] {
+    display: none;
+  }
+
+  &[data-atri-media-status='error'] {
+    border-color: var(--atri-color-error);
+
+    .atri-media-status-text {
+      color: var(--atri-color-error);
+    }
+  }
+}
+
+.atri-media-status-text {
+  display: inline-flex;
+  gap: $spacing-md;
+  color: var(--atri-color-primary);
+}
+
+.atri-media-status-retry {
+  padding: 0 $spacing-sm;
+  font-family: inherit;
+  font-size: inherit;
+  border: 1px solid var(--atri-color-error);
+  border-radius: $border-radius;
+  background-color: var(--atri-bg-color);
+  color: var(--atri-color-error);
+  cursor: pointer;
+  transition: $transition;
+
+  &:hover {
+    background-color: var(--atri-color-error);
+    color: var(--atri-bg-color);
+  }
+}

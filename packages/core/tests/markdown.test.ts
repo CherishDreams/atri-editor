@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { simpleHtmlToMarkdown, simpleMarkdownToHtml } from '../src/index';
 import { customCardNodeView } from './fixtures';
 import { mount } from './utils';
 
@@ -112,5 +113,22 @@ describe('markdown.indentation', () => {
     // 只有一条生效路径：配置原样转发给 Markdown 扩展，服务层不再各自留一份默认值
     expect(fourSpaces.getMarkdown()).toContain('- a\n    - b');
     expect(oneTab.getMarkdown()).toContain('- a\n\t- b');
+  });
+});
+
+describe('正则降级链路（markdown.enabled 为 false）', () => {
+  it('图片先于链接被识别，否则 ![alt](src) 会退化成 <a>', () => {
+    expect(simpleMarkdownToHtml('![封面](https://cdn.example.com/a.png "标题")')).toBe(
+      '<p><img src="https://cdn.example.com/a.png" alt="封面" title="标题"></p>'
+    );
+    expect(simpleMarkdownToHtml('[详情](https://example.com)')).toBe(
+      '<p><a href="https://example.com">详情</a></p>'
+    );
+  });
+
+  it('<img> 还原为 ![]()，而不是被剥标签规则当成空串吞掉', () => {
+    expect(
+      simpleHtmlToMarkdown('<p><img src="https://cdn.example.com/a.png" alt="封面"></p>')
+    ).toBe('![封面](https://cdn.example.com/a.png)');
   });
 });
