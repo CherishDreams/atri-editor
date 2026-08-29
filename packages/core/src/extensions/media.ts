@@ -27,8 +27,10 @@ export function createMediaExtensions(
   return [
     AtriImage.configure({
       inline: image?.inline ?? false,
-      // base64 既决定能不能插 data URL，也决定 data URL 还解不解得回来
-      allowBase64: image?.allowBase64 ?? false,
+      // allowBase64 只管一件事：img[src^="data:"] 解不解得回来（stock Image 里它只出现在
+      // parseHTML）。失败后内联写进文档的就是 data URL，而重建编辑器按 getHTML() 回填，
+      // 不一起开的话那张图重建一次就静默没了
+      allowBase64: (image?.allowBase64 ?? false) || (image?.fallbackToBase64 ?? false),
       resize: resizable
         ? {
             enabled: true,

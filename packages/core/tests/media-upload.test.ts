@@ -303,6 +303,101 @@ describe('上传管线', () => {
     expect(editor.hasPendingUploads()).toBe(false);
   });
 
+  it('没开兜底时图片失败仍是预览地址，且计入待处理', async () => {
+    const editor = await mount({
+      content: '<p>正文</p>',
+      media: { upload: () => Promise.reject(new Error('boom')) },
+    });
+
+    await editor.uploadFiles([makeFile('封面.png', 'image/png', 8)], 'image');
+
+    const html = editor.getHTML();
+    expect(html).toContain('src="blob:preview/');
+    expect(html).toContain('data-atri-upload-status="error"');
+    expect(html).not.toContain('data:image');
+    expect(editor.hasPendingUploads()).toBe(true);
+  });
+
+  it('开启兜底后图片失败内联成 data URL，仍标 error 但不算待处理', async () => {
+    const onError = vi.fn();
+    const editor = await mount({
+      content: '<p>正文</p>',
+      media: {
+        upload: () => Promise.reject(new Error('boom')),
+        onError,
+        image: { fallbackToBase64: true },
+      },
+    });
+
+    await editor.uploadFiles([makeFile('封面.png', 'image/png', 8)], 'image');
+
+    const html = editor.getHTML();
+    expect(html).toContain('src="data:image/png;base64,');
+    // error 态留着：红框还在，重试按钮也还在，服务端地址迟早要换回去
+    expect(html).toContain('data-atri-upload-status="error"');
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(onError).toHaveBeenCalledWith(expect.objectContaining({ reason: 'upload-failed' }));
+    // 内容已经安全落进文档，保存闸门不该为一个一直失败的上传永久卡住
+    expect(editor.hasPendingUploads()).toBe(false);
+  });
+
+  it('已内联的图片仍可重试，成功后换成服务端地址', async () => {
+    let attempts = 0;
+    const editor = await mount({
+      content: '<p>正文</p>',
+      media: {
+        upload: () => {
+          attempts += 1;
+          return attempts === 1
+            ? Promise.reject(new Error('boom'))
+            : Promise.resolve({ url: 'https://cdn/cover.png' });
+        },
+        image: { fallbackToBase64: true },
+      },
+    });
+
+    await editor.uploadFiles([makeFile('封面.png', 'image/png', 8)], 'image');
+    expect(editor.getHTML()).toContain('src="data:image/png;base64,');
+
+    await editor.retryFailedUploads();
+
+    expect(attempts).toBe(2);
+    const html = editor.getHTML();
+    expect(html).toContain('src="https://cdn/cover.png"');
+    expect(html).not.toContain('data:image/png;base64,');
+    expect(html).not.toContain('data-atri-upload-status');
+  });
+
+  it('连 data URL 都读不出来时退回普通失败态', async () => {
+    vi.stubGlobal(
+      'FileReader',
+      class {
+        onerror: ((event: Event) => void) | null = null;
+        readAsDataURL() {
+          this.onerror?.(new Event('error'));
+        }
+      }
+    );
+    const onError = vi.fn();
+    const editor = await mount({
+      content: '<p>正文</p>',
+      media: {
+        upload: () => Promise.reject(new Error('boom')),
+        onError,
+        image: { fallbackToBase64: true },
+      },
+    });
+
+    await editor.uploadFiles([makeFile('封面.png', 'image/png', 8)], 'image');
+
+    const html = editor.getHTML();
+    expect(html).toContain('src="blob:preview/');
+    expect(html).toContain('data-atri-upload-status="error"');
+    expect(html).not.toContain('data:image');
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(editor.hasPendingUploads()).toBe(true);
+  });
+
   it('校验不过的文件不插节点，原因逐条回调', async () => {
     const onError = vi.fn();
     const editor = await mount({

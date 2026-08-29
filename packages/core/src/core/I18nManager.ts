@@ -37,6 +37,7 @@ const zhResources = {
   media: {
     uploading: '上传中 {{files}} 个 · {{percent}}%',
     uploadFailed: '{{files}} 个文件上传失败',
+    inlined: '{{files}} 张图片未上传（已随文档保存）',
     retry: '重试',
     browse: '选择文件',
     dropHere: '或将文件拖到这里',
@@ -89,6 +90,7 @@ const enResources = {
   media: {
     uploading: 'Uploading {{files}} · {{percent}}%',
     uploadFailed: '{{files}} file(s) failed to upload',
+    inlined: '{{files}} image(s) saved with the document (not uploaded)',
     retry: 'Retry',
     browse: 'Browse',
     dropHere: 'or drop files here',

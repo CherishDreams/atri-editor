@@ -394,6 +394,34 @@ describe('上传状态条', () => {
     expect(rootOf(editor).querySelector('[data-atri-upload-status]')).toBeNull();
   });
 
+  it('内联兜底改口说「已随文档保存」，读数仍可重试', async () => {
+    const editor = await mount({
+      content: '<p>x</p>',
+      media: { upload: flakyUpload(), image: { fallbackToBase64: true } },
+    });
+    await sendFiles(editor, [makeFile('a.png', 'image/png')], 'image');
+    // 内联要等 FileReader，读盘是异步的：再多让一个任务才看得到最终读数
+    await settled();
+
+    const strip = stripOf(editor);
+    const retry = strip.querySelector<HTMLButtonElement>('.atri-media-status-retry')!;
+    expect(strip.getAttribute('data-atri-media-status')).toBe('error');
+    expect(stripText(editor)).toBe('1 张图片未上传（已随文档保存）');
+    expect(retry.hidden).toBe(false);
+    // 内容已经安全在文档里，保存闸门先放开
+    expect(editor.hasPendingUploads()).toBe(false);
+
+    await editor.setLanguage('en');
+    expect(stripText(editor)).toBe('1 image(s) saved with the document (not uploaded)');
+
+    click(retry);
+    await settled();
+    await settled();
+
+    expect(strip.hidden).toBe(true);
+    expect(editor.getHTML()).toContain('src="https://cdn.example.com/a.png"');
+  });
+
   it('切语言后重画为英文', async () => {
     const editor = await mount({ content: '<p>x</p>', media: { upload: pendingUpload() } });
     await sendFiles(editor, [makeFile('a.png', 'image/png')], 'image');

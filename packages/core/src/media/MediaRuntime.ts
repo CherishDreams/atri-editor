@@ -23,7 +23,10 @@ export type MediaStatus = 'uploading' | 'error';
 /** 队列快照，供状态条这类外部展示消费 */
 export interface MediaState {
   uploading: number;
+  /** 失败且内容还只存在于本地预览里的，丢了就是真丢了 */
   failed: number;
+  /** 失败后已按配置内联成 data URL 的图片：不必再传也不该丢 */
+  inline: number;
   /** 按文件体积加权的整体进度，无进行中任务时为 0 */
   percent: number;
 }
@@ -50,10 +53,12 @@ interface MediaTask {
   status: MediaStatus;
   /** 未收到任何进度事件时为 null，让进度条走不定长动画 */
   percent: number | null;
+  /** 失败后已内联成 data URL：src 不再指向 previewUrl，但节点仍标着 error 等重试 */
+  inlined: boolean;
   controller: AbortController;
 }
 
-/** 读文件为 data URL：没有上传通道时的唯一退路，前提是节点开了 allowBase64 */
+/** 读文件为 data URL：本地文件仅有的两条不经过服务端的退路都靠它，前提是图片认 data URL */
 function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -146,6 +151,7 @@ export class MediaRuntime {
 
   /**
    * 重试所有失败的上传，卡片原地回到上传中
+   * 失败后已内联成 data URL 的图片也在其中：换到服务端地址前它一直算"失败"
    */
   retryFailed(): Promise<void> {
     const retried = Array.from(this.tasks.values())
@@ -156,11 +162,14 @@ export class MediaRuntime {
   }
 
   /**
-   * 文档里是否还有没落到服务端的文件（上传中与失败都算）
-   * 接入方保存前应据此提示，否则本地预览地址会被写进持久化内容
+   * 文档里是否还有"现在就保存会丢内容"的文件：上传中与失败都算，
+   * 因为它们的 src 还指着本地预览地址（blob:），刷新即失效
+   *
+   * 失败后已按配置内联成 data URL 的图片不计入——内容已经安全落进文档，
+   * 服务端地址只是可选的优化，别让一个一直失败的上传把保存永久卡住
    */
   hasPendingUploads(): boolean {
-    return this.tasks.size > 0;
+    return Array.from(this.tasks.values()).some((task) => !task.inlined);
   }
 
   getState(): MediaState {
@@ -174,7 +183,8 @@ export class MediaRuntime {
 
     return {
       uploading: uploading.length,
-      failed: tasks.filter((task) => task.status === 'error').length,
+      failed: tasks.filter((task) => task.status === 'error' && !task.inlined).length,
+      inline: tasks.filter((task) => task.inlined).length,
       percent: total ? Math.round((loaded / total) * 100) : 0,
     };
   }
@@ -229,6 +239,7 @@ export class MediaRuntime {
       previewUrl: createPreviewUrl(file),
       status: 'uploading',
       percent: null,
+      inlined: false,
       controller: new AbortController(),
     };
     this.tasks.set(task.id, task);
@@ -278,6 +289,9 @@ export class MediaRuntime {
 
     task.status = 'uploading';
     task.percent = null;
+    // 重试一张已内联的图：src 先留着 data URL（换地址前它仍是能看的图），
+    // 但闸门回到"有上传在飞"，再失败也会重新判一次要不要内联
+    task.inlined = false;
     task.controller = new AbortController();
     this.patch(task, this.stateAttrs(task, 'uploading'));
     this.emit();
@@ -299,11 +313,47 @@ export class MediaRuntime {
 
       task.status = 'error';
       task.percent = null;
-      this.patch(task, this.stateAttrs(task, 'error'));
-      // patch 只改节点不广播，失败态得靠这一次 emit 才会上到状态条
-      this.emit();
+
+      // 只有图片有 base64 退路：附件内联等于把几 MB 塞进 !file[..](data:…) 那一行
+      const canInline = task.kind === 'image' && this.config.image?.fallbackToBase64 === true;
+      const inlined = canInline && (await this.inlineAfterFailure(task));
+
+      if (!inlined) {
+        this.patch(task, this.stateAttrs(task, 'error'));
+        // patch 只改节点不广播，失败态得靠这一次 emit 才会上到状态条
+        this.emit();
+      }
+      // 内联成不成功都该让宿主知道这次上传失败了；图片能不能显示是另一件事
       this.reject(task.file, 'upload-failed', cause);
     }
+  }
+
+  /**
+   * 上传失败后把图片读成 data URL，原位换掉 src
+   *
+   * 是 patch 而不是插新节点：位置与"撤销一步回到插入前"这两条语义都靠它才不碎。
+   * error 态留着——重试按钮还在，网络恢复后能把 data URL 换成服务端地址
+   */
+  private async inlineAfterFailure(task: MediaTask): Promise<boolean> {
+    // 请求期间节点可能已被删掉，那时任务已经清理过了
+    if (!this.tasks.has(task.id)) return false;
+
+    let src: string;
+    try {
+      src = await readFileAsDataUrl(task.file);
+    } catch {
+      return false;
+    }
+
+    this.patch(task, { src, ...this.stateAttrs(task, 'error') });
+    // patch 找不到节点时会把任务摘掉，那时没什么可内联的
+    if (!this.tasks.has(task.id)) return false;
+
+    task.inlined = true;
+    // blob 地址已经不被文档引用了，留着就是白占一份文件内存
+    revokePreviewUrl(task);
+    this.emit();
+    return true;
   }
 
   private applyResult(task: MediaTask, result: UploadResult): void {

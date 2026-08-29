@@ -47,6 +47,21 @@ describe('图片节点', () => {
     expect(wrapper).toBeTruthy();
     expect(wrapper!.querySelector('[data-resize-handle]')).toBeTruthy();
   });
+
+  it('只开 fallbackToBase64 也认得 data URL', async () => {
+    // 兜底写进文档的就是 data URL，而重建编辑器按 getHTML() 回填：
+    // 不连带打开 allowBase64，图片重建一次就静默没了
+    const dataUrl = '<p><img src="data:image/png;base64,AAAA" alt="封面"></p>';
+
+    const fallback = await mount({
+      content: dataUrl,
+      media: { image: { fallbackToBase64: true } },
+    });
+    expect(fallback.getHTML()).toContain('src="data:image/png;base64,AAAA"');
+
+    const strict = await mount({ content: dataUrl });
+    expect(strict.getHTML()).not.toContain('data:image/png');
+  });
 });
 
 describe('连续插入媒体节点', () => {

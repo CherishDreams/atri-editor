@@ -86,6 +86,16 @@ export interface AtriImageConfig {
    * 同时也是没有上传通道时的退路开关：关掉它，本地文件将无从插入
    */
   allowBase64?: boolean;
+  /**
+   * 上传失败后是否把这张图读成 data URL 内联，默认 false（只有图片有这条退路）
+   *
+   * 内联写进文档的是 data URL，而编辑器重建时按 `getHTML()` 回填——节点不认 data URL
+   * 就等于内容重建一次就没，所以这个开关会连带打开 `allowBase64`
+   *
+   * 内联成功后图片仍标着 error 态，「重试」还能把原文件再传一次换成服务端地址；
+   * 但内容已经安全落进文档，`hasPendingUploads()` 不再把它算作待处理
+   */
+  fallbackToBase64?: boolean;
   /** 是否显示缩放手柄，默认 true */
   resize?: boolean;
   /** 类型白名单，如 `image/*` 或 `.png,.jpg` */

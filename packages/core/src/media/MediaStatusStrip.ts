@@ -10,6 +10,7 @@ import type { MediaRuntime, MediaState } from './MediaRuntime';
 interface Labels {
   uploading: (files: number, percent: number) => string;
   failed: (files: number) => string;
+  inline: (files: number) => string;
   retry: () => string;
 }
 
@@ -32,6 +33,7 @@ export class MediaStatusStrip {
       uploading: (files, percent) =>
         t('media.uploading', '上传中 {{files}} 个 · {{percent}}%', { files, percent }),
       failed: (files) => t('media.uploadFailed', '{{files}} 个文件上传失败', { files }),
+      inline: (files) => t('media.inlined', '{{files}} 张图片未上传（已随文档保存）', { files }),
       retry: () => t('media.retry', '重试'),
     };
 
@@ -65,14 +67,18 @@ export class MediaStatusStrip {
   }
 
   private render(state: MediaState): void {
+    const { failed, inline } = state;
     const parts: string[] = [];
     if (state.uploading) parts.push(this.labels.uploading(state.uploading, state.percent));
-    if (state.failed) parts.push(this.labels.failed(state.failed));
+    if (failed) parts.push(this.labels.failed(failed));
+    if (inline) parts.push(this.labels.inline(inline));
+    // 同一个文件只落进 failed 或 inline 一档，两句同时出现是队列里有不同的文件
 
-    // 失败态是这一条唯一的分色依据，靠 :has() 找子元素太脆
-    this.element.setAttribute('data-atri-media-status', state.failed ? 'error' : 'uploading');
+    const needsAttention = failed > 0 || inline > 0;
+    // 失败与已内联共用红色这一档，靠 :has() 找子元素太脆
+    this.element.setAttribute('data-atri-media-status', needsAttention ? 'error' : 'uploading');
     this.element.hidden = !parts.length;
-    // 两段话各占一个 span，分隔交给样式表：拼接用的标点没有中立写法
+    // 每段话各占一个 span，分隔交给样式表：拼接用的标点没有中立写法
     this.text.replaceChildren(
       ...parts.map((part) => {
         const span = document.createElement('span');
@@ -80,7 +86,8 @@ export class MediaStatusStrip {
         return span;
       })
     );
-    this.retry.hidden = !state.failed;
+    // 已内联的图仍可重试：换到服务端地址之前，这条读数不该只留着当提示
+    this.retry.hidden = !needsAttention;
     this.retry.textContent = this.labels.retry();
   }
 }
