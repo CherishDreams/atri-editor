@@ -95,17 +95,22 @@
       center / contain no-repeat;
   }
 
-  .atri-attachment-name {
+  // 名字与大小各占一行：单行挤不下长文件名，省略号又藏掉了最关键的信息
+  .atri-attachment-body {
+    display: flex;
     flex: 1;
+    flex-direction: column;
+    gap: 2px;
     min-width: 0;
-    overflow: hidden;
+  }
+
+  .atri-attachment-name {
+    min-width: 0;
+    overflow-wrap: anywhere;
     color: var(--atri-text-color);
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .atri-attachment-size {
-    flex: none;
     font-size: $font-size-sm;
     color: var(--atri-text-color-secondary);
   }

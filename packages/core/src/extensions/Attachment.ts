@@ -109,12 +109,16 @@ export const Attachment = Node.create({
 
     const children: DOMOutputSpec[] = [
       ['span', { class: 'atri-attachment-icon', 'aria-hidden': 'true' }],
-      ['a', { class: 'atri-attachment-name', href: src, rel: 'noopener noreferrer' }, label],
     ];
 
+    const body: DOMOutputSpec[] = [
+      ['a', { class: 'atri-attachment-name', href: src, rel: 'noopener noreferrer' }, label],
+    ];
     if (size) {
-      children.push(['span', { class: 'atri-attachment-size' }, formatFileSize(size)]);
+      body.push(['span', { class: 'atri-attachment-size' }, formatFileSize(size)]);
     }
+    // 名字与大小各占一行：单行挤不下长文件名，省略号又藏掉了最关键的信息
+    children.push(['div', { class: 'atri-attachment-body' }, ...body]);
 
     // 卡片上没有一处硬编码文案：状态只靠进度条与配色表达，
     // "上传中 2/3"、"重试"这类带文字的信息在本地化的状态条里
