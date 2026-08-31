@@ -141,14 +141,17 @@ describe('插入浮层', () => {
   });
 
   it('切语言后新按钮的 tooltip 与开着的面板一起改文案', async () => {
-    const editor = await mount({ content: '<p>x</p>', toolbar: { items: ['insertImage'] } });
+    const editor = await mount({
+      content: '<p>x</p>',
+      toolbar: { items: ['insertImage', 'attachmentDisplay'] },
+    });
     click(buttonOf(editor, 'insertImage'));
     const urlInput = inPanel<HTMLInputElement>('.atri-media-panel-url')!;
 
     expect(urlInput.placeholder).toBe('图片地址（https://…）');
     await editor.setLanguage('en');
 
-    expect(toolbarTitles(editor)).toEqual(['Image']);
+    expect(toolbarTitles(editor)).toEqual(['Image', 'Attachment style']);
     expect(urlInput.placeholder).toBe('Image URL (https://…)');
     expect(inPanel<HTMLButtonElement>('.atri-media-panel-insert')!.textContent).toBe('Insert');
   });
