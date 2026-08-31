@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Node as PmNode } from '@tiptap/pm/model';
 import type { EditorView } from '@tiptap/pm/view';
-import { mount, rootOf } from './utils';
+import { mount, rootOf, selectNode } from './utils';
 
 describe('附件节点', () => {
   it('默认注册 attachment 节点，setAttachment 产出卡片结构', async () => {
@@ -343,5 +343,17 @@ describe('附件形态切换', () => {
       .run();
     expect(button.disabled).toBe(false);
     expect(button.classList.contains('active')).toBe(true);
+  });
+
+  it('选中附件后 deleteSelection 摘掉节点', async () => {
+    // 浮动工具栏的删除按钮走的就是这条命令
+    const editor = await mount({ content: '<p>正文</p>' });
+    editor.insertAttachment({ src: 'https://cdn.example.com/a.pdf', name: 'a.pdf' });
+    selectNode(editor, 'attachment');
+
+    expect(editor.editor.chain().deleteSelection().run()).toBe(true);
+
+    expect(editor.getHTML()).not.toContain('a.pdf');
+    expect(editor.getHTML()).toContain('正文');
   });
 });

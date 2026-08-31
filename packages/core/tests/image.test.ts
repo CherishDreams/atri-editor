@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { UploadResult } from '../src/types';
-import { mount } from './utils';
+import { mount, selectNode } from './utils';
 
 describe('图片节点', () => {
   it('默认注册 image 节点，setImage 产出 img', async () => {
@@ -61,6 +61,18 @@ describe('图片节点', () => {
 
     const strict = await mount({ content: dataUrl });
     expect(strict.getHTML()).not.toContain('data:image/png');
+  });
+
+  it('选中图片后 deleteSelection 摘掉节点', async () => {
+    // 浮动工具栏的删除按钮走的就是这条命令，NodeSelection 得留着别被它自己压掉
+    const editor = await mount({ content: '<p>正文</p>' });
+    editor.insertImage({ src: 'https://cdn.example.com/a.png', alt: 'A' });
+    selectNode(editor, 'image');
+
+    expect(editor.editor.chain().deleteSelection().run()).toBe(true);
+
+    expect(editor.getHTML()).not.toContain('a.png');
+    expect(editor.getHTML()).toContain('正文');
   });
 });
 

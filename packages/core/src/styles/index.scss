@@ -123,6 +123,25 @@
   background-color: var(--atri-bg-color);
   box-shadow: $shadow-md;
   z-index: $z-dropdown;
+
+  // 两组按钮一次都渲染出来，谁占宽度看下面按 mode 开的口子
+  .atri-editor-bubble-group {
+    display: none;
+    align-items: center;
+    gap: 2px;
+  }
+}
+
+.atri-editor-bubble-toolbar[data-atri-bubble-mode='text']
+  .atri-editor-bubble-group[data-atri-bubble-group='text'],
+.atri-editor-bubble-toolbar[data-atri-bubble-mode='node']
+  .atri-editor-bubble-group[data-atri-bubble-group='node'] {
+  display: flex;
+}
+
+// 图片没有形态可切：藏掉而不是摆个按不动的灰按钮，浮层里只该有真能按的
+.atri-editor-bubble-toolbar[data-atri-bubble-node='image'] [data-toolbar-item='attachmentDisplay'] {
+  display: none;
 }
 
 // Content Wrapper

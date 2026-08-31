@@ -2,11 +2,11 @@
  * ToolbarManager - 工具栏管理器
  * 负责创建工具栏 DOM、绑定按钮事件、更新按钮状态
  */
-import type { Editor } from '@tiptap/core';
+import { isNodeSelection, type Editor } from '@tiptap/core';
 import type { ToolbarConfig, ToolbarItem } from '../types';
 import { InsertPanel, type InsertPanelMode } from '../media/InsertPanel';
 import type { MediaRuntime } from '../media/MediaRuntime';
-import { BUBBLE_TEXT_ITEMS } from './bubble-toolbar';
+import { BUBBLE_NODE_ITEMS, BUBBLE_TEXT_ITEMS } from './bubble-toolbar';
 import type { I18nManager } from './I18nManager';
 import { icons } from './icons';
 
@@ -49,6 +49,7 @@ const TOOLTIP_KEYS: Record<string, string> = {
   insertImage: 'editor.image',
   insertAttachment: 'editor.attachment',
   attachmentDisplay: 'editor.attachmentDisplay',
+  delete: 'editor.delete',
 };
 
 /**
@@ -99,11 +100,33 @@ export class ToolbarManager {
     // 否则上一任的按钮还留在盒子里，却再也等不到状态同步
     element.replaceChildren();
 
-    BUBBLE_TEXT_ITEMS.forEach((itemId) => {
-      const itemDef = this.itemDefs.get(itemId);
-      if (!itemDef) return;
+    // 两组一次都渲染出来，靠 CSS 读容器上的 data-atri-bubble-mode 决定哪组占宽度
+    const groups: [string, readonly string[]][] = [
+      ['text', BUBBLE_TEXT_ITEMS],
+      ['node', BUBBLE_NODE_ITEMS],
+    ];
 
-      element.appendChild(this.createButton(itemId, itemDef));
+    groups.forEach(([groupId, itemIds]) => {
+      const group = document.createElement('div');
+      group.className = 'atri-editor-bubble-group';
+      group.setAttribute('data-atri-bubble-group', groupId);
+
+      itemIds.forEach((itemId) => {
+        const itemDef = this.itemDefs.get(itemId);
+        if (!itemDef) return;
+
+        // 带浮层的项不能进这里：面板锚在按钮上，而按钮跟着浮层一起被摘出文档
+        if (itemDef.popup) {
+          console.warn(
+            `[Atri Editor] Toolbar item "${itemId}" opens a panel, which bubble toolbar cannot host.`
+          );
+          return;
+        }
+
+        group.appendChild(this.createButton(itemId, itemDef));
+      });
+
+      element.appendChild(group);
     });
 
     this.applyTooltips();
@@ -316,6 +339,16 @@ export class ToolbarManager {
           !editor.isActive('attachment') && !editor.isActive('attachmentLink'),
       });
     }
+
+    // 删除作用于选中的整节点：一段文字该交给 Delete 键，所以它不进顶栏默认布局
+    items.set('delete', {
+      id: 'delete',
+      icon: icons.trash,
+      tooltip: '删除',
+      command: (editor) => editor.chain().deleteSelection().run(),
+      isActive: () => false,
+      isDisabled: (editor) => !isNodeSelection(editor.state.selection),
+    });
 
     // 撤销
     items.set('undo', {

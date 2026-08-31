@@ -155,9 +155,11 @@
       <div class="media-demo">
         <h2>选区浮动工具栏演示</h2>
         <p>
-          勾选后重建编辑器，选中正文里的一段字就会在选区旁浮出一排行内格式按钮（粗体、斜体、下划线、
-          删除线、行内代码）。浮层挂在编辑区内部，跟着正文一起滚，也一起被裁切；选区贴着首行放不下时会
-          翻到下方。<code>toolbar.bubble</code> 只在创建时生效，所以开关要走「重建编辑器」。
+          勾选后重建编辑器，浮层按选中的对象给两批按钮：选中一段字浮出行内格式五项（粗体、斜体、下划线、
+          删除线、行内代码），点附件卡片浮出「附件样式 +
+          删除」，点图片只有「删除」。浮层挂在编辑区内部，
+          跟着正文一起滚，也一起被裁切；选区贴着首行放不下时会翻到下方；代码块里的文字五项标记一个都挂不上，
+          所以那里索性不浮出。<code>toolbar.bubble</code> 只在创建时生效，开关得走「重建编辑器」。
         </p>
         <div class="controls" style="margin-top: 10px">
           <label><input type="checkbox" id="chk-bubble" /> 启用选区浮动工具栏</label>
@@ -615,7 +617,7 @@
         window.editor.destroy();
         mountEditor();
         showOutput(
-          `已按 toolbar.bubble = ${editorOptions.toolbar.bubble} 重建编辑器，选中一段字试试。`
+          `已按 toolbar.bubble = ${editorOptions.toolbar.bubble} 重建编辑器，选段字或点一下图片 / 附件试试。`
         );
       });
 

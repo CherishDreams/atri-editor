@@ -56,10 +56,50 @@ export function bubbleRoot(editor: AtriEditor): HTMLDivElement | null {
   return rootOf(editor).querySelector<HTMLDivElement>('.atri-editor-bubble-toolbar');
 }
 
+/**
+ * 浮层当前算的是哪一组：mode 由 shouldShow 直接写在容器上，null 即没浮出
+ */
+export function bubbleMode(editor: AtriEditor): string | null {
+  return bubbleRoot(editor)?.dataset.atriBubbleMode ?? null;
+}
+
+/**
+ * 按分组取按钮 id，跟这一组当前显不显示无关
+ *
+ * 两组按钮一次都渲染在同一个盒子里，隐藏那组靠 CSS 的 display:none，
+ * jsdom 里没有排版也就能照样查结构
+ */
+export function bubbleGroupItems(editor: AtriEditor, group: string): string[] {
+  const buttons = bubbleRoot(editor)?.querySelectorAll<HTMLButtonElement>(
+    `[data-atri-bubble-group="${group}"] [data-toolbar-item]`
+  );
+
+  return Array.from(buttons ?? []).map((button) => button.getAttribute('data-toolbar-item') ?? '');
+}
+
+/**
+ * 浮出来的按钮：只算当前那一组，另一组虽然挂在同一个盒子里，但用户看不见它
+ */
 export function bubbleItems(editor: AtriEditor): string[] {
-  return Array.from(
-    bubbleRoot(editor)?.querySelectorAll<HTMLButtonElement>('[data-toolbar-item]') ?? []
-  ).map((button) => button.getAttribute('data-toolbar-item') ?? '');
+  const mode = bubbleMode(editor);
+  return mode ? bubbleGroupItems(editor, mode) : [];
+}
+
+/**
+ * 把文档里第一个该类型的节点整节点选中
+ *
+ * 插入命令收尾不一定留下 NodeSelection（图片留的就是光标），而浏览器里点一下卡片
+ * 本来就是选中，这一步得自己补上。选不到就直接抛，别留着旧选区断言出假阳性
+ */
+export function selectNode(editor: AtriEditor, nodeName: string): void {
+  let pos = -1;
+  editor.editor.state.doc.descendants((node, nodePos) => {
+    if (pos < 0 && node.type.name === nodeName) pos = nodePos;
+  });
+  if (pos < 0) throw new Error(`Node "${nodeName}" is not in the document`);
+  if (!editor.editor.commands.setNodeSelection(pos)) {
+    throw new Error(`Node "${nodeName}" at ${pos} is not selectable`);
+  }
 }
 
 /**

@@ -1,7 +1,17 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { AtriEditor } from '../src/index';
 import { customCardNodeView } from './fixtures';
-import { bubbleItems, bubbleRoot, mount, rootOf, stubGeometry, toolbarButtons } from './utils';
+import {
+  bubbleGroupItems,
+  bubbleItems,
+  bubbleMode,
+  bubbleRoot,
+  mount,
+  rootOf,
+  selectNode,
+  stubGeometry,
+  toolbarButtons,
+} from './utils';
 
 /** 选中一段文字并等插件把浮层挂进文档 */
 async function selectRange(editor: AtriEditor, from: number, to: number): Promise<void> {
@@ -11,9 +21,31 @@ async function selectRange(editor: AtriEditor, from: number, to: number): Promis
   });
 }
 
+/** 把选区收成一个光标，等插件把它摘出文档 */
+async function collapse(editor: AtriEditor, at: number): Promise<void> {
+  editor.editor.commands.setTextSelection({ from: at, to: at });
+  await vi.waitFor(() => {
+    expect(bubbleRoot(editor)).toBeNull();
+  });
+}
+
+/** 点浮层里的一个按钮 */
+function clickBubbleItem(editor: AtriEditor, itemId: string): void {
+  const button = bubbleRoot(editor)!.querySelector<HTMLButtonElement>(
+    `[data-toolbar-item="${itemId}"]`
+  )!;
+  button.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+}
+
 function bubbleTitles(editor: AtriEditor): string[] {
+  return bubbleGroupTitles(editor, 'text');
+}
+
+function bubbleGroupTitles(editor: AtriEditor, group: string): string[] {
   return Array.from(
-    bubbleRoot(editor)?.querySelectorAll<HTMLButtonElement>('[data-toolbar-item]') ?? []
+    bubbleRoot(editor)?.querySelectorAll<HTMLButtonElement>(
+      `[data-atri-bubble-group="${group}"] [data-toolbar-item]`
+    ) ?? []
   ).map((button) => button.title);
 }
 
@@ -36,6 +68,9 @@ describe('选区浮动工具栏', () => {
     await selectRange(editor, 2, 6);
 
     expect(bubbleItems(editor)).toEqual(['bold', 'italic', 'underline', 'strike', 'code']);
+    expect(bubbleMode(editor)).toBe('text');
+    // 节点组一次就渲染好了，藏它的是 CSS 而不是"没建"，所以此刻就能查到它的结构
+    expect(bubbleGroupItems(editor, 'node')).toEqual(['attachmentDisplay', 'delete']);
     // 顶栏不受影响，浮层挂在正文自己的滚动盒里
     expect(toolbarButtons(editor)).toHaveLength(21);
     expect(bubbleRoot(editor)?.parentElement?.className).toBe('atri-editor-content-wrapper');
@@ -46,8 +81,7 @@ describe('选区浮动工具栏', () => {
     stubGeometry(editor);
     await selectRange(editor, 2, 6);
 
-    editor.editor.commands.setTextSelection({ from: 7, to: 7 });
-    expect(bubbleRoot(editor)).toBeNull();
+    await collapse(editor, 7);
 
     await selectRange(editor, 7, 11);
     expect(bubbleItems(editor)).toHaveLength(5);
@@ -111,6 +145,7 @@ describe('选区浮动工具栏', () => {
     await selectRange(editor, 2, 6);
 
     expect(bubbleTitles(editor)).toEqual(['加粗', '斜体', '下划线', '删除线', '行内代码']);
+    expect(bubbleGroupTitles(editor, 'node')).toEqual(['附件样式', '删除']);
 
     await editor.setLanguage('en');
     expect(bubbleTitles(editor)).toEqual([
@@ -120,6 +155,7 @@ describe('选区浮动工具栏', () => {
       'Strikethrough',
       'Inline Code',
     ]);
+    expect(bubbleGroupTitles(editor, 'node')).toEqual(['Attachment style', 'Delete']);
   });
 
   it('销毁后文档里不再留下浮层', async () => {
@@ -130,5 +166,99 @@ describe('选区浮动工具栏', () => {
     editor.destroy();
 
     expect(document.querySelector('.atri-editor-bubble-toolbar')).toBeNull();
+  });
+});
+
+describe('选中图片 / 附件时浮出节点组', () => {
+  /** 插入命令收尾就把节点选中了，等的是插件自己把浮层挂回来 */
+  async function showForAttachment(editor: AtriEditor): Promise<void> {
+    editor.insertAttachment({ src: 'https://cdn.test/a.pdf', name: 'a.pdf' });
+    await vi.waitFor(() => {
+      expect(bubbleMode(editor)).toBe('node');
+    });
+  }
+
+  it('附件浮出切形态与删除，切完浮层还指着新形态', async () => {
+    const editor = await mount({ content: '<p>hello</p>', toolbar: { bubble: true } });
+    stubGeometry(editor);
+    await showForAttachment(editor);
+
+    expect(bubbleItems(editor)).toEqual(['attachmentDisplay', 'delete']);
+    expect(bubbleRoot(editor)?.dataset.atriBubbleNode).toBe('attachment');
+
+    clickBubbleItem(editor, 'attachmentDisplay');
+
+    await vi.waitFor(() => {
+      expect(editor.editor.isActive('attachmentLink')).toBe(true);
+    });
+    // 切换顺手把选区落到新节点上：浮层不该退回文字组，也不该弹一下再消失
+    await vi.waitFor(() => {
+      expect(bubbleRoot(editor)?.dataset.atriBubbleNode).toBe('attachmentLink');
+    });
+    expect(bubbleMode(editor)).toBe('node');
+  });
+
+  it('图片只有删除能按', async () => {
+    const editor = await mount({ content: '<p>hello</p>', toolbar: { bubble: true } });
+    stubGeometry(editor);
+    editor.insertImage({ src: 'https://cdn.test/a.png', alt: 'A' });
+    // 浏览器里点一下图片就是选中，插入命令收尾留的却是光标
+    selectNode(editor, 'image');
+    await vi.waitFor(() => {
+      expect(bubbleMode(editor)).toBe('node');
+    });
+
+    expect(bubbleRoot(editor)?.dataset.atriBubbleNode).toBe('image');
+    // 藏掉那一项是 CSS 的事，jsdom 里查不到 display，这里只验它确实按不动
+    expect(
+      bubbleGroupItems(editor, 'node').map((itemId) => [
+        itemId,
+        bubbleRoot(editor)?.querySelector<HTMLButtonElement>(`[data-toolbar-item="${itemId}"]`)
+          ?.disabled,
+      ])
+    ).toEqual([
+      ['attachmentDisplay', true],
+      ['delete', false],
+    ]);
+  });
+
+  it('点删除把选中的附件从文档里摘掉', async () => {
+    const editor = await mount({ content: '<p>hello</p>', toolbar: { bubble: true } });
+    stubGeometry(editor);
+    await showForAttachment(editor);
+
+    clickBubbleItem(editor, 'delete');
+
+    await vi.waitFor(() => {
+      expect(editor.getHTML()).not.toContain('a.pdf');
+    });
+    expect(editor.getHTML()).toContain('hello');
+  });
+
+  it('选区从附件挪回文字，浮层跟着换组', async () => {
+    const editor = await mount({ content: '<p>hello world</p>', toolbar: { bubble: true } });
+    stubGeometry(editor);
+    await showForAttachment(editor);
+
+    editor.editor.commands.setTextSelection({ from: 2, to: 6 });
+    await vi.waitFor(() => {
+      expect(bubbleMode(editor)).toBe('text');
+    });
+    expect(bubbleRoot(editor)?.dataset.atriBubbleNode).toBe('');
+    expect(bubbleItems(editor)).toHaveLength(5);
+  });
+
+  it('关掉 media 后节点组退化到只剩删除', async () => {
+    // media:false 时压根没有附件节点，切形态那项连定义都不存在
+    const editor = await mount({
+      content: '<p>hello world</p>',
+      media: false,
+      toolbar: { bubble: true },
+    });
+    stubGeometry(editor);
+    await selectRange(editor, 2, 6);
+
+    expect(bubbleGroupItems(editor, 'node')).toEqual(['delete']);
+    expect(bubbleItems(editor)).toEqual(['bold', 'italic', 'underline', 'strike', 'code']);
   });
 });

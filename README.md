@@ -232,9 +232,9 @@ atri-editor/
 |------|------|------|
 | `toolbar` | `ToolbarConfig \| false` | `false` 时不渲染工具栏 |
 | `toolbar.items` | `(string \| ToolbarItem)[]` | 按顺序渲染，省略时使用默认全集 |
-| `toolbar.bubble` | `boolean` | 选中文字时在选区旁浮出的工具栏，默认 false；与固定顶栏共存 |
+| `toolbar.bubble` | `boolean` | 选中文字或图片 / 附件时在选区旁浮出的工具栏，默认 false；与固定顶栏共存 |
 
-内置项 id：`undo` `redo` `heading1` `heading2` `heading3` `paragraph` `bold` `italic` `underline` `strike` `code` `bulletList` `orderedList` `blockquote` `codeBlock` `alignLeft` `alignCenter` `alignRight` `insertImage` `insertAttachment` `attachmentDisplay`。后三项与媒体扩展绑定（`media: false` 时不存在）：前两项打开插入浮层，`attachmentDisplay` 在选中附件时切换卡片与行内链接形态。
+内置项 id：`undo` `redo` `heading1` `heading2` `heading3` `paragraph` `bold` `italic` `underline` `strike` `code` `bulletList` `orderedList` `blockquote` `codeBlock` `alignLeft` `alignCenter` `alignRight` `insertImage` `insertAttachment` `attachmentDisplay` `delete`。媒体三项与媒体扩展绑定（`media: false` 时不存在）：前两项打开插入浮层，`attachmentDisplay` 在选中附件时切换卡片与行内链接形态。`delete` 只在选中整节点（图片 / 附件）时有作用对象，所以不在顶栏默认布局里——浮层的节点组会带上它，想摆上顶栏就自己写进 `items`。
 
 `ToolbarItem` 只能挂在内置项上：`icon`（SVG 字符串）优先于 `label`（文字按钮）优先于内置图标；`tooltip` 优先于当前语言的内置词条；`children` 尚未实现，声明后会被忽略。未知 id 会告警并跳过。
 
@@ -244,7 +244,7 @@ toolbar: {
 }
 ```
 
-`toolbar.bubble` 打开的是选中文字后浮在选区旁的一小排按钮，内容固定为 `bold` `italic` `underline` `strike` `code`（块级与列表仍留在顶栏，免得浮层长到盖住所选的字）。它挂在编辑区内部，所以随正文一起滚动、也被编辑区裁切；选区在首行放不下时会翻到选区下方。该开关只在创建时生效——tiptap v3 没有运行时注册扩展的入口，改配置需要重建编辑器。
+`toolbar.bubble` 打开的是选区旁边浮出来的一小排按钮，按选中的对象分两组：选中文字给 `bold` `italic` `underline` `strike` `code`（块级与列表仍留在顶栏，免得浮层长到盖住所选的字；代码块里这五项一个都挂不上，于是索性不浮出），选中附件给 `attachmentDisplay` + `delete`，选中图片只给 `delete`。浮层挂在编辑区内部，所以随正文一起滚动、也被编辑区裁切；选区在首行放不下时会翻到选区下方。该开关只在创建时生效——tiptap v3 没有运行时注册扩展的入口，改配置需要重建编辑器。
 
 ### Markdown 配置
 
