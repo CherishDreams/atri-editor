@@ -48,9 +48,10 @@ describe('ToolbarManager', () => {
       'alignLeft',
       'alignCenter',
       'alignRight',
-      // 媒体扩展默认注册，末组是插入图片与附件
+      // 媒体扩展默认注册，末组是插入图片、附件与附件样式切换
       'insertImage',
       'insertAttachment',
+      'attachmentDisplay',
     ]);
     expect(separators).toBe(5);
   });

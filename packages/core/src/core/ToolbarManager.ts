@@ -47,6 +47,7 @@ const TOOLTIP_KEYS: Record<string, string> = {
   alignRight: 'editor.alignRight',
   insertImage: 'editor.image',
   insertAttachment: 'editor.attachment',
+  attachmentDisplay: 'editor.attachmentDisplay',
 };
 
 /**
@@ -129,7 +130,9 @@ export class ToolbarManager {
       ['bulletList', 'orderedList', 'blockquote', 'codeBlock'],
       ['alignLeft', 'alignCenter', 'alignRight'],
       // 媒体节点没注册时这两项压根不存在，默认布局里也不摆空位
-      ...(this.itemDefs.has('insertImage') ? [['insertImage', 'insertAttachment']] : []),
+      ...(this.itemDefs.has('insertImage')
+        ? [['insertImage', 'insertAttachment', 'attachmentDisplay']]
+        : []),
     ];
 
     layout.forEach((group, groupIndex) => {
@@ -271,6 +274,17 @@ export class ToolbarManager {
         command: (_editor, button) => this.openInsert('attachment', button),
         isActive: () => this.panel?.openMode === 'attachment',
         isDisabled: (editor) => !editor.isEditable,
+      });
+
+      // 卡片↔行内链接是选中态上的操作：没选中附件就没有作用对象
+      items.set('attachmentDisplay', {
+        id: 'attachmentDisplay',
+        icon: icons.link,
+        tooltip: '附件样式',
+        command: (editor) => editor.chain().focus().toggleAttachmentDisplay().run(),
+        isActive: (editor) => editor.isActive('attachment') || editor.isActive('attachmentLink'),
+        isDisabled: (editor) =>
+          !editor.isActive('attachment') && !editor.isActive('attachmentLink'),
       });
     }
 

@@ -265,7 +265,13 @@ export class MediaRuntime {
       attrs.alt = file.name;
     }
 
-    return { type: task.kind, attrs };
+    // 附件按配置的默认形态直接插成行内链接；补丁管线按 attrs 认节点，两种形态不用区分
+    const type =
+      task.kind === 'attachment' && this.config.attachment?.display === 'link'
+        ? 'attachmentLink'
+        : task.kind;
+
+    return { type, attrs };
   }
 
   /**

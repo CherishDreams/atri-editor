@@ -103,11 +103,18 @@ export interface AtriImageConfig {
 }
 
 /**
+ * 附件显示形态：块级卡片 / 行内链接（两个节点类型，切换命令在它们之间换节点）
+ */
+export type AtriAttachmentDisplay = 'card' | 'link';
+
+/**
  * 附件节点配置
  */
 export interface AtriAttachmentConfig {
   /** 类型白名单，默认不限 */
   accept?: string | string[];
+  /** 新插入附件的默认形态，默认 'card'；上传中与失败的表达在链接形态下与图片同一套语 */
+  display?: AtriAttachmentDisplay;
 }
 
 /**
@@ -122,7 +129,7 @@ export interface InsertImageOptions {
 }
 
 /**
- * 插入附件卡片的参数
+ * 插入附件的参数
  */
 export interface InsertAttachmentOptions {
   /** 文件地址 */
@@ -132,6 +139,8 @@ export interface InsertAttachmentOptions {
   /** 字节数 */
   size?: number | null;
   mime?: string | null;
+  /** 显示形态，缺省走 media.attachment.display 配置 */
+  display?: AtriAttachmentDisplay;
 }
 
 /**

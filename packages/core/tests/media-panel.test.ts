@@ -56,6 +56,15 @@ function settled(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
+/** 让出多个宏任务直到条件成立：链路里异步步数不是恒定的（如 FileReader 落盘），固定让一个任务会偶发抢跑 */
+async function until(predicate: () => boolean, what: string): Promise<void> {
+  for (let i = 0; i < 50; i++) {
+    if (predicate()) return;
+    await settled();
+  }
+  throw new Error(`等待超时：${what}`);
+}
+
 /**
  * uploadFiles() 会等整条队列落地，永不 resolve 的通道会把用例挂住。
  * 插节点与状态回填都在 handleFiles 的第一个 await 之前同步完成，派出去再让出一个宏任务就能看到"上传中"
@@ -117,13 +126,17 @@ describe('插入浮层', () => {
     warns.length = 0;
   });
 
-  it('默认工具栏末尾多出图片与附件两项', async () => {
+  it('默认工具栏末尾多出图片、附件与附件样式三项', async () => {
     const editor = await mount({ content: '<p>x</p>', toolbar: {} });
 
-    expect(itemIds(editor).slice(-2)).toEqual(['insertImage', 'insertAttachment']);
-    expect(toolbarButtons(editor)).toHaveLength(20);
+    expect(itemIds(editor).slice(-3)).toEqual([
+      'insertImage',
+      'insertAttachment',
+      'attachmentDisplay',
+    ]);
+    expect(toolbarButtons(editor)).toHaveLength(21);
     expect(separatorCount(editor)).toBe(5);
-    expect(toolbarTitles(editor).slice(-2)).toEqual(['图片', '附件']);
+    expect(toolbarTitles(editor).slice(-3)).toEqual(['图片', '附件', '附件样式']);
     expect(buttonOf(editor, 'insertImage').querySelector('svg')).not.toBeNull();
   });
 
@@ -400,8 +413,11 @@ describe('上传状态条', () => {
       media: { upload: flakyUpload(), image: { fallbackToBase64: true } },
     });
     await sendFiles(editor, [makeFile('a.png', 'image/png')], 'image');
-    // 内联要等 FileReader，读盘是异步的：再多让一个任务才看得到最终读数
-    await settled();
+    // 内联要等 FileReader，读盘落在哪个宏任务不固定：轮到读数改口再看
+    await until(
+      () => stripOf(editor).getAttribute('data-atri-media-status') === 'error',
+      '状态条改口为 error'
+    );
 
     const strip = stripOf(editor);
     const retry = strip.querySelector<HTMLButtonElement>('.atri-media-status-retry')!;

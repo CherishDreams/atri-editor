@@ -9,7 +9,7 @@
 - **TypeScript 7** - 使用 TypeScript 7.x 开发，享受 10x 编译速度提升
 - **Markdown 支持** - 内置双向 Markdown 支持，AI 输出自动转换
 - **AI 集成** - 开放式 AI 集成架构，支持自定义 AI 服务商
-- **图片与附件** - 上传通道可插拔（回调或内置 XHR），支持拖拽与粘贴投放、图片缩放手柄、上传进度与失败重试（图片可内联兜底）、类型与大小白名单
+- **图片与附件** - 上传通道可插拔（回调或内置 XHR），支持拖拽与粘贴投放、图片缩放手柄、上传进度与失败重试（图片可内联兜底）、类型与大小白名单；附件支持卡片与行内链接两种形态并可切换
 - **主题系统** - 支持亮色/暗色主题切换
 - **国际化** - 内置中英文支持，可扩展其他语言
 
@@ -50,7 +50,7 @@ editor.setMarkdown('# Hello\n\nWorld');
 
 ### 图片与附件
 
-工具栏的「图片」「附件」按钮打开浮层：填地址、选本地文件，或者直接把文件拖进编辑区、从截图工具粘贴。
+工具栏的「图片」「附件」按钮打开浮层：填地址、选本地文件，或者直接把文件拖进编辑区、从截图工具粘贴。选中任一附件后，「附件样式」按钮在卡片与行内链接之间切换。
 
 ```typescript
 const editor = new AtriEditor({
@@ -62,7 +62,7 @@ const editor = new AtriEditor({
     // upload: async (file, { onProgress, signal }) => ({ url: await myUpload(file, signal) }),
     maxFileSize: 10 * 1024 * 1024,
     image: { resize: true, allowBase64: false, accept: 'image/*' },
-    attachment: { accept: ['.pdf', '.zip'] },
+    attachment: { accept: ['.pdf', '.zip'], display: 'card' },
     onError: ({ file, reason }) => console.warn(file.name, reason),
   },
 });
@@ -81,8 +81,9 @@ if (editor.hasPendingUploads()) await editor.retryFailedUploads();
   - 代价是体积：data URL 约为原始文件的 1.37×，而 `maxFileSize` 校验的是文件本身，开启时建议把上限调小。
   - `status` 是「写得出、读不回」的瞬时态，所以编辑器重建后这张图就是一张普通 data URL 图片，重试机会随之丢失（内容不丢）。
 - **不配上传通道时**：这是另一条 base64 退路，由 `image.allowBase64: true` 决定（外链图片与粘贴远程 `<img>` 都不需要上传通道）；附件没有合理退路，回调 `onError({ reason: 'no-upload' })` 且不插节点。
-- **Markdown**：图片走标准 `![alt](src)`；附件用自定义语法 `!file[名字](url "大小")`，双向不丢。关闭 `markdown.enabled` 时两者都以字面文本进来——与其余标记语法在同样条件下的行为一致。
-- `media: false` 完全不注册图片与附件扩展，工具栏对应两项随之消失（显式声明则告警跳过），留给接入方自带扩展。
+- **两种形态**：附件默认是块级卡片；`attachment.display: 'link'` 改为行内链接（文件图标 + 蓝色下划线文字，与正文同流），`insertAttachment({ display })` 可逐次覆盖。同一篇文档里卡片与链接可混排。附件点一下先选中（工具栏「附件样式」随即可以切），已选中再点它的链接文字才打开文件——「点击选中」与「点击下载」不会互相抢第一次点击。切换是整节点替换（两种形态是两个节点类型）：句中行链接转卡片会把所在段落劈开，这是块级语义使然；一步撤销只回切换。链接形态渲染成 `<a href download>`：`download` 只对同源地址触发下载，跨域时浏览器会退化成导航。
+- **Markdown**：图片走标准 `![alt](src)`；附件用自定义语法，卡片 `!file[名字](url "大小")`、行内链接 `!filelink[名字](url "大小")`，双向不丢。关闭 `markdown.enabled` 时两者都以字面文本进来——与其余标记语法在同样条件下的行为一致。
+- `media: false` 完全不注册图片与附件扩展，工具栏对应三项随之消失（显式声明则告警跳过），留给接入方自带扩展。
 
 ### Web Component 使用
 
@@ -196,7 +197,7 @@ atri-editor/
 | `setEditable(editable)` | 设置可编辑状态 |
 | `setPlaceholder(placeholder)` | 设置占位符，空串即移除 |
 | `insertImage(options)` | 在选区处插入图片（外链地址，不进上传队列） |
-| `insertAttachment(options)` | 在选区处插入附件卡片 |
+| `insertAttachment(options)` | 在选区处插入附件，`options.display`（`'card' \| 'link'`）决定形态，缺省用 `media.attachment.display` 配置 |
 | `uploadFiles(files, kind?)` | 走上传管线插入本地文件，`kind` 缺省时按 MIME 分流 |
 | `retryFailedUploads()` | 重试所有失败的上传 |
 | `hasPendingUploads()` | 是否还有文件的内容只存在于本地预览地址（上传中与失败都算；已内联成 data URL 的图片不算） |
@@ -232,7 +233,7 @@ atri-editor/
 | `toolbar` | `ToolbarConfig \| false` | `false` 时不渲染工具栏 |
 | `toolbar.items` | `(string \| ToolbarItem)[]` | 按顺序渲染，省略时使用默认全集 |
 
-内置项 id：`undo` `redo` `heading1` `heading2` `heading3` `paragraph` `bold` `italic` `underline` `strike` `code` `bulletList` `orderedList` `blockquote` `codeBlock` `alignLeft` `alignCenter` `alignRight` `insertImage` `insertAttachment`。后两项打开插入浮层，媒体扩展未注册时（`media: false`）不存在。
+内置项 id：`undo` `redo` `heading1` `heading2` `heading3` `paragraph` `bold` `italic` `underline` `strike` `code` `bulletList` `orderedList` `blockquote` `codeBlock` `alignLeft` `alignCenter` `alignRight` `insertImage` `insertAttachment` `attachmentDisplay`。后三项与媒体扩展绑定（`media: false` 时不存在）：前两项打开插入浮层，`attachmentDisplay` 在选中附件时切换卡片与行内链接形态。
 
 `ToolbarItem` 只能挂在内置项上：`icon`（SVG 字符串）优先于 `label`（文字按钮）优先于内置图标；`tooltip` 优先于当前语言的内置词条；`children` 尚未实现，声明后会被忽略。未知 id 会告警并跳过。
 
@@ -265,6 +266,7 @@ toolbar: {
 | `media.image.fallbackToBase64` | `boolean` | 上传失败后把图片内联成 data URL 兜底（只作用于图片），默认 false；开启即连带打开 `allowBase64` |
 | `media.image.resize` | `boolean` | 显示缩放手柄，默认 true |
 | `media.image.accept` / `media.attachment.accept` | `string \| string[]` | 类型白名单，支持 `.pdf`、`image/*`、`image/png` 三种写法 |
+| `media.attachment.display` | `'card' \| 'link'` | 新插入附件的默认形态，默认 `'card'`；单个插入可用 `insertAttachment({ display })` 覆盖 |
 
 `upload` 给对象时走内置 XHR：
 

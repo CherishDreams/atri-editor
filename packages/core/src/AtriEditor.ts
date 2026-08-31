@@ -354,10 +354,19 @@ export class AtriEditor implements IAtriEditor {
   }
 
   /**
-   * 在选区处插入附件卡片
+   * 在选区处插入附件（形态由 options.display 或 media.attachment.display 决定）
    */
   insertAttachment(options: InsertAttachmentOptions): void {
-    this.editor.chain().focus().setAttachment(options).run();
+    const media = this.options.media;
+    const configured = media === false ? undefined : media?.attachment?.display;
+    const display = options.display ?? configured ?? 'card';
+    const chain = this.editor.chain().focus();
+
+    if (display === 'link') {
+      chain.setAttachmentLink(options).run();
+    } else {
+      chain.setAttachment(options).run();
+    }
   }
 
   /**

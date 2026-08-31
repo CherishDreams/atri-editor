@@ -240,6 +240,42 @@ describe('上传管线', () => {
     expect(editor.getMarkdown()).toContain('!file[报告.pdf](https://cdn/a.pdf "2 KB")');
   });
 
+  it('attachment.display 为 link 时直接插成行内链接，补丁按 attrs 命中', async () => {
+    const context = deferred<UploadContext>();
+    const gate = deferred<UploadResult>();
+    const editor = await mount({
+      content: '<p>正文</p>',
+      media: {
+        upload: (_file, ctx) => {
+          context.resolve(ctx);
+          return gate.promise;
+        },
+        attachment: { display: 'link' },
+      },
+    });
+
+    const handled = editor.uploadFiles(
+      [makeFile('报告.pdf', 'application/pdf', 2048)],
+      'attachment'
+    );
+    const { onProgress } = await context.promise;
+
+    onProgress({ percent: 30, loaded: 600, total: 2048 });
+    const link = editor.editor.view.dom.querySelector('a.atri-attachment-link')!;
+    expect(link).toBeTruthy();
+    expect(editor.editor.view.dom.querySelector('.atri-attachment')).toBeNull();
+    expect(link.getAttribute('data-atri-upload-status')).toBe('uploading');
+    expect(link.getAttribute('data-atri-upload-progress')).toBe('30');
+
+    gate.resolve({ url: 'https://cdn/a.pdf' });
+    await handled;
+
+    const html = editor.getHTML();
+    expect(html).toContain('href="https://cdn/a.pdf"');
+    expect(html).not.toContain('uploading');
+    expect(editor.getMarkdown()).toContain('!filelink[报告.pdf](https://cdn/a.pdf "2 KB")');
+  });
+
   it('上传中的进度不占撤销步数，一步就回到插入前', async () => {
     const context = deferred<UploadContext>();
     const gate = deferred<UploadResult>();
