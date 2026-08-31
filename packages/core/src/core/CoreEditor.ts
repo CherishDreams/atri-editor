@@ -6,8 +6,10 @@ import StarterKit from '@tiptap/starter-kit';
 import { Markdown } from '@tiptap/markdown';
 import { Placeholder } from '@tiptap/extensions';
 import TextAlign from '@tiptap/extension-text-align';
+import BubbleMenu from '@tiptap/extension-bubble-menu';
 import { createMediaExtensions } from '../extensions/media';
 import { MediaRuntime } from '../media/MediaRuntime';
+import { shouldShowBubbleMenu } from './bubble-toolbar';
 import type { AtriMarkdownConfig, AtriMediaConfig } from '../types';
 
 export interface CoreEditorConfig {
@@ -25,6 +27,11 @@ export interface CoreEditorConfig {
    * AtriEditor 重建编辑器时会把同一个实例传进来，进行中的上传才不会丢
    */
   mediaRuntime?: MediaRuntime;
+  /**
+   * 选区浮动工具栏的挂载元素：给了就注册 BubbleMenu，不给就不注册
+   * 元素由门面持有 —— 插件隐藏时会把它从文档里摘掉，显示时再 append 回来
+   */
+  bubbleElement?: HTMLElement | null;
   onCreate?: () => void;
   onUpdate?: () => void;
   onFocus?: () => void;
@@ -90,6 +97,26 @@ export class CoreEditor {
     // 图片 / 附件节点自带 markdown hook，注册时机不影响 Markdown 扩展的收集（它在构造时统一读取所有扩展），
     // 但放在用户扩展之前可以让用户用同名扩展顶掉内置节点
     editorExtensions.push(...createMediaExtensions(this.config.media, this.mediaRuntime));
+
+    // 选区浮动工具栏：默认 appendTo 就是 element（= view.dom.parentElement），
+    // 浮层与正文在同一个滚动盒里，所以绝对定位跟着内容走，内滚与窗口滚都不用重算
+    if (this.config.bubbleElement) {
+      editorExtensions.push(
+        BubbleMenu.configure({
+          element: this.config.bubbleElement,
+          // 官方默认 250ms 防抖，拖选时要等手停下来才浮出；这里直接关掉
+          updateDelay: 0,
+          shouldShow: shouldShowBubbleMenu,
+          options: {
+            // 位置重算只监听一个 scrollTarget + window resize，交给真正会滚的那层
+            scrollTarget: element,
+            // 贴着正文盒的边翻转会看起来像被裁了，留出 4px
+            flip: { padding: 4 },
+            shift: { padding: 4 },
+          },
+        })
+      );
+    }
 
     // 输入实时转换由 StarterKit 各扩展的 input rules 提供，与 Markdown 扩展启停无关
     const enableInputRules = this.config.markdown?.shortcuts !== false;

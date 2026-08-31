@@ -18,6 +18,11 @@ export interface ToolbarConfig {
    * 字符串为内置项 id，ToolbarItem 可在内置项基础上覆盖图标与文案
    */
   items?: (string | ToolbarItem)[];
+  /**
+   * 选中文字时在选区旁浮出的工具栏（行内格式五项），默认关闭，与固定顶栏共存
+   * 只在创建时生效：BubbleMenu 的挂载元素走扩展选项，而 tiptap v3 没有运行时注册扩展的入口
+   */
+  bubble?: boolean;
 }
 
 /**

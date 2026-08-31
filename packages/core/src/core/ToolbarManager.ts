@@ -6,6 +6,7 @@ import type { Editor } from '@tiptap/core';
 import type { ToolbarConfig, ToolbarItem } from '../types';
 import { InsertPanel, type InsertPanelMode } from '../media/InsertPanel';
 import type { MediaRuntime } from '../media/MediaRuntime';
+import { BUBBLE_TEXT_ITEMS } from './bubble-toolbar';
 import type { I18nManager } from './I18nManager';
 import { icons } from './icons';
 
@@ -60,7 +61,9 @@ export class ToolbarManager {
   private config?: ToolbarConfig;
   private mediaRuntime: MediaRuntime | null;
   private unsubscribeLanguage?: () => void;
-  private buttons: Map<string, HTMLButtonElement> = new Map();
+  /** 同一个项可能同时渲染在顶栏与浮动工具栏里，所以一个 id 对应一组按钮 */
+  private buttons: Map<string, Set<HTMLButtonElement>> = new Map();
+  /** 按 id 记的覆盖文案：顶栏与浮层共用一份，改一处两处一起改，这是有意的 */
   private customTooltips: Map<string, string> = new Map();
   private itemDefs: Map<string, ToolbarItemDef>;
   private createdElements: HTMLElement[] = [];
@@ -83,6 +86,28 @@ export class ToolbarManager {
     this.bindEditorEvents();
 
     this.unsubscribeLanguage = this.i18n?.onLanguageChanged(() => this.applyTooltips());
+  }
+
+  /**
+   * 把浮动工具栏的按钮渲染进给定的元素
+   *
+   * 元素由门面创建并持有：BubbleMenu 每次隐藏都会把它从文档里摘掉，重建编辑器后
+   * 还得拿同一个元素重新 attach，所以它不进 createdElements、也不在这里 remove
+   */
+  attachBubbleToolbar(element: HTMLElement): void {
+    // 重建编辑器后是"新的管理器 + 同一个元素"再走一遍这里：先清干净，
+    // 否则上一任的按钮还留在盒子里，却再也等不到状态同步
+    element.replaceChildren();
+
+    BUBBLE_TEXT_ITEMS.forEach((itemId) => {
+      const itemDef = this.itemDefs.get(itemId);
+      if (!itemDef) return;
+
+      element.appendChild(this.createButton(itemId, itemDef));
+    });
+
+    this.applyTooltips();
+    this.updateButtonStates();
   }
 
   /**
@@ -223,7 +248,12 @@ export class ToolbarManager {
       if (!itemDef.popup) this.editor.commands.focus();
     });
 
-    this.buttons.set(itemId, button);
+    let group = this.buttons.get(itemId);
+    if (!group) {
+      group = new Set();
+      this.buttons.set(itemId, group);
+    }
+    group.add(button);
     return button;
   }
 
@@ -231,20 +261,19 @@ export class ToolbarManager {
    * 按当前语言刷新按钮 tooltip
    */
   private applyTooltips(): void {
-    this.buttons.forEach((button, itemId) => {
+    this.buttons.forEach((buttons, itemId) => {
       const itemDef = this.itemDefs.get(itemId);
       if (!itemDef) return;
 
       const custom = this.customTooltips.get(itemId);
-      if (custom) {
-        button.title = custom;
-        return;
-      }
-
       const key = TOOLTIP_KEYS[itemId];
       const translated = key ? this.i18n?.t(key) : undefined;
       // 未注入 i18n 或词条缺失时回退到定义里的文案
-      button.title = translated && translated !== key ? translated : itemDef.tooltip;
+      const title = custom ?? (translated && translated !== key ? translated : itemDef.tooltip);
+
+      buttons.forEach((button) => {
+        button.title = title;
+      });
     });
   }
 
@@ -491,21 +520,21 @@ export class ToolbarManager {
    * 更新所有按钮状态
    */
   private updateButtonStates(): void {
-    this.buttons.forEach((button, itemId) => {
+    this.buttons.forEach((buttons, itemId) => {
       const itemDef = this.itemDefs.get(itemId);
       if (!itemDef) return;
 
       // 更新 active 状态
       const active = itemDef.isActive(this.editor);
-      button.classList.toggle('active', active);
-      if (itemDef.popup) button.setAttribute('aria-expanded', String(active));
+      const disabled = itemDef.isDisabled(this.editor);
 
-      // 更新 disabled 状态
-      if (itemDef.isDisabled(this.editor)) {
-        button.disabled = true;
-      } else {
-        button.disabled = false;
-      }
+      buttons.forEach((button) => {
+        button.classList.toggle('active', active);
+        if (itemDef.popup) button.setAttribute('aria-expanded', String(active));
+
+        // 更新 disabled 状态
+        button.disabled = disabled;
+      });
     });
   }
 
@@ -520,6 +549,7 @@ export class ToolbarManager {
     this.panel = null;
     this.buttons.clear();
     this.customTooltips.clear();
+    // 浮层元素归门面所有，要活过重建编辑器，所以这里既不 remove 也不清空它
     this.createdElements.forEach((el) => el.remove());
     this.createdElements = [];
   }

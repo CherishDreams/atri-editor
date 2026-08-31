@@ -38,6 +38,11 @@ export class AtriEditor implements IAtriEditor {
   private mediaStatus: MediaStatusStrip | null = null;
   /** 重建后待恢复的选区，新视图就绪时应用 */
   private pendingViewState: { from: number; to: number } | null = null;
+  /**
+   * 浮动工具栏容器：BubbleMenu 显示时把它塞进编辑区、隐藏时直接摘掉，
+   * 所以引用必须握在门面手里，重建编辑器后才能拿同一个元素再挂回去
+   */
+  private bubbleElement: HTMLDivElement | null = null;
   private container: HTMLDivElement;
   private options: AtriEditorOptions;
 
@@ -71,6 +76,7 @@ export class AtriEditor implements IAtriEditor {
       toolbarContainer = createContainer('atri-editor-toolbar');
       this.container.appendChild(toolbarContainer);
     }
+    const bubbleElement = this.ensureBubbleElement(options.toolbar);
 
     // 创建编辑区域
     const editorElement = createContainer('atri-editor-content-wrapper');
@@ -95,6 +101,7 @@ export class AtriEditor implements IAtriEditor {
       markdown: options.markdown,
       media: options.media,
       mediaRuntime: this.mediaRuntime ?? undefined,
+      bubbleElement,
       onCreate: () => {
         this.onEditorCreated();
       },
@@ -124,12 +131,20 @@ export class AtriEditor implements IAtriEditor {
         this.i18nManager,
         this.mediaRuntime
       );
+      if (bubbleElement) this.toolbarManager.attachBubbleToolbar(bubbleElement);
     }
 
     // 初始化 AI 服务
     if (options.ai) {
       this.initAI(options.ai);
     }
+  }
+
+  /** 开了 bubble 才建元素，且故意不插进文档：挂载与定位全归 BubbleMenu 插件管 */
+  private ensureBubbleElement(toolbar: AtriEditorOptions['toolbar']): HTMLDivElement | null {
+    if (toolbar === false || !toolbar?.bubble) return null;
+    this.bubbleElement ??= createContainer('atri-editor-bubble-toolbar');
+    return this.bubbleElement;
   }
 
   private onEditorCreated(): void {
@@ -194,6 +209,8 @@ export class AtriEditor implements IAtriEditor {
       this.container.appendChild(newEditorElement);
     }
 
+    const bubbleElement = this.ensureBubbleElement(this.options.toolbar);
+
     // 重新创建核心编辑器
     this.coreEditor = new CoreEditor({
       element: newEditorElement,
@@ -206,6 +223,7 @@ export class AtriEditor implements IAtriEditor {
       markdown: this.options.markdown,
       media: this.options.media,
       mediaRuntime: this.mediaRuntime ?? undefined,
+      bubbleElement,
       onCreate: () => {
         this.onEditorCreated();
       },
@@ -235,6 +253,7 @@ export class AtriEditor implements IAtriEditor {
         this.i18nManager,
         this.mediaRuntime
       );
+      if (bubbleElement) this.toolbarManager.attachBubbleToolbar(bubbleElement);
     }
 
     // 重新初始化 AI 服务
@@ -534,6 +553,8 @@ export class AtriEditor implements IAtriEditor {
     this.mediaStatus?.destroy();
     // 在途请求随编辑器一起取消，不然回调会打到已销毁的视图上
     this.mediaRuntime?.destroy();
+    // 浮层挂在编辑区内部，随 container 一起离开文档；引用断掉，销毁后的门面就再挂不回它
+    this.bubbleElement = null;
     this.container.remove();
   }
 }

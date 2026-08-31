@@ -108,6 +108,23 @@
   margin: 0 4px;
 }
 
+// 选区浮动工具栏：显隐与坐标由 BubbleMenu 插件内联写（visibility / opacity / left / top / width），
+// 这里只出外观，两边用不同属性才不会互相盖掉。按钮是 .atri-editor-toolbar-btn，外观直接沿用顶栏
+.atri-editor-bubble-toolbar {
+  // 插件的 computePosition 是异步的：append 后的第一帧还不带坐标，
+  // 静态定位会先把正文往下顶一格，所以 position 提前在这里声明好
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px $spacing-xs;
+  border: 1px solid var(--atri-border-color);
+  border-radius: $border-radius-lg;
+  background-color: var(--atri-bg-color);
+  box-shadow: $shadow-md;
+  z-index: $z-dropdown;
+}
+
 // Content Wrapper
 .atri-editor-content-wrapper {
   position: relative;

@@ -152,6 +152,21 @@
         </div>
       </div>
 
+      <div class="media-demo">
+        <h2>选区浮动工具栏演示</h2>
+        <p>
+          勾选后重建编辑器，选中正文里的一段字就会在选区旁浮出一排行内格式按钮（粗体、斜体、下划线、
+          删除线、行内代码）。浮层挂在编辑区内部，跟着正文一起滚，也一起被裁切；选区贴着首行放不下时会
+          翻到下方。<code>toolbar.bubble</code> 只在创建时生效，所以开关要走「重建编辑器」。
+        </p>
+        <div class="controls" style="margin-top: 10px">
+          <label><input type="checkbox" id="chk-bubble" /> 启用选区浮动工具栏</label>
+        </div>
+        <div class="controls" style="margin-top: 10px">
+          <button id="btn-rebuildBubble">重建编辑器</button>
+        </div>
+      </div>
+
       <div class="controls">
         <button id="btn-getHTML">获取 HTML</button>
         <button id="btn-getMarkdown">获取 Markdown</button>
@@ -298,81 +313,85 @@
         });
       }
 
-      // 创建编辑器实例
-      try {
-        window.editor = new AtriEditor({
-          element: '#editor',
-          placeholder: '开始输入内容...',
-          theme: 'light',
-          content:
-            '<h2>欢迎使用 Atri Editor</h2><p>这是一个基于 <strong>Tiptap v3</strong> 的富文本编辑器。</p><ul><li>支持 Markdown 语法</li><li>支持 AI 集成</li><li>框架无关设计</li></ul>',
-          nodeViews: nodeViews,
-          media: {
-            upload: simulateUpload,
-            // 上限故意压到 512KB，拖一张截图进去就能看到被拒绝的回调
-            maxFileSize: 512 * 1024,
-            maxFiles: 5,
-            image: {
-              resize: true,
-              allowBase64: false,
-              // 勾上「模拟上传失败」再传图：图会内联进文档保住，红框与「重试」还在
-              fallbackToBase64: true,
-              accept: 'image/*',
+      // 编辑器配置：toolbar.bubble 只在创建时生效，改它得走下面的「重建编辑器」
+      const editorOptions = {
+        element: '#editor',
+        placeholder: '开始输入内容...',
+        theme: 'light',
+        content:
+          '<h2>欢迎使用 Atri Editor</h2><p>这是一个基于 <strong>Tiptap v3</strong> 的富文本编辑器。</p><ul><li>支持 Markdown 语法</li><li>支持 AI 集成</li><li>框架无关设计</li></ul>',
+        nodeViews: nodeViews,
+        media: {
+          upload: simulateUpload,
+          // 上限故意压到 512KB，拖一张截图进去就能看到被拒绝的回调
+          maxFileSize: 512 * 1024,
+          maxFiles: 5,
+          image: {
+            resize: true,
+            allowBase64: false,
+            // 勾上「模拟上传失败」再传图：图会内联进文档保住，红框与「重试」还在
+            fallbackToBase64: true,
+            accept: 'image/*',
+          },
+          attachment: {
+            accept: ['.pdf', '.zip', '.txt', '.md'],
+          },
+          onError: ({ file, reason, cause }) => {
+            showOutput(`文件 ${file.name} 被拒绝：${reason}${cause ? `（${String(cause)}）` : ''}`);
+          },
+        },
+        markdown: {
+          enabled: true,
+        },
+        ai: {
+          functions: [
+            {
+              id: 'continue',
+              name: 'AI 续写',
+              description: '根据上下文继续扩展内容',
+              scope: 'cursor',
+              outputMode: 'insert',
             },
-            attachment: {
-              accept: ['.pdf', '.zip', '.txt', '.md'],
+            {
+              id: 'translate',
+              name: '翻译为英文',
+              description: '将选中内容翻译为英文',
+              scope: 'selection',
+              outputMode: 'replace',
+              prompt: '请将以下内容翻译为英文：{selection}',
             },
-            onError: ({ file, reason, cause }) => {
-              showOutput(
-                `文件 ${file.name} 被拒绝：${reason}${cause ? `（${String(cause)}）` : ''}`
-              );
-            },
+          ],
+          requestEndpoint: async (context) => {
+            // 模拟 AI 响应
+            console.log('AI Request:', context);
+            await new Promise((resolve) => setTimeout(resolve, 500));
+            return {
+              content: `**[AI 响应]** 这是模拟的 AI 输出内容。功能ID: ${context.functionId}`,
+              contentType: 'markdown',
+            };
           },
-          markdown: {
-            enabled: true,
-          },
-          ai: {
-            functions: [
-              {
-                id: 'continue',
-                name: 'AI 续写',
-                description: '根据上下文继续扩展内容',
-                scope: 'cursor',
-                outputMode: 'insert',
-              },
-              {
-                id: 'translate',
-                name: '翻译为英文',
-                description: '将选中内容翻译为英文',
-                scope: 'selection',
-                outputMode: 'replace',
-                prompt: '请将以下内容翻译为英文：{selection}',
-              },
-            ],
-            requestEndpoint: async (context) => {
-              // 模拟 AI 响应
-              console.log('AI Request:', context);
-              await new Promise((resolve) => setTimeout(resolve, 500));
-              return {
-                content: `**[AI 响应]** 这是模拟的 AI 输出内容。功能ID: ${context.functionId}`,
-                contentType: 'markdown',
-              };
-            },
-            autoTranslateMarkdownToHTML: true,
-          },
-          onCreate: (editor) => {
-            console.log('[Atri Editor] Editor created successfully!', editor);
-            const tiptapEditor = editor.editor;
-            console.log('[Atri Editor] Schema nodes:', Object.keys(tiptapEditor.schema.nodes));
-            console.log('[Atri Editor] Schema marks:', Object.keys(tiptapEditor.schema.marks));
-          },
-          onChange: (editor) => {
-            console.log('Content changed');
-          },
-        });
-      } catch (err) {
-        console.error('[Atri Editor] Failed to create editor:', err);
+          autoTranslateMarkdownToHTML: true,
+        },
+        onCreate: (editor) => {
+          console.log('[Atri Editor] Editor created successfully!', editor);
+          const tiptapEditor = editor.editor;
+          console.log('[Atri Editor] Schema nodes:', Object.keys(tiptapEditor.schema.nodes));
+          console.log('[Atri Editor] Schema marks:', Object.keys(tiptapEditor.schema.marks));
+        },
+        onChange: (editor) => {
+          console.log('Content changed');
+        },
+      };
+
+      function mountEditor() {
+        try {
+          window.editor = new AtriEditor(editorOptions);
+        } catch (err) {
+          console.error('[Atri Editor] Failed to create editor:', err);
+        }
       }
+
+      mountEditor();
 
       // showOutput 辅助函数
       function showOutput(content) {
@@ -583,6 +602,21 @@
         } catch (err) {
           console.error('[Atri Editor] checkUploads failed:', err);
         }
+      });
+
+      document.getElementById('btn-rebuildBubble').addEventListener('click', function () {
+        if (!window.editor) {
+          console.error('[Atri Editor] Editor instance not initialized');
+          return;
+        }
+        // 当前文档带过去，重建不该把已经写的字吃掉
+        editorOptions.content = window.editor.getHTML();
+        editorOptions.toolbar = { bubble: document.getElementById('chk-bubble').checked };
+        window.editor.destroy();
+        mountEditor();
+        showOutput(
+          `已按 toolbar.bubble = ${editorOptions.toolbar.bubble} 重建编辑器，选中一段字试试。`
+        );
       });
 
       // 初始化确认

@@ -232,6 +232,7 @@ atri-editor/
 |------|------|------|
 | `toolbar` | `ToolbarConfig \| false` | `false` 时不渲染工具栏 |
 | `toolbar.items` | `(string \| ToolbarItem)[]` | 按顺序渲染，省略时使用默认全集 |
+| `toolbar.bubble` | `boolean` | 选中文字时在选区旁浮出的工具栏，默认 false；与固定顶栏共存 |
 
 内置项 id：`undo` `redo` `heading1` `heading2` `heading3` `paragraph` `bold` `italic` `underline` `strike` `code` `bulletList` `orderedList` `blockquote` `codeBlock` `alignLeft` `alignCenter` `alignRight` `insertImage` `insertAttachment` `attachmentDisplay`。后三项与媒体扩展绑定（`media: false` 时不存在）：前两项打开插入浮层，`attachmentDisplay` 在选中附件时切换卡片与行内链接形态。
 
@@ -242,6 +243,8 @@ toolbar: {
   items: ['bold', 'italic', { id: 'codeBlock', label: '代码块', tooltip: '插入代码块' }],
 }
 ```
+
+`toolbar.bubble` 打开的是选中文字后浮在选区旁的一小排按钮，内容固定为 `bold` `italic` `underline` `strike` `code`（块级与列表仍留在顶栏，免得浮层长到盖住所选的字）。它挂在编辑区内部，所以随正文一起滚动、也被编辑区裁切；选区在首行放不下时会翻到选区下方。该开关只在创建时生效——tiptap v3 没有运行时注册扩展的入口，改配置需要重建编辑器。
 
 ### Markdown 配置
 
