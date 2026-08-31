@@ -161,6 +161,40 @@
     outline: 1px solid var(--atri-color-error);
     opacity: 0.7;
   }
+
+  // 行内链接形态：普通超链接的样子，图标借卡片那枚 mask 缩到 1em
+  .atri-attachment-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--atri-color-primary);
+    text-decoration: underline;
+    cursor: pointer;
+    // 原子节点整块选中，不该出现文字选区
+    user-select: none;
+
+    .atri-attachment-icon {
+      width: 1em;
+      height: 1em;
+      // 卡片图标是固定的次级文字色，链接里跟着链接色走才不会脱节
+      background-color: currentColor;
+    }
+
+    // 与 img 同一套语：链接没有卡片那条进度条，只有"在传"与"失败"两态
+    &[data-atri-upload-status='uploading'] {
+      opacity: 0.55;
+    }
+
+    &[data-atri-upload-status='error'] {
+      color: var(--atri-color-error);
+      outline: 1px solid var(--atri-color-error);
+    }
+  }
+
+  .atri-attachment-link.ProseMirror-selectednode {
+    outline: 2px solid var(--atri-color-primary);
+    outline-offset: 1px;
+  }
 }
 
 @keyframes atri-upload-indeterminate {

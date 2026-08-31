@@ -8,6 +8,7 @@ import type { AtriMediaConfig } from '../types';
 import type { MediaRuntime } from '../media/MediaRuntime';
 import { AtriImage } from './AtriImage';
 import { Attachment } from './Attachment';
+import { AttachmentLink } from './AttachmentLink';
 import { MediaFiles } from './MediaFiles';
 
 /** 缩放下限：再小手柄就点不中了 */
@@ -41,6 +42,8 @@ export function createMediaExtensions(
         : false,
     }),
     Attachment,
+    // 行内链接形态：与卡片是两个节点类型（PM 的 inline/group 静态声明），切换靠命令换节点
+    AttachmentLink,
     // 拖放与剪贴板投放都汇到 runtime.handleFiles，与面板选文件同一条路
     MediaFiles.configure({ runtime: runtime ?? null }),
   ];

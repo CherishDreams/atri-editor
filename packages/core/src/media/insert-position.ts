@@ -10,7 +10,9 @@ import { NodeSelection, type Selection } from '@tiptap/pm/state';
 export function mediaInsertTarget(selection: Selection): number | { from: number; to: number } {
   if (
     selection instanceof NodeSelection &&
-    (selection.node.type.name === 'image' || selection.node.type.name === 'attachment')
+    (selection.node.type.name === 'image' ||
+      selection.node.type.name === 'attachment' ||
+      selection.node.type.name === 'attachmentLink')
   ) {
     return selection.to;
   }

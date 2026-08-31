@@ -8,7 +8,7 @@ import { Node, mergeAttributes, type MarkdownToken } from '@tiptap/core';
 import type { DOMOutputSpec } from '@tiptap/pm/model';
 import type { InsertAttachmentOptions } from '../types';
 import { formatFileSize, parseFileSize } from '../media/file-policy';
-import { mediaInsertTarget } from '../media/insert-position';
+import { attachmentAttributes, attachmentLabel, insertAttachmentContent } from './attachment-attrs';
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
@@ -22,21 +22,6 @@ declare module '@tiptap/core' {
 /** Markdown 里的附件语法：!file[名字](url "大小") */
 const markdownPattern = /^!file\[([^\]]*)\]\(\s*([^\s)]+)(?:\s+"([^"]*)")?\s*\)(?:\n|$)/;
 
-/** 属性值一律走 data-* 或文本节点，不进 innerHTML：文件名可能来自上传方，不可信 */
-function dataAttr(name: string, value: string | number | null | undefined): Record<string, string> {
-  return value === null || value === undefined || value === '' ? {} : { [name]: String(value) };
-}
-
-/** 百分比同源写两份：data-* 是"知道进度"的开关，内联自定义属性给样式表取值 */
-function progressAttrs(progress: number | null | undefined): Record<string, string> {
-  if (typeof progress !== 'number' || !Number.isFinite(progress)) return {};
-  const percent = Math.min(100, Math.max(0, Math.round(progress)));
-  return {
-    'data-atri-upload-progress': String(percent),
-    style: `--atri-upload-progress: ${percent}%`,
-  };
-}
-
 export const Attachment = Node.create({
   name: 'attachment',
 
@@ -49,49 +34,7 @@ export const Attachment = Node.create({
   draggable: true,
 
   addAttributes() {
-    return {
-      src: {
-        default: null,
-        parseHTML: (element) => element.getAttribute('data-src'),
-        renderHTML: (attributes) => dataAttr('data-src', attributes.src),
-      },
-      name: {
-        default: null,
-        parseHTML: (element) => element.getAttribute('data-name'),
-        renderHTML: (attributes) => dataAttr('data-name', attributes.name),
-      },
-      size: {
-        default: null,
-        parseHTML: (element) => {
-          const raw = element.getAttribute('data-size');
-          const parsed = raw === null ? Number.NaN : Number(raw);
-          return Number.isFinite(parsed) ? parsed : null;
-        },
-        renderHTML: (attributes) => dataAttr('data-size', attributes.size),
-      },
-      mime: {
-        default: null,
-        parseHTML: (element) => element.getAttribute('data-mime'),
-        renderHTML: (attributes) => dataAttr('data-mime', attributes.mime),
-      },
-      // 下面三项是上传过程中的瞬时态：写得出、读不回，
-      // 免得保存下来的 HTML 里带着一个永远不会完成的"上传中"
-      status: {
-        default: null,
-        parseHTML: () => null,
-        renderHTML: (attributes) => dataAttr('data-atri-upload-status', attributes.status),
-      },
-      progress: {
-        default: null,
-        parseHTML: () => null,
-        renderHTML: (attributes) => progressAttrs(attributes.progress),
-      },
-      uploadId: {
-        default: null,
-        parseHTML: () => null,
-        rendered: false,
-      },
-    };
+    return attachmentAttributes();
   },
 
   parseHTML() {
@@ -100,12 +43,7 @@ export const Attachment = Node.create({
 
   renderHTML({ node, HTMLAttributes }) {
     const { src, name, size, status } = node.attrs;
-    const label =
-      name ||
-      String(src || '')
-        .split('/')
-        .pop() ||
-      '';
+    const label = attachmentLabel(name, src);
 
     const children: DOMOutputSpec[] = [
       ['span', { class: 'atri-attachment-icon', 'aria-hidden': 'true' }],
@@ -139,18 +77,7 @@ export const Attachment = Node.create({
 
   addCommands() {
     return {
-      setAttachment:
-        (options) =>
-        ({ state, commands }) =>
-          commands.insertContentAt(mediaInsertTarget(state.selection), {
-            type: this.name,
-            attrs: {
-              src: options.src,
-              name: options.name ?? null,
-              size: options.size ?? null,
-              mime: options.mime ?? null,
-            },
-          }),
+      setAttachment: (options) => (props) => insertAttachmentContent(props, this.name, options),
     };
   },
 
