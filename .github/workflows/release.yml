@@ -57,8 +57,10 @@ jobs:
         with:
           version: pnpm version-packages
           # changesets/action 不经过 shell 执行命令，不能用 `cd x && ...`；
-          # npm publish 原生接受目录参数
-          publish: npm publish packages/core --provenance --access public
+          # npm publish 接受目录参数但必须带 ./ 前缀——裸 `packages/core` 会被
+          # 当成 GitHub `owner/repo` 简写去 git ls-remote。registry 显式钉死官方源：
+          # Trusted Publishing / provenance 只认 registry.npmjs.org
+          publish: npm publish ./packages/core --provenance --access public --registry https://registry.npmjs.org/
           commit: 'chore(release): version packages'
           title: 'chore(release): version packages'
         env:

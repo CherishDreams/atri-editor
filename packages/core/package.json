@@ -12,7 +12,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/CherishDreams/atri-editor.git"
+    "url": "git+https://github.com/CherishDreams/atri-editor.git"
   },
   "files": [
     "dist",
