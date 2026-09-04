@@ -39,9 +39,12 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Auth (token bootstrap; empty = fall through to OIDC)
-        if: env.NPM_TOKEN != ''
-        # 只写环境变量占位符，token 值不落盘；npm publish 时展开
-        run: echo '//registry.npmjs.org/:_authToken=${NPM_TOKEN}' > "$HOME/.npmrc"
+        # 用 shell 判空而非 if: env 表达式——secret 未配置时表达式行为不可靠。
+        # 只写占位符，token 值不落盘，npm publish 时从环境展开
+        run: |
+          if [ -n "$NPM_TOKEN" ]; then
+            echo '//registry.npmjs.org/:_authToken=${NPM_TOKEN}' > "$HOME/.npmrc"
+          fi
 
       - name: Gate (same checks as CI before anything ships)
         run: |
@@ -53,7 +56,9 @@ jobs:
         uses: changesets/action@v1
         with:
           version: pnpm version-packages
-          publish: cd packages/core && npm publish --provenance --access public
+          # changesets/action 不经过 shell 执行命令，不能用 `cd x && ...`；
+          # npm publish 原生接受目录参数
+          publish: npm publish packages/core --provenance --access public
           commit: 'chore(release): version packages'
           title: 'chore(release): version packages'
         env:
