@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "pnpm -C packages/core dev",
     "demo": "cd demos/vanilla && vite",
+    "demo:vue": "pnpm -C demos/vue dev",
+    "demo:react": "pnpm -C demos/react dev",
     "build": "pnpm -r build",
     "build:core": "pnpm -C packages/core build",
     "typecheck": "pnpm -C packages/core typecheck",
