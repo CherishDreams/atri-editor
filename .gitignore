@@ -30,3 +30,6 @@ yarn-error.log*
 .env
 .env.local
 .env.*.local
+
+# npm pack 产物
+*.tgz

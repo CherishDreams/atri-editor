@@ -104,6 +104,15 @@ if (editor.hasPendingUploads()) await editor.retryFailedUploads();
 
 `theme` / `editable` / `lang` / `placeholder` 四个属性是响应式的，改了立即生效；`placeholder` 置为空串即移除占位符。初始内容只读一次 `data-content`，运行期改内容请用 `setContent()`。媒体配置不是属性可表达的，用 `setOptions({ media })` 传入；`insertImage()` / `insertAttachment()` / `uploadFiles()` / `retryFailedUploads()` / `hasPendingUploads()` 在自定义元素上同名可用。
 
+### 框架接入（Vue / React）
+
+编辑器框架无关：类用法挂进框架生命周期（卸载时记得 `destroy()`），元素用法在模板里直接写 `<atri-editor>`。`demos/vue` 与 `demos/react` 两种用法都有活例，且都直接消费 `dist` 构建产物。要点：
+
+- **Vue 3**：模板里的 `<atri-editor>` 需要告知 Vue 它是自定义元素：`vue({ template: { compilerOptions: { isCustomElement: (tag) => tag.startsWith('atri-') } } })`（见 `demos/vue/vite.config.ts`）。
+- **React 19**：原生支持自定义元素，TS 只需补一个 `atri-editor` 的 `JSX.IntrinsicElements` 声明（见 `demos/react/src/atri-editor.d.ts`）。类用法在 `useEffect` 里 `new`、cleanup 里 `destroy`；StrictMode 下 effect 开发期跑两遍，"建→销→再建"路径已实测干净。
+- 模板声明的元素只能带 `theme` / `editable` / `lang` / `placeholder` 属性与 `data-content`；**媒体 / AI 配置要走类用法**，或 `document.createElement('atri-editor')` → `setOptions({ media, ai })` → 再插入文档（`setOptions` 只在元素 connected 前生效）。
+- 包为 ESM-only（跟随上游 Tiptap v3），vite 消费不需要额外的 optimizeDeps 配置；`import '@atri-editor/core'` 在 Node / SSR 环境安全（无 DOM 时只是不注册元素），编辑器功能只在浏览器生效。
+
 ### AI 集成
 
 ```typescript
@@ -193,7 +202,9 @@ atri-editor/
 │       ├── tests/               # 回归测试（vitest + jsdom）
 │       └── dist/                # 构建输出
 ├── demos/
-│   └── vanilla/                 # 原生 JS 示例
+│   ├── vanilla/                 # 原生 JS 示例
+│   ├── vue/                     # Vue 3 示例（元素 + 类两种用法）
+│   └── react/                   # React 19 示例（同上，StrictMode 开启）
 └── .github/
     └── workflows/               # CI：check → test → build
 ```
@@ -207,8 +218,8 @@ atri-editor/
 | `getHTML()` | 获取 HTML 内容 |
 | `getJSON()` | 获取 JSON 内容 |
 | `getMarkdown()` | 获取 Markdown 内容 |
-| `setContent(content, options?)` | 设置内容 |
-| `setMarkdown(content)` | 设置 Markdown 内容 |
+| `setContent(content, options?)` | 设置内容；整篇替换后收拢残留选区到文档末尾（防止全选未取消时下一次输入吞掉全文） |
+| `setMarkdown(content)` | 设置 Markdown 内容（同上收拢选区） |
 | `clearContent()` | 清空内容 |
 | `isEmpty()` | 是否为空 |
 | `getSelectedText()` | 获取当前选区纯文本 |
@@ -340,6 +351,11 @@ pnpm test
 # demo 的 vite 配置把 @atri-editor/core 直接 alias 到 packages/core/src，
 # 改源码即时生效，无需先构建）
 pnpm demo
+
+# 运行框架集成示例（3001 / 3002；这两个直接消费 packages/core 的 dist 构建产物，
+# 先 pnpm build:core 再起）
+pnpm demo:vue
+pnpm demo:react
 ```
 
 ### 代码质量工具
