@@ -369,6 +369,16 @@ pnpm demo:react
 - `oxlintrc.json` - oxlint 配置
 - `.oxfmtrc.json` - oxfmt 配置
 
+## 发布流程
+
+版本管理走 [changesets](https://github.com/changesets/changesets)：
+
+1. 改了 `packages/core` 对外行为的分支上跑 `pnpm changeset`，选变更级别、写摘要（这句进 CHANGELOG）；纯文档/测试/CI 改动不需要。
+2. PR 合并到 main 后，CI 自动创建并维护一个 Version PR（bump 版本号、生成 CHANGELOG）。
+3. 合并 Version PR = 发布：CI 打 tag、构建并经 GitHub Actions 直发 npm（Trusted Publishing / OIDC，发布带 provenance 溯源）。
+
+发布闸门与 CI 相同（check → test → build），任一不过则不发布。认证走 npm Trusted Publishing（OIDC，发布带 provenance 溯源）；bootstrap 期若仓库配了 `NPM_TOKEN` secret 会优先用 token，配置好 trusted publisher 后删除该 secret 即自动切换，无需改 workflow。
+
 ## 技术栈
 
 - **Tiptap v3.30.4** - 编辑引擎
