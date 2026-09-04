@@ -12,6 +12,15 @@ import type {
 const ELEMENT_NAME = 'atri-editor';
 
 /**
+ * SSR / 纯 Node 安全基类：类声明会在模块加载时求值 extends 后的表达式，
+ * 直接 `extends HTMLElement` 会让无 DOM 的环境（Next/Nuxt 服务端、vitest node 池）
+ * import 即抛 "HTMLElement is not defined"。自定义元素只有在浏览器才真正生效，
+ * 这里回退到空基类，注册仍由 registerAtriElement 里的 customElements 守卫把关。
+ */
+const AtriEditorBase: typeof HTMLElement =
+  typeof HTMLElement !== 'undefined' ? HTMLElement : (class {} as unknown as typeof HTMLElement);
+
+/**
  * 注册 Web Component
  */
 export function registerAtriElement(): void {
@@ -28,7 +37,7 @@ export function registerAtriElement(): void {
 /**
  * AtriEditor Web Component
  */
-export class AtriEditorElement extends HTMLElement {
+export class AtriEditorElement extends AtriEditorBase {
   private editor: AtriEditor | null = null;
   private _options: Partial<AtriEditorOptions> = {};
 
