@@ -302,6 +302,7 @@ export class AtriEditor implements IAtriEditor {
     } else {
       this.coreEditor.setContent(content, emitUpdate);
     }
+    this.collapseSelectionAfterReplace();
   }
 
   /**
@@ -309,6 +310,18 @@ export class AtriEditor implements IAtriEditor {
    */
   setMarkdown(content: string): void {
     this.markdownService.setMarkdown(content);
+    this.collapseSelectionAfterReplace();
+  }
+
+  /**
+   * 整体替换内容后收拢选区：替换前若是全选（Ctrl+A），ProseMirror 会把它映射成
+   * 覆盖整篇新文档的 AllSelection——下一个字或下一次插入就把整篇吞掉，
+   * 而"设置内容"之后用户的预期是安全的光标态，不是"再输入即全删"
+   */
+  private collapseSelectionAfterReplace(): void {
+    const editor = this.coreEditor.getEditor();
+    if (!editor || editor.state.selection.empty) return;
+    editor.commands.setTextSelection(editor.state.doc.content.size);
   }
 
   /**
