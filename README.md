@@ -154,6 +154,25 @@ const editor = new AtriEditor({
 });
 ```
 
+### AI 命令菜单
+
+配置了 `ai.functions` 后，在编辑区输入 `/` 会在光标旁浮出命令菜单（Floating UI 定位，下方放不下时自动翻到上方并做视口避让），列出全部 AI 功能：图标、名称，`description` 作为悬停提示。↑ / ↓ 循环选择，Enter 选中，Esc 关闭；选中会先删掉触发字符 `/` 再执行对应功能。键盘监听挂在 document 捕获阶段，Enter 不会被 ProseMirror 的 keymap 抢去拆段落。未配置 `ai` 时命令菜单不注册。
+
+### 国际化
+
+内置中英文两套词条（`lang: 'zh' | 'en'`，默认中文，未收录的语言回退中文），工具栏 tooltip、插入浮层、上传状态条等界面文案随语言切换：
+
+```typescript
+const editor = new AtriEditor({ element: '#editor', lang: 'en' });
+await editor.setLanguage('zh'); // 异步，语言包就绪后 resolve
+```
+
+每个编辑器实例持有独立的 i18next 实例，页面上多个编辑器互不污染语言设置。
+
+### 主题
+
+`theme: 'light' | 'dark'` 指定初始主题，运行期用 `setTheme(theme)` / `toggleTheme()` 切换。实现是替换 `.atri-editor` 容器上的 `atri-theme-light` / `atri-theme-dark` class，并同步 `data-atri-theme` 属性，因此也接受任意自定义主题名：`setTheme('sepia')` 挂上 `atri-theme-sepia`，样式自备（`toggleTheme()` 在自定义主题下会切回亮色）。Web Component 用法下 `theme` 属性是响应式的，改了立即生效。
+
 ## 项目结构
 
 ```
@@ -192,9 +211,13 @@ atri-editor/
 | `setMarkdown(content)` | 设置 Markdown 内容 |
 | `clearContent()` | 清空内容 |
 | `isEmpty()` | 是否为空 |
+| `getSelectedText()` | 获取当前选区纯文本 |
+| `insertContent(content)` | 在选区处插入内容 |
 | `markdownToHTML(md)` | Markdown 转 HTML |
 | `htmlToMarkdown(html)` | HTML 转 Markdown |
+| `markdownToJSON(md)` | Markdown 转 JSON |
 | `setEditable(editable)` | 设置可编辑状态 |
+| `isEditable()` | 当前是否可编辑 |
 | `setPlaceholder(placeholder)` | 设置占位符，空串即移除 |
 | `insertImage(options)` | 在选区处插入图片（外链地址，不进上传队列） |
 | `insertAttachment(options)` | 在选区处插入附件，`options.display`（`'card' \| 'link'`）决定形态，缺省用 `media.attachment.display` 配置 |
@@ -205,6 +228,11 @@ atri-editor/
 | `blur()` | 失焦 |
 | `setTheme(theme)` | 设置主题 |
 | `toggleTheme()` | 切换主题 |
+| `setLanguage(lang)` | 切换语言（异步） |
+| `updateAIConfig(config)` | 增量更新 AI 配置 |
+| `registerNodeView(config)` | 注册自定义 NodeView；会重建编辑器，内容与选区保持不变 |
+| `registerNodeViews(configs)` | 批量注册 NodeView |
+| `getNodeViews()` | 获取已注册的 NodeView 配置表 |
 | `destroy()` | 销毁编辑器 |
 
 ### AI 配置
@@ -305,9 +333,13 @@ pnpm format
 # 检查代码质量和格式
 pnpm check
 
-# 运行示例
-cd demos/vanilla
-npx serve
+# 运行测试（vitest + jsdom，用例在 packages/core/tests/）
+pnpm test
+
+# 运行示例（端口 3000，自动打开浏览器；
+# demo 的 vite 配置把 @atri-editor/core 直接 alias 到 packages/core/src，
+# 改源码即时生效，无需先构建）
+pnpm demo
 ```
 
 ### 代码质量工具
