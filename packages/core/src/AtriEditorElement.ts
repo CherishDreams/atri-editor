@@ -63,7 +63,7 @@ export class AtriEditorElement extends AtriEditorBase {
     switch (name) {
       case 'theme':
         if (this.editor && newValue) {
-          this.editor.setTheme(newValue as 'light' | 'dark');
+          this.editor.setTheme(newValue);
         }
         break;
       case 'editable':
@@ -101,7 +101,7 @@ export class AtriEditorElement extends AtriEditorBase {
 
     // 从 HTML 属性读取配置
     const theme = this.getAttribute('theme');
-    if (theme) options.theme = theme as 'light' | 'dark';
+    if (theme) options.theme = theme;
 
     const editable = this.getAttribute('editable');
     if (editable !== null) options.editable = editable !== 'false';

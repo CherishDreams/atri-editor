@@ -182,10 +182,15 @@ export class CoreEditor {
     try {
       return this.editor.getHTML();
     } catch (err) {
-      console.error('[CoreEditor] getHTML() failed:', err);
-      // 输出 schema 中所有 node 和 mark 类型，帮助定位缺少 toDOM 的类型
-      console.error('[CoreEditor] Schema nodes:', Object.keys(this.editor.schema.nodes));
-      console.error('[CoreEditor] Schema marks:', Object.keys(this.editor.schema.marks));
+      // 一并输出 schema 的 node/mark 类型清单，帮助定位缺少 toDOM 的类型
+      console.error(
+        '[CoreEditor] getHTML() failed:',
+        err,
+        '\nSchema nodes:',
+        Object.keys(this.editor.schema.nodes),
+        '\nSchema marks:',
+        Object.keys(this.editor.schema.marks)
+      );
       throw err;
     }
   }

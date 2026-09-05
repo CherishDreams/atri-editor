@@ -8,15 +8,10 @@ import { Extension } from '@tiptap/core';
 import { Plugin } from '@tiptap/pm/state';
 import type { EditorView } from '@tiptap/pm/view';
 import type { MediaRuntime } from '../media/MediaRuntime';
+import { filesOf } from '../utils/dom';
 
 export interface MediaFilesOptions {
   runtime: MediaRuntime | null;
-}
-
-function filesOf(transfer: DataTransfer | null | undefined): File[] {
-  if (!transfer) return [];
-  // 剪贴板里的截图与文件都在 files 上，text 为空不代表没有可投的东西
-  return Array.from(transfer.files);
 }
 
 /**

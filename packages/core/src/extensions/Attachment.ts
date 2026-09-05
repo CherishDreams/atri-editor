@@ -4,7 +4,7 @@
  * 不能走 ExtensionManager.registerNodeView：那条路合成的节点声明不了 addCommands 与
  * markdown 三件套（只有 renderMarkdown，导出得回来不去），附件要能往返。
  */
-import { Node, mergeAttributes, type MarkdownToken } from '@tiptap/core';
+import { Node, mergeAttributes } from '@tiptap/core';
 import type { DOMOutputSpec, Node as PmNode, NodeType } from '@tiptap/pm/model';
 import {
   NodeSelection,
@@ -14,13 +14,14 @@ import {
   type Transaction,
 } from '@tiptap/pm/state';
 import type { AtriAttachmentDisplay, InsertAttachmentOptions } from '../types';
-import { formatFileSize, parseFileSize } from '../media/file-policy';
+import { formatFileSize } from '../media/file-policy';
 import {
   attachmentAttributes,
   attachmentLabel,
   insertAttachmentContent,
   isAttachmentForm,
 } from './attachment-attrs';
+import { makeAttachmentMarkdown } from './attachment-markdown';
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
@@ -34,9 +35,6 @@ declare module '@tiptap/core' {
     };
   }
 }
-
-/** Markdown 里的附件语法：!file[名字](url "大小") */
-const markdownPattern = /^!file\[([^\]]*)\]\(\s*([^\s)]+)(?:\s+"([^"]*)")?\s*\)(?:\n|$)/;
 
 const FORM_TYPES: Record<AtriAttachmentDisplay, 'attachment' | 'attachmentLink'> = {
   card: 'attachment',
@@ -250,43 +248,9 @@ export const Attachment = Node.create({
     ];
   },
 
-  markdownTokenName: 'file',
-
-  markdownTokenizer: {
+  ...makeAttachmentMarkdown({
     name: 'file',
     level: 'block',
-    start: (src) => src.indexOf('!file['),
-    tokenize: (src): MarkdownToken | undefined => {
-      const match = markdownPattern.exec(src);
-      if (!match) return undefined;
-
-      return {
-        type: 'file',
-        raw: match[0],
-        text: match[1] ?? '',
-        href: match[2] ?? '',
-        title: match[3],
-      };
-    },
-  },
-
-  parseMarkdown: (token, helpers) =>
-    helpers.createNode(
-      'attachment',
-      {
-        src: token.href,
-        name: token.text || null,
-        size: parseFileSize(token.title) ?? null,
-        mime: null,
-      },
-      []
-    ),
-
-  renderMarkdown: (node) => {
-    const src = node.attrs?.src ?? '';
-    const name = node.attrs?.name ?? '';
-    const size = node.attrs?.size;
-
-    return size ? `!file[${name}](${src} "${formatFileSize(size)}")` : `!file[${name}](${src})`;
-  },
+    nodeName: 'attachment',
+  }),
 });

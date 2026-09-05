@@ -22,5 +22,5 @@ export const customCardNodeView: AtriNodeViewConfig = {
   ],
   renderHTML: ({ HTMLAttributes }) => ['custom-card', HTMLAttributes],
   nodeView: () => ({ dom: document.createElement('div') }),
-  markdownSerialize: (node) => `> **${node.attrs.title}**\n> ${node.attrs.content}\n`,
+  markdownSerialize: (node) => `> **${node.attrs?.title}**\n> ${node.attrs?.content}\n`,
 };

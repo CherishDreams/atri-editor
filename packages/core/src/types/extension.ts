@@ -1,35 +1,17 @@
-import type { Extension, NodeViewRenderer } from '@tiptap/core';
-
-/**
- * 扩展类别
- */
-export type ExtensionCategory = 'basic' | 'media' | 'block' | 'enhanced' | 'ai' | 'custom';
-
-/**
- * 扩展元数据
- */
-export interface AtriExtensionMeta {
-  name: string;
-  version: string;
-  description?: string;
-  category: ExtensionCategory;
-}
-
-/**
- * Atri 扩展（基于 Tiptap Extension）
- */
-export interface AtriExtension extends Extension {
-  meta?: AtriExtensionMeta;
-}
+import type { JSONContent, NodeViewRenderer } from '@tiptap/core';
+import type { DOMOutputSpec, Node as ProseMirrorNode, NodeSpec } from '@tiptap/pm/model';
 
 /**
  * NodeView 属性定义
+ * 结构对齐 Tiptap 的 Attribute：default 用泛型让接入方拿到属性值类型，无需 any
  */
-export interface NodeViewAttribute {
-  default?: any;
+export interface NodeViewAttribute<T = unknown> {
+  /** 属性默认值，与 Tiptap Attribute.default 一致 */
+  default?: T;
   keepOnSplit?: boolean;
-  parseHTML?: (element: HTMLElement) => any;
-  renderHTML?: (attributes: Record<string, any>) => Record<string, any> | null;
+  /** 属性值没有结构化约束，保留宽松返回 */
+  parseHTML?: (element: HTMLElement) => unknown;
+  renderHTML?: (attributes: Record<string, unknown>) => Record<string, unknown> | null;
 }
 
 /**
@@ -42,10 +24,13 @@ export interface AtriNodeViewConfig {
   nodeView: NodeViewRenderer;
   /** 节点属性定义 */
   attributes?: Record<string, NodeViewAttribute>;
-  /** HTML 序列化配置 */
-  renderHTML?: (props: { HTMLAttributes: Record<string, any>; node: any }) => any;
-  /** HTML 解析配置 */
-  parseHTML?: () => Array<{ tag: string; getAttrs?: (el: HTMLElement) => any }>;
+  /** HTML 序列化配置，签名与 Tiptap NodeConfig.renderHTML 一致 */
+  renderHTML?: (props: {
+    HTMLAttributes: Record<string, any>;
+    node: ProseMirrorNode;
+  }) => DOMOutputSpec;
+  /** 解析规则，与 Tiptap NodeConfig.parseHTML 一致 */
+  parseHTML?: () => NonNullable<NodeSpec['parseDOM']>;
   /** 是否为内联节点 */
   inline?: boolean;
   /** 是否为原子节点（不可编辑内容） */
@@ -54,6 +39,6 @@ export interface AtriNodeViewConfig {
   group?: string;
   /** 节点描述 */
   description?: string;
-  /** 自定义 Markdown 序列化回调 */
-  markdownSerialize?: (node: any) => string;
+  /** 自定义 Markdown 序列化回调，由 Tiptap 的 MarkdownManager 按节点名调用 */
+  markdownSerialize?: (node: JSONContent) => string;
 }

@@ -1,8 +1,7 @@
 /**
  * AtriEditor - 编辑器主类
  */
-import type { Editor } from '@tiptap/core';
-import { getTextBetween } from '@tiptap/core';
+import type { Editor, JSONContent } from '@tiptap/core';
 import type {
   AtriEditorOptions,
   IAtriEditor,
@@ -18,20 +17,26 @@ import { MarkdownService } from './core/MarkdownService';
 import { ThemeManager } from './core/ThemeManager';
 import { I18nManager } from './core/I18nManager';
 import { ExtensionManager } from './core/ExtensionManager';
+import type { ThemeType } from './core/ThemeManager';
 import { ToolbarManager } from './core/ToolbarManager';
 import { MediaRuntime } from './media/MediaRuntime';
 import { MediaStatusStrip } from './media/MediaStatusStrip';
 import { AIService } from './ai/AIService';
 import { AICommandMenuManager } from './ai/AICommandMenu';
 import { resolveElement, createContainer } from './utils/dom';
+import { getSelectedText as getSelectedTextFromSelection } from './utils/selection';
 
 export class AtriEditor implements IAtriEditor {
-  private coreEditor: CoreEditor;
-  private markdownService: MarkdownService;
+  // 以下两个字段经 createCoreEditor()/setupSubsystems() 在构造函数内建立，
+  // 类型上标注「必已赋值」而非可空：门面所有公开方法都假定它们存在
+  private coreEditor!: CoreEditor;
+  private markdownService!: MarkdownService;
   private themeManager: ThemeManager;
   private i18nManager: I18nManager;
   private extensionManager: ExtensionManager;
   private toolbarManager: ToolbarManager | null = null;
+  /** 工具栏容器引用：重建编辑器时复用同一个挂载点，不重新查询 DOM */
+  private toolbarContainer: HTMLDivElement | null = null;
   private aiService: AIService | null = null;
   private aiMenuManager: AICommandMenuManager | null = null;
   private mediaRuntime: MediaRuntime | null;
@@ -71,12 +76,10 @@ export class AtriEditor implements IAtriEditor {
     }
 
     // 创建工具栏容器（如果 toolbar 不为 false）
-    let toolbarContainer: HTMLDivElement | null = null;
     if (options.toolbar !== false) {
-      toolbarContainer = createContainer('atri-editor-toolbar');
-      this.container.appendChild(toolbarContainer);
+      this.toolbarContainer = createContainer('atri-editor-toolbar');
+      this.container.appendChild(this.toolbarContainer);
     }
-    const bubbleElement = this.ensureBubbleElement(options.toolbar);
 
     // 创建编辑区域
     const editorElement = createContainer('atri-editor-content-wrapper');
@@ -90,54 +93,12 @@ export class AtriEditor implements IAtriEditor {
       ? new MediaStatusStrip(this.mediaRuntime, this.container, this.i18nManager)
       : null;
 
-    // 初始化核心编辑器
-    this.coreEditor = new CoreEditor({
+    this.createCoreEditor({
       element: editorElement,
       content: options.content,
       contentFormat: options.contentFormat,
-      editable: options.editable,
-      placeholder: options.placeholder,
-      extensions: [...(options.extensions || []), ...this.extensionManager.getAll()],
-      markdown: options.markdown,
-      media: options.media,
-      mediaRuntime: this.mediaRuntime ?? undefined,
-      bubbleElement,
-      onCreate: () => {
-        this.onEditorCreated();
-      },
-      onUpdate: () => {
-        this.options.onChange?.(this);
-      },
-      onFocus: () => {
-        this.options.onFocus?.(this);
-      },
-      onBlur: () => {
-        this.options.onBlur?.(this);
-      },
-      onDestroy: () => {
-        this.options.onDestroy?.(this);
-      },
     });
-
-    // 初始化 Markdown 服务
-    this.markdownService = new MarkdownService(this.editor, options.markdown);
-
-    // 初始化工具栏
-    if (toolbarContainer && options.toolbar !== false) {
-      this.toolbarManager = new ToolbarManager(
-        this.editor,
-        toolbarContainer,
-        options.toolbar,
-        this.i18nManager,
-        this.mediaRuntime
-      );
-      if (bubbleElement) this.toolbarManager.attachBubbleToolbar(bubbleElement);
-    }
-
-    // 初始化 AI 服务
-    if (options.ai) {
-      this.initAI(options.ai);
-    }
+    this.setupSubsystems();
   }
 
   /** 开了 bubble 才建元素，且故意不插进文档：挂载与定位全归 BubbleMenu 插件管 */
@@ -165,7 +126,7 @@ export class AtriEditor implements IAtriEditor {
       this.aiMenuManager = new AICommandMenuManager(
         this.editor,
         this.options.ai.functions,
-        '/',
+        this.options.ai.triggerChar ?? '/',
         (func) => {
           this.aiService?.execute(func.id);
         }
@@ -177,6 +138,65 @@ export class AtriEditor implements IAtriEditor {
 
   private initAI(config: AtriAIConfig): void {
     this.aiService = new AIService(this.editor, config, this.markdownService);
+  }
+
+  /**
+   * 创建核心编辑器：构造函数与 recreateEditor 共用的装配点。
+   * 只有编辑器壳（挂载元素/初始内容/内容格式）随重建变化，其余全部来自 this.options，
+   * 逐项手抄两遍必然漂移——出错的第一现场就是两处不齐
+   */
+  private createCoreEditor(init: {
+    element: HTMLElement;
+    content?: string | object;
+    contentFormat?: 'html' | 'json' | 'markdown';
+  }): void {
+    this.coreEditor = new CoreEditor({
+      element: init.element,
+      content: init.content,
+      contentFormat: init.contentFormat,
+      editable: this.options.editable,
+      placeholder: this.options.placeholder,
+      extensions: [...(this.options.extensions || []), ...this.extensionManager.getAll()],
+      markdown: this.options.markdown,
+      media: this.options.media,
+      mediaRuntime: this.mediaRuntime ?? undefined,
+      bubbleElement: this.ensureBubbleElement(this.options.toolbar),
+      onCreate: () => {
+        this.onEditorCreated();
+      },
+      onUpdate: () => {
+        this.options.onChange?.(this);
+      },
+      onFocus: () => {
+        this.options.onFocus?.(this);
+      },
+      onBlur: () => {
+        this.options.onBlur?.(this);
+      },
+      onDestroy: () => {
+        this.options.onDestroy?.(this);
+      },
+    });
+  }
+
+  /** 初始化依赖编辑器实例的子系统：Markdown 服务、工具栏、AI 服务，重建后同样要重新走一遍 */
+  private setupSubsystems(): void {
+    this.markdownService = new MarkdownService(this.editor, this.options.markdown);
+
+    if (this.toolbarContainer && this.options.toolbar !== false) {
+      this.toolbarManager = new ToolbarManager(
+        this.editor,
+        this.toolbarContainer,
+        this.options.toolbar,
+        this.i18nManager,
+        this.mediaRuntime
+      );
+      if (this.bubbleElement) this.toolbarManager.attachBubbleToolbar(this.bubbleElement);
+    }
+
+    if (this.options.ai) {
+      this.initAI(this.options.ai);
+    }
   }
 
   /**
@@ -195,13 +215,10 @@ export class AtriEditor implements IAtriEditor {
     this.toolbarManager?.destroy();
     this.aiMenuManager?.destroy();
 
-    // 找到编辑区域容器
+    // 换一个新的编辑区容器：旧容器连同内部视图一起离开文档
     const editorElement = this.container.querySelector(
       '.atri-editor-content-wrapper'
     ) as HTMLElement;
-    const toolbarContainer = this.container.querySelector('.atri-editor-toolbar') as HTMLElement;
-
-    // 创建新的编辑区域
     const newEditorElement = createContainer('atri-editor-content-wrapper');
     if (editorElement) {
       editorElement.replaceWith(newEditorElement);
@@ -209,57 +226,13 @@ export class AtriEditor implements IAtriEditor {
       this.container.appendChild(newEditorElement);
     }
 
-    const bubbleElement = this.ensureBubbleElement(this.options.toolbar);
-
-    // 重新创建核心编辑器
-    this.coreEditor = new CoreEditor({
+    this.createCoreEditor({
       element: newEditorElement,
       content: currentContent,
       // 当前内容取自 getHTML()，重建时按 html 回填，不能沿用用户的 contentFormat
       contentFormat: 'html',
-      editable: this.options.editable,
-      placeholder: this.options.placeholder,
-      extensions: [...(this.options.extensions || []), ...this.extensionManager.getAll()],
-      markdown: this.options.markdown,
-      media: this.options.media,
-      mediaRuntime: this.mediaRuntime ?? undefined,
-      bubbleElement,
-      onCreate: () => {
-        this.onEditorCreated();
-      },
-      onUpdate: () => {
-        this.options.onChange?.(this);
-      },
-      onFocus: () => {
-        this.options.onFocus?.(this);
-      },
-      onBlur: () => {
-        this.options.onBlur?.(this);
-      },
-      onDestroy: () => {
-        this.options.onDestroy?.(this);
-      },
     });
-
-    // 重新初始化 Markdown 服务
-    this.markdownService = new MarkdownService(this.editor, this.options.markdown);
-
-    // 重新初始化工具栏
-    if (toolbarContainer && this.options.toolbar !== false) {
-      this.toolbarManager = new ToolbarManager(
-        this.editor,
-        toolbarContainer,
-        this.options.toolbar,
-        this.i18nManager,
-        this.mediaRuntime
-      );
-      if (bubbleElement) this.toolbarManager.attachBubbleToolbar(bubbleElement);
-    }
-
-    // 重新初始化 AI 服务
-    if (this.options.ai) {
-      this.initAI(this.options.ai);
-    }
+    this.setupSubsystems();
   }
 
   /**
@@ -355,7 +328,7 @@ export class AtriEditor implements IAtriEditor {
   /**
    * Markdown 转 JSON
    */
-  markdownToJSON(markdown: string): object {
+  markdownToJSON(markdown: string): JSONContent {
     return this.markdownService.markdownToJSON(markdown);
   }
 
@@ -363,12 +336,7 @@ export class AtriEditor implements IAtriEditor {
    * 获取选中文本
    */
   getSelectedText(): string {
-    const { selection } = this.editor.state;
-    if (selection.empty) return '';
-    return getTextBetween(this.editor.state.doc, {
-      from: selection.from,
-      to: selection.to,
-    });
+    return getSelectedTextFromSelection(this.editor);
   }
 
   /**
@@ -497,7 +465,7 @@ export class AtriEditor implements IAtriEditor {
   /**
    * 设置主题
    */
-  setTheme(theme: 'light' | 'dark' | string): void {
+  setTheme(theme: ThemeType): void {
     this.themeManager.setTheme(theme);
   }
 

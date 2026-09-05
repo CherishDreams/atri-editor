@@ -5,10 +5,10 @@
  * 同一类型当不了两种形态。属性集、瞬时态补丁与 Markdown 语法家族都走共享模块，
  * 切换命令（Attachment.ts 的 setAttachmentDisplay）只在两者间换节点。
  */
-import { Node, mergeAttributes, type MarkdownToken } from '@tiptap/core';
+import { Node, mergeAttributes } from '@tiptap/core';
 import type { InsertAttachmentOptions } from '../types';
-import { formatFileSize, parseFileSize } from '../media/file-policy';
 import { attachmentAttributes, attachmentLabel, insertAttachmentContent } from './attachment-attrs';
+import { makeAttachmentMarkdown } from './attachment-markdown';
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
@@ -18,12 +18,6 @@ declare module '@tiptap/core' {
     };
   }
 }
-
-/**
- * Markdown 里的行内附件语法：!filelink[名字](url "大小")
- * 与块级 !file[ 无碰撞——'!filelink[' 不含子串 '!file['
- */
-const markdownPattern = /^!filelink\[([^\]]*)\]\(\s*([^\s)]+)(?:\s+"([^"]*)")?\s*\)/;
 
 export const AttachmentLink = Node.create({
   name: 'attachmentLink',
@@ -81,45 +75,9 @@ export const AttachmentLink = Node.create({
     };
   },
 
-  markdownTokenName: 'filelink',
-
-  markdownTokenizer: {
+  ...makeAttachmentMarkdown({
     name: 'filelink',
     level: 'inline',
-    start: (src) => src.indexOf('!filelink['),
-    tokenize: (src): MarkdownToken | undefined => {
-      const match = markdownPattern.exec(src);
-      if (!match) return undefined;
-
-      return {
-        type: 'filelink',
-        raw: match[0],
-        text: match[1] ?? '',
-        href: match[2] ?? '',
-        title: match[3],
-      };
-    },
-  },
-
-  parseMarkdown: (token, helpers) =>
-    helpers.createNode(
-      'attachmentLink',
-      {
-        src: token.href,
-        name: token.text || null,
-        size: parseFileSize(token.title) ?? null,
-        mime: null,
-      },
-      []
-    ),
-
-  renderMarkdown: (node) => {
-    const src = node.attrs?.src ?? '';
-    const name = node.attrs?.name ?? '';
-    const size = node.attrs?.size;
-
-    return size
-      ? `!filelink[${name}](${src} "${formatFileSize(size)}")`
-      : `!filelink[${name}](${src})`;
-  },
+    nodeName: 'attachmentLink',
+  }),
 });

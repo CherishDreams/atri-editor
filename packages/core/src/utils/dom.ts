@@ -28,8 +28,10 @@ export function createContainer(className?: string): HTMLDivElement {
 }
 
 /**
- * 检查是否在浏览器环境
+ * 从拖放/剪贴板事件里取文件列表
+ * 剪贴板里的截图与文件都在 files 上，text 为空不代表没有可投的东西
  */
-export function isBrowser(): boolean {
-  return typeof window !== 'undefined' && typeof document !== 'undefined';
+export function filesOf(transfer: DataTransfer | null | undefined): File[] {
+  if (!transfer) return [];
+  return Array.from(transfer.files);
 }

@@ -14,9 +14,17 @@ export interface Uploader {
 function pickUrl(body: unknown): string | undefined {
   if (!body || typeof body !== 'object') return undefined;
 
-  const record = body as Record<string, any>;
-  const candidates = [record.url, record.location, (record.data as any)?.url];
-  const url = candidates.find((value) => typeof value === 'string' && value !== '');
+  const record = body as Record<string, unknown>;
+  // 部分接口把地址包在 data 里，响应体不是 JSON 时整段当地址字符串处理（见调用处）
+  const nested = record.data;
+  const candidates = [
+    record.url,
+    record.location,
+    nested && typeof nested === 'object' ? (nested as Record<string, unknown>).url : undefined,
+  ];
+  const url = candidates.find(
+    (value): value is string => typeof value === 'string' && value !== ''
+  );
 
   return url;
 }

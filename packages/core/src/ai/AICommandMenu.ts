@@ -150,13 +150,14 @@ export class AICommandMenuManager {
     let y: number;
     try {
       const coords = view.coordsAtPos(from);
+      // 用光标坐标合成一个虚拟锚点：VirtualElement 只需要 getBoundingClientRect
       const virtualReference = {
         getBoundingClientRect(): DOMRect {
           return new DOMRect(coords.left, coords.top, 0, coords.bottom - coords.top);
         },
       };
 
-      ({ x, y } = await computePosition(virtualReference as any, menuElement, {
+      ({ x, y } = await computePosition(virtualReference, menuElement, {
         placement: 'bottom-start',
         middleware: [offset(8), flip(), shift()],
       }));

@@ -6,6 +6,7 @@ node_modules/
 dist/
 build/
 *.local
+coverage/
 
 # IDE
 .vscode/
@@ -19,6 +20,9 @@ Thumbs.db
 
 # Documentation (not for version control)
 .doc/
+
+# ZCode 会话产物
+.zcode/
 
 # Logs
 *.log

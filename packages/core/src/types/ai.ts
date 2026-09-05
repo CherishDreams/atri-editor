@@ -68,6 +68,8 @@ export interface AtriAIInterceptors {
 export interface AtriAIConfig {
   /** AI 功能列表 */
   functions: AtriAIFunction[];
+  /** 命令菜单触发字符（单字符，默认 '/'） */
+  triggerChar?: string;
   /** 请求端点，开发者完全控制网络请求 */
   requestEndpoint: (context: AIRequestContext) => Promise<AIResponse>;
   /** 拦截器链 */

@@ -139,6 +139,14 @@ export class I18nManager {
   }
 
   /**
+   * 翻译，词条缺失时回退到 fallback：i18next 缺词条时原样返回 key
+   */
+  tOr(key: string, fallback: string, options?: Record<string, unknown>): string {
+    const translated = this.t(key, options);
+    return translated && translated !== key ? translated : fallback;
+  }
+
+  /**
    * 切换语言
    */
   async changeLanguage(lang: string): Promise<void> {
