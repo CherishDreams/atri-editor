@@ -1,4 +1,4 @@
-import type { Editor, Extension } from '@tiptap/core';
+import type { Editor, Extension, JSONContent } from '@tiptap/core';
 import type { AtriAIConfig } from './ai';
 import type { AtriMarkdownConfig } from './markdown';
 import type {
@@ -8,6 +8,7 @@ import type {
   MediaKind,
 } from './media';
 import type { AtriNodeViewConfig } from './extension';
+import type { ThemeType } from '../core/ThemeManager';
 
 /**
  * 工具栏配置
@@ -62,8 +63,8 @@ export interface AtriEditorOptions {
   content?: string | object;
   /** 内容格式 */
   contentFormat?: 'html' | 'json' | 'markdown';
-  /** 主题 */
-  theme?: 'light' | 'dark' | string;
+  /** 主题：内置亮/暗或自定义主题名 */
+  theme?: ThemeType;
   /** 语言 */
   lang?: string;
   /** 是否可编辑 */
@@ -121,7 +122,7 @@ export interface IAtriEditor {
   /** HTML 转 Markdown */
   htmlToMarkdown(html: string): string;
   /** Markdown 转 JSON */
-  markdownToJSON(markdown: string): object;
+  markdownToJSON(markdown: string): JSONContent;
 
   /** 获取选中文本 */
   getSelectedText(): string;
