@@ -99,8 +99,9 @@ export class InsertPanel {
   }
 
   private t(key: string, fallback: string): string {
-    // 未注入 i18n 或词条缺失时回退到内置文案，与工具栏 tooltip 同一套规矩
-    return this.i18n ? this.i18n.tOr(key, fallback) : fallback;
+    // t() 在词条缺失时原样返回 key；未注入 i18n 或词条缺失时回退到内置文案，
+    // 与工具栏 tooltip 同一套规矩（走 I18nManager.tOr）
+    return this.i18n?.tOr(key, fallback) ?? fallback;
   }
 
   /**
