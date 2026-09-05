@@ -58,11 +58,12 @@ jobs:
         uses: changesets/action@v1
         with:
           version: pnpm version-packages
-          # changesets/action 不经过 shell 执行命令，不能用 `cd x && ...`；
-          # npm publish 接受目录参数但必须带 ./ 前缀——裸 `packages/core` 会被
-          # 当成 GitHub `owner/repo` 简写去 git ls-remote。registry 显式钉死官方源：
-          # Trusted Publishing / provenance 只认 registry.npmjs.org
-          publish: npm publish ./packages/core --provenance --access public --registry https://registry.npmjs.org/
+          # changesets/action@v1 在「无 changeset」分支会无条件执行本命令，
+          # 不做任何 registry/tag 判重；而 0.1.0 是在 changesets 引入前手动发布的，
+          # 裸 npm publish 每次 push main 都会撞 registry 的重复版本 403。
+          # 判重与补 tag（@atri-editor/core@<version>，与 changesets 惯例同名）
+          # 都在守卫脚本里：已发布→跳过；未发布→publish 后打 tag 推回
+          publish: node scripts/publish-core.mjs
           commit: 'chore(release): version packages'
           title: 'chore(release): version packages'
         env:
