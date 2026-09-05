@@ -13,7 +13,6 @@ export { AtriEditorElement, registerAtriElement } from './AtriEditorElement';
 
 // 导出类型
 export * from './types';
-export type { AtriNodeViewConfig, NodeViewAttribute } from './types/extension';
 
 // 导出核心模块
 export {
@@ -44,7 +43,6 @@ export type { AICommandMenuOptions } from './ai';
 export {
   resolveElement,
   createContainer,
-  isBrowser,
   getSelectedText,
   getCursorContext,
   getDocumentText,

@@ -3,7 +3,7 @@
  */
 import { Node, mergeAttributes } from '@tiptap/core';
 import type { AnyExtension } from '@tiptap/core';
-import type { AtriExtensionMeta, AtriNodeViewConfig } from '../types';
+import type { AtriNodeViewConfig } from '../types';
 
 export class ExtensionManager {
   private extensions: Map<string, AnyExtension> = new Map();
@@ -12,19 +12,12 @@ export class ExtensionManager {
   /**
    * 注册扩展
    */
-  register(extension: AnyExtension, _meta?: AtriExtensionMeta): void {
+  register(extension: AnyExtension): void {
     const name = extension.name;
     if (this.extensions.has(name)) {
       console.warn(`Extension "${name}" already registered, overwriting.`);
     }
     this.extensions.set(name, extension);
-  }
-
-  /**
-   * 批量注册扩展
-   */
-  registerAll(extensions: AnyExtension[]): void {
-    extensions.forEach((ext) => this.register(ext));
   }
 
   /**
@@ -68,13 +61,7 @@ export class ExtensionManager {
         : undefined,
     });
 
-    // 注册到扩展管理器
-    this.register(nodeExtension, {
-      name: config.name,
-      version: '1.0.0',
-      category: 'custom',
-      description: config.description,
-    });
+    this.register(nodeExtension);
   }
 
   /**
@@ -89,14 +76,6 @@ export class ExtensionManager {
    */
   get(name: string): AnyExtension | undefined {
     return this.extensions.get(name);
-  }
-
-  /**
-   * 卸载扩展
-   */
-  unregister(name: string): boolean {
-    this.nodeViews.delete(name);
-    return this.extensions.delete(name);
   }
 
   /**
@@ -118,13 +97,5 @@ export class ExtensionManager {
    */
   has(name: string): boolean {
     return this.extensions.has(name);
-  }
-
-  /**
-   * 清空所有扩展
-   */
-  clear(): void {
-    this.extensions.clear();
-    this.nodeViews.clear();
   }
 }
