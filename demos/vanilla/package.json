@@ -1,0 +1,15 @@
+{
+  "name": "@atri-editor/demo-vanilla",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite"
+  },
+  "dependencies": {
+    "@atri-editor/core": "workspace:*"
+  },
+  "devDependencies": {
+    "vite": "^5.4.0"
+  }
+}
