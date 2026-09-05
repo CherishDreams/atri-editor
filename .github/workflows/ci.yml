@@ -23,11 +23,12 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
+      # demo 的 typecheck 消费 core 的 dist（workspace 类型指向构建产物），须先 build
+      - name: Build
+        run: pnpm build
+
       - name: Typecheck, lint and format check
         run: pnpm check
 
       - name: Test
         run: pnpm test
-
-      - name: Build
-        run: pnpm build

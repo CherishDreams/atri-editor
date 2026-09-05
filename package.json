@@ -5,15 +5,16 @@
   "description": "A framework-agnostic rich text editor based on Tiptap v3 with AI integration",
   "scripts": {
     "dev": "pnpm -C packages/core dev",
-    "demo": "cd demos/vanilla && vite",
+    "demo": "pnpm -C demos/vanilla dev",
     "demo:vue": "pnpm -C demos/vue dev",
     "demo:react": "pnpm -C demos/react dev",
     "build": "pnpm -r build",
     "build:core": "pnpm -C packages/core build",
     "typecheck": "pnpm -C packages/core typecheck",
-    "lint": "oxlint packages/core/src",
+    "typecheck:demos": "pnpm -C demos/vue typecheck && pnpm -C demos/react typecheck",
+    "lint": "oxlint packages/core/src demos",
     "format": "oxfmt --write packages demos",
-    "check": "pnpm typecheck && pnpm lint && oxfmt --check packages demos",
+    "check": "pnpm typecheck && pnpm typecheck:demos && pnpm lint && oxfmt --check packages demos",
     "test": "pnpm -r --if-present test",
     "clean": "rimraf packages/*/dist",
     "changeset": "changeset",
@@ -25,8 +26,7 @@
     "oxfmt": "^0.65.0",
     "oxlint": "^1.80.0",
     "rimraf": "^5.0.0",
-    "typescript": "^7.0.0",
-    "vite": "^5.4.0"
+    "typescript": "^7.0.0"
   },
   "engines": {
     "node": ">=18.0.0",
