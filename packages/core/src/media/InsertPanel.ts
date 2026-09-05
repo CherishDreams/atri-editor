@@ -2,12 +2,16 @@
  * InsertPanel - 工具栏下方的插入浮层
  *
  * 挂在 document.body 上并用 fixed 定位：工具栏那一层链路上任何一处 overflow 都会把浮层裁掉。
+ *
+ * 注：media/ 目录同时承载上传运行时（MediaRuntime/Uploader/file-policy）与 UI
+ * （本文件与 MediaStatusStrip），两者通过 MediaRuntime 的订阅接口协作，暂不拆分子目录。
  */
 import type { Editor } from '@tiptap/core';
 import { autoUpdate, computePosition, flip, offset, shift } from '@floating-ui/dom';
 import type { I18nManager } from '../core/I18nManager';
 import type { MediaKind } from '../types';
 import type { MediaRuntime } from './MediaRuntime';
+import { filesOf } from '../utils/dom';
 
 export type InsertPanelMode = 'image' | 'attachment';
 
@@ -24,11 +28,6 @@ const FIELDS: Record<InsertPanelMode, { url: boolean; alt: boolean; kind: MediaK
   image: { url: true, alt: true, kind: 'image' },
   attachment: { url: false, alt: false, kind: 'attachment' },
 };
-
-function filesOf(transfer: DataTransfer | null | undefined): File[] {
-  if (!transfer) return [];
-  return Array.from(transfer.files);
-}
 
 interface LabelledElement {
   el: HTMLElement;
@@ -100,9 +99,8 @@ export class InsertPanel {
   }
 
   private t(key: string, fallback: string): string {
-    const translated = this.i18n?.t(key);
     // 未注入 i18n 或词条缺失时回退到内置文案，与工具栏 tooltip 同一套规矩
-    return translated && translated !== key ? translated : fallback;
+    return this.i18n ? this.i18n.tOr(key, fallback) : fallback;
   }
 
   /**

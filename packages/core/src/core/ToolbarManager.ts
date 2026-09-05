@@ -247,13 +247,6 @@ export class ToolbarManager {
       button.innerHTML = itemDef.icon;
     }
 
-    // 确保 SVG 图标有正确的尺寸
-    const svg = button.querySelector('svg');
-    if (svg) {
-      svg.setAttribute('width', '18');
-      svg.setAttribute('height', '18');
-    }
-
     if (overrides?.tooltip) {
       this.customTooltips.set(itemId, overrides.tooltip);
     }
@@ -290,9 +283,10 @@ export class ToolbarManager {
 
       const custom = this.customTooltips.get(itemId);
       const key = TOOLTIP_KEYS[itemId];
-      const translated = key ? this.i18n?.t(key) : undefined;
       // 未注入 i18n 或词条缺失时回退到定义里的文案
-      const title = custom ?? (translated && translated !== key ? translated : itemDef.tooltip);
+      const title =
+        custom ??
+        (key ? (this.i18n?.tOr(key, itemDef.tooltip) ?? itemDef.tooltip) : itemDef.tooltip);
 
       buttons.forEach((button) => {
         button.title = title;

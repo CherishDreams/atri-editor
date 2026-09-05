@@ -24,10 +24,8 @@ export class MediaStatusStrip {
 
   constructor(runtime: MediaRuntime, container: HTMLElement, i18n?: I18nManager) {
     // t() 在词条缺失时会原样返回 key，此时回退到内置文案
-    const t = (key: string, fallback: string, options?: Record<string, unknown>) => {
-      const translated = i18n?.t(key, options);
-      return translated && translated !== key ? translated : fallback;
-    };
+    const t = (key: string, fallback: string, options?: Record<string, unknown>) =>
+      i18n?.tOr(key, fallback, options) ?? fallback;
 
     this.labels = {
       uploading: (files, percent) =>
