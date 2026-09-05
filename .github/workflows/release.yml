@@ -47,10 +47,12 @@ jobs:
           fi
 
       - name: Gate (same checks as CI before anything ships)
+        # 顺序与 ci.yml 一致：demo 的 typecheck 消费 core 的 dist（workspace
+        # exports 的 types 指向构建产物），必须先 build 才能 check
         run: |
+          pnpm build
           pnpm check
           pnpm test
-          pnpm build
 
       - name: Version PR or Publish
         uses: changesets/action@v1
