@@ -1,0 +1,56 @@
+// 表格：插入网格选择器
+@use './variables' as *;
+
+// 面板挂在 document.body 上，不在 .atri-editor 里：字体与 box-sizing 继承不到编辑器那套重置，
+// 位置由 floating-ui 写死 fixed，外观与 .atri-media-panel 同一套底盘
+.atri-table-panel {
+  position: fixed;
+  z-index: $z-dropdown;
+  padding: $spacing-md;
+  font-family: $font-family;
+  font-size: $font-size-sm;
+  color: var(--atri-text-color);
+  background-color: var(--atri-bg-color);
+  border: 1px solid var(--atri-border-color);
+  border-radius: $border-radius-lg;
+  box-shadow: $shadow-lg;
+  box-sizing: border-box;
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  &:focus {
+    outline: none;
+  }
+}
+
+.atri-table-panel-grid {
+  display: grid;
+  // 8 列固定：单元格是 JS 平铺进 grid 的，行随列数自动排
+  grid-template-columns: repeat(8, 1fr);
+  gap: 2px;
+}
+
+.atri-table-panel-cell {
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--atri-border-color);
+  border-radius: 2px;
+  background-color: var(--atri-bg-color);
+  cursor: pointer;
+  transition: background-color 0.1s ease;
+
+  &--active {
+    background-color: rgba(24, 144, 255, 0.25);
+    border-color: var(--atri-color-primary);
+  }
+}
+
+.atri-table-panel-hint {
+  margin-top: $spacing-sm;
+  color: var(--atri-text-color-secondary);
+  text-align: center;
+}

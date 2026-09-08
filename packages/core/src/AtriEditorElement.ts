@@ -6,6 +6,7 @@ import type {
   AtriEditorOptions,
   InsertAttachmentOptions,
   InsertImageOptions,
+  InsertTableOptions,
   MediaKind,
 } from './types';
 
@@ -195,6 +196,13 @@ export class AtriEditorElement extends AtriEditorBase {
    */
   insertAttachment(options: InsertAttachmentOptions): void {
     this.editor?.insertAttachment(options);
+  }
+
+  /**
+   * 在选区处插入表格
+   */
+  insertTable(options?: InsertTableOptions): void {
+    this.editor?.insertTable(options);
   }
 
   /**

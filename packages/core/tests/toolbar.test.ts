@@ -48,12 +48,14 @@ describe('ToolbarManager', () => {
       'alignLeft',
       'alignCenter',
       'alignRight',
+      // 表格节点默认注册，插入表格自成一组
+      'insertTable',
       // 媒体扩展默认注册，末组是插入图片、附件与附件样式切换
       'insertImage',
       'insertAttachment',
       'attachmentDisplay',
     ]);
-    expect(separators).toBe(5);
+    expect(separators).toBe(6);
   });
 
   it('items 决定按钮内容与顺序', async () => {

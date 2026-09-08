@@ -57,7 +57,7 @@ describe('选区浮动工具栏', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     // 顶栏照常，但没有第二个工具栏
-    expect(toolbarButtons(editor)).toHaveLength(21);
+    expect(toolbarButtons(editor)).toHaveLength(22);
     expect(rootOf(editor).querySelector('.atri-editor-bubble-toolbar')).toBeNull();
   });
 
@@ -72,7 +72,7 @@ describe('选区浮动工具栏', () => {
     // 节点组一次就渲染好了，藏它的是 CSS 而不是"没建"，所以此刻就能查到它的结构
     expect(bubbleGroupItems(editor, 'node')).toEqual(['attachmentDisplay', 'delete']);
     // 顶栏不受影响，浮层挂在正文自己的滚动盒里
-    expect(toolbarButtons(editor)).toHaveLength(21);
+    expect(toolbarButtons(editor)).toHaveLength(22);
     expect(bubbleRoot(editor)?.parentElement?.className).toBe('atri-editor-content-wrapper');
   });
 

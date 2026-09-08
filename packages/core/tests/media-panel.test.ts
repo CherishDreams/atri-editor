@@ -134,8 +134,8 @@ describe('插入浮层', () => {
       'insertAttachment',
       'attachmentDisplay',
     ]);
-    expect(toolbarButtons(editor)).toHaveLength(21);
-    expect(separatorCount(editor)).toBe(5);
+    expect(toolbarButtons(editor)).toHaveLength(22);
+    expect(separatorCount(editor)).toBe(6);
     expect(toolbarTitles(editor).slice(-3)).toEqual(['图片', '附件', '附件样式']);
     expect(buttonOf(editor, 'insertImage').querySelector('svg')).not.toBeNull();
   });
@@ -310,8 +310,9 @@ describe('插入浮层', () => {
 
   it('media:false 时两项从默认布局里消失，显式声明则跳过并告警', async () => {
     const plain = await mount({ content: '<p>x</p>', toolbar: {}, media: false });
-    expect(itemIds(plain)).toHaveLength(18);
-    expect(separatorCount(plain)).toBe(4);
+    // 表格节点与媒体无关，insertTable 仍在；媒体组消失
+    expect(itemIds(plain)).toHaveLength(19);
+    expect(separatorCount(plain)).toBe(5);
 
     const warned = await mount({
       content: '<p>x</p>',

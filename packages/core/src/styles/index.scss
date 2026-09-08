@@ -1,6 +1,7 @@
 // Atri Editor - Base Styles
 @use './variables' as *;
 @use './media' as *;
+@use './table' as *;
 
 // CSS Custom Properties for runtime theme switching
 :root {
@@ -261,9 +262,16 @@
 
     td,
     th {
+      // 选中高亮的伪元素按单元格定位
+      position: relative;
       border: 1px solid var(--atri-border-color);
       padding: $spacing-sm $spacing-md;
       text-align: left;
+
+      // 单元格里的段落不再要块间距，高度由 padding 决定
+      p {
+        margin: 0;
+      }
     }
 
     th {
@@ -271,6 +279,17 @@
       font-weight: 600;
     }
   }
+}
+
+// prosemirror-tables 的单元格多选高亮：绝对定位的伪元素盖一层主色，
+// 不能并进上面的 table 块——.tableWrapper（resizable 时）与嵌套表格都会走偏
+.atri-editor-content .selectedCell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-color: var(--atri-color-primary);
+  opacity: 0.12;
+  pointer-events: none;
 }
 
 // Task List

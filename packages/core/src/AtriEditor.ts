@@ -7,6 +7,7 @@ import type {
   IAtriEditor,
   InsertAttachmentOptions,
   InsertImageOptions,
+  InsertTableOptions,
   MediaKind,
   SetContentOptions,
   AtriAIConfig,
@@ -159,6 +160,7 @@ export class AtriEditor implements IAtriEditor {
       extensions: [...(this.options.extensions || []), ...this.extensionManager.getAll()],
       markdown: this.options.markdown,
       media: this.options.media,
+      table: this.options.table,
       mediaRuntime: this.mediaRuntime ?? undefined,
       bubbleElement: this.ensureBubbleElement(this.options.toolbar),
       onCreate: () => {
@@ -367,6 +369,14 @@ export class AtriEditor implements IAtriEditor {
     } else {
       chain.setAttachment(options).run();
     }
+  }
+
+  /**
+   * 在选区处插入表格（默认 3×3 带表头）
+   */
+  insertTable(options?: InsertTableOptions): void {
+    const { rows = 3, cols = 3, withHeaderRow = true } = options ?? {};
+    this.editor.chain().focus().insertTable({ rows, cols, withHeaderRow }).run();
   }
 
   /**

@@ -148,6 +148,7 @@
         <div class="controls" style="margin-top: 10px">
           <button id="btn-insertImage">插入远程图片</button>
           <button id="btn-insertAttachment">插入附件卡片</button>
+          <button id="btn-insertTable">插入 3×3 表格</button>
           <button id="btn-checkUploads">检查未落地的上传</button>
         </div>
       </div>
@@ -586,6 +587,18 @@
           });
         } catch (err) {
           console.error('[Atri Editor] insertAttachment failed:', err);
+        }
+      });
+
+      document.getElementById('btn-insertTable').addEventListener('click', function () {
+        try {
+          if (!window.editor) {
+            console.error('[Atri Editor] Editor instance not initialized');
+            return;
+          }
+          window.editor.insertTable({ rows: 3, cols: 3, withHeaderRow: true });
+        } catch (err) {
+          console.error('[Atri Editor] insertTable failed:', err);
         }
       });
 

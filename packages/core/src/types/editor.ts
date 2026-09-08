@@ -54,6 +54,18 @@ export interface SetContentOptions {
 }
 
 /**
+ * 插入表格选项
+ */
+export interface InsertTableOptions {
+  /** 行数（含表头行），默认 3 */
+  rows?: number;
+  /** 列数，默认 3 */
+  cols?: number;
+  /** 首行是否为表头，默认 true */
+  withHeaderRow?: boolean;
+}
+
+/**
  * 编辑器配置
  */
 export interface AtriEditorOptions {
@@ -83,6 +95,8 @@ export interface AtriEditorOptions {
   markdown?: AtriMarkdownConfig;
   /** 媒体（图片 / 附件）配置，false 时不注册图片与附件节点 */
   media?: AtriMediaConfig | false;
+  /** 表格开关，false 时不注册表格节点、工具栏也不出插入表格按钮；默认开 */
+  table?: boolean;
   /** 创建完成回调 */
   onCreate?: (editor: IAtriEditor) => void;
   /** 内容变更回调 */
@@ -135,6 +149,8 @@ export interface IAtriEditor {
   insertImage(options: InsertImageOptions): void;
   /** 在选区处插入附件卡片 */
   insertAttachment(options: InsertAttachmentOptions): void;
+  /** 在选区处插入表格 */
+  insertTable(options?: InsertTableOptions): void;
   /** 走上传管线插入本地文件，promise 在这批文件全部落定后 resolve */
   uploadFiles(files: File[] | FileList, kind?: MediaKind): Promise<void>;
   /** 重试所有失败的上传 */
