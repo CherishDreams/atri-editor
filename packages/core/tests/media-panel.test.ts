@@ -126,17 +126,14 @@ describe('插入浮层', () => {
     warns.length = 0;
   });
 
-  it('默认工具栏末尾多出图片、附件与附件样式三项', async () => {
+  it('默认工具栏末尾多出图片与附件两项，附件样式不再常驻', async () => {
     const editor = await mount({ content: '<p>x</p>', toolbar: {} });
 
-    expect(itemIds(editor).slice(-3)).toEqual([
-      'insertImage',
-      'insertAttachment',
-      'attachmentDisplay',
-    ]);
-    expect(toolbarButtons(editor)).toHaveLength(22);
+    expect(itemIds(editor).slice(-2)).toEqual(['insertImage', 'insertAttachment']);
+    expect(itemIds(editor)).not.toContain('attachmentDisplay');
+    expect(toolbarButtons(editor)).toHaveLength(21);
     expect(separatorCount(editor)).toBe(6);
-    expect(toolbarTitles(editor).slice(-3)).toEqual(['图片', '附件', '附件样式']);
+    expect(toolbarTitles(editor).slice(-2)).toEqual(['图片', '附件']);
     expect(buttonOf(editor, 'insertImage').querySelector('svg')).not.toBeNull();
   });
 

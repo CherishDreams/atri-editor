@@ -330,7 +330,12 @@ describe('附件形态切换', () => {
   });
 
   it('工具栏按钮跟着选区走：没附件禁用，选中附件点亮', async () => {
-    const editor = await mount({ content: '<p>正文</p>', toolbar: {} });
+    // attachmentDisplay 不再进默认布局，显式写回常驻位；bubble 关掉，
+    // 这个用例测的是顶栏状态同步，不是浮层
+    const editor = await mount({
+      content: '<p>正文</p>',
+      toolbar: { items: ['attachmentDisplay'], bubble: false },
+    });
     const button = rootOf(editor).querySelector<HTMLButtonElement>(
       '[data-toolbar-item="attachmentDisplay"]'
     )!;

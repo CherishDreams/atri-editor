@@ -201,9 +201,8 @@ export class ToolbarManager {
       ['alignLeft', 'alignCenter', 'alignRight'],
       // 同媒体组的道理：表格节点没注册时这项不存在，默认布局里也不摆空位
       ...(this.itemDefs.has('insertTable') ? [['insertTable']] : []),
-      ...(this.itemDefs.has('insertImage')
-        ? [['insertImage', 'insertAttachment', 'attachmentDisplay']]
-        : []),
+      // 「附件样式」不再常驻：切换形态改由选中附件时的浮动工具栏承接（bubble 默认开）
+      ...(this.itemDefs.has('insertImage') ? [['insertImage', 'insertAttachment']] : []),
     ];
 
     layout.forEach((group, groupIndex) => {

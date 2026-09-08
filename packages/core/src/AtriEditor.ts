@@ -102,9 +102,9 @@ export class AtriEditor implements IAtriEditor {
     this.setupSubsystems();
   }
 
-  /** 开了 bubble 才建元素，且故意不插进文档：挂载与定位全归 BubbleMenu 插件管 */
+  /** bubble 默认开，显式 false 才不建元素；元素故意不插进文档：挂载与定位全归 BubbleMenu 插件管 */
   private ensureBubbleElement(toolbar: AtriEditorOptions['toolbar']): HTMLDivElement | null {
-    if (toolbar === false || !toolbar?.bubble) return null;
+    if (toolbar === false || toolbar?.bubble === false) return null;
     this.bubbleElement ??= createContainer('atri-editor-bubble-toolbar');
     return this.bubbleElement;
   }
