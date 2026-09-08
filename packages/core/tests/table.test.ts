@@ -1,24 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { AtriEditor } from '../src/index';
-import { mount, rootOf, toolbarButtons } from './utils';
-
-function buttonOf(editor: AtriEditor, id: string): HTMLButtonElement {
-  const button = rootOf(editor).querySelector<HTMLButtonElement>(`[data-toolbar-item="${id}"]`);
-  if (!button) throw new Error(`toolbar item "${id}" not rendered`);
-  return button;
-}
-
-function click(element: HTMLElement): void {
-  element.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-}
-
-function pointerDownOn(node: Node): void {
-  node.dispatchEvent(new Event('pointerdown', { bubbles: true, cancelable: true }));
-}
-
-function pressEscape(): void {
-  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-}
+import { buttonOf, click, mount, pointerDownOn, pressEscape, toolbarButtons } from './utils';
 
 /** 网格面板挂在 document.body 上，不在编辑器容器里 */
 function panel(): HTMLElement | null {

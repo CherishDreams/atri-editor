@@ -13,7 +13,7 @@ import {
   positionPanel,
   type FloatingPanel,
 } from '../core/floating-panel';
-import type { I18nManager } from '../core/I18nManager';
+import { tOrFallback, type I18nManager } from '../core/I18nManager';
 import type { MediaKind } from '../types';
 import type { MediaRuntime } from './MediaRuntime';
 import { filesOf } from '../utils/dom';
@@ -104,9 +104,7 @@ export class InsertPanel {
   }
 
   private t(key: string, fallback: string): string {
-    // t() 在词条缺失时原样返回 key；未注入 i18n 或词条缺失时回退到内置文案，
-    // 与工具栏 tooltip 同一套规矩（走 I18nManager.tOr）
-    return this.i18n?.tOr(key, fallback) ?? fallback;
+    return tOrFallback(this.i18n, key, fallback);
   }
 
   /**

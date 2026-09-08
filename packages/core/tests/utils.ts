@@ -49,6 +49,30 @@ export function toolbarTitles(editor: AtriEditor): string[] {
 }
 
 /**
+ * 按项 id 取顶栏按钮，查不到直接抛，别让后续断言拿着 null 出假阳性
+ */
+export function buttonOf(editor: AtriEditor, id: string): HTMLButtonElement {
+  const button = rootOf(editor).querySelector<HTMLButtonElement>(`[data-toolbar-item="${id}"]`);
+  if (!button) throw new Error(`toolbar item "${id}" not rendered`);
+  return button;
+}
+
+/** 手动派发冒泡的 click：不会先走 mousedown/focus，够用 */
+export function click(element: HTMLElement): void {
+  element.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+}
+
+/** 浮层的外点关闭监听的是 document 捕获阶段的 pointerdown，得这么触发 */
+export function pointerDownOn(node: Node): void {
+  node.dispatchEvent(new Event('pointerdown', { bubbles: true, cancelable: true }));
+}
+
+/** Escape 同理走 document 捕获阶段的 keydown */
+export function pressEscape(): void {
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+}
+
+/**
  * 浮动工具栏元素：插件每次隐藏都会把它摘出文档，所以只有显示中才在 DOM 里查得到
  * 这也正是"有没有浮出"的判据，jsdom 里没有排版，别去断言坐标
  */

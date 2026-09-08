@@ -11,7 +11,7 @@ import {
   positionPanel,
   type FloatingPanel,
 } from './floating-panel';
-import type { I18nManager } from './I18nManager';
+import { tOrFallback, type I18nManager } from './I18nManager';
 
 export interface TableGridPanelOptions {
   editor: Editor;
@@ -81,8 +81,7 @@ export class TableGridPanel {
   }
 
   private t(key: string, fallback: string): string {
-    // 与工具栏 tooltip 同一套回退规矩（I18nManager.tOr）
-    return this.i18n?.tOr(key, fallback) ?? fallback;
+    return tOrFallback(this.i18n, key, fallback);
   }
 
   private build(): void {

@@ -168,3 +168,11 @@ export class I18nManager {
     return this.instance.language || 'zh';
   }
 }
+
+/**
+ * 浮层类 UI 共用的文案回退：未注入 i18n 或词条缺失时用内置文案
+ * （t() 缺词条时原样返回 key，所以 tOr 已是类里的规矩，这里只补"可能压根没有 i18n"这一层）
+ */
+export function tOrFallback(i18n: I18nManager | undefined, key: string, fallback: string): string {
+  return i18n?.tOr(key, fallback) ?? fallback;
+}
