@@ -20,7 +20,8 @@
   },
   "files": [
     "dist",
-    "styles.d.ts"
+    "styles.d.ts",
+    "CHANGELOG.md"
   ],
   "type": "module",
   "sideEffects": [
