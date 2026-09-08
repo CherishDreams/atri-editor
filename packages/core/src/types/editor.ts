@@ -1,4 +1,4 @@
-import type { Editor, Extension, JSONContent } from '@tiptap/core';
+import type { Editor, Extensions, JSONContent } from '@tiptap/core';
 import type { AtriAIConfig } from './ai';
 import type { AtriMarkdownConfig } from './markdown';
 import type {
@@ -20,7 +20,7 @@ export interface ToolbarConfig {
    */
   items?: (string | ToolbarItem)[];
   /**
-   * 选中文字或图片 / 附件时在选区旁浮出的工具栏，默认关闭，与固定顶栏共存
+   * 选中文字或图片 / 附件时在选区旁浮出的工具栏，默认开启，与固定顶栏共存
    * 按钮分两组：文字选区是行内格式五项，选中附件是「附件样式 + 删除」、选中图片只有「删除」
    * 只在创建时生效：BubbleMenu 的挂载元素走扩展选项，而 tiptap v3 没有运行时注册扩展的入口
    */
@@ -54,6 +54,18 @@ export interface SetContentOptions {
 }
 
 /**
+ * 插入表格选项
+ */
+export interface InsertTableOptions {
+  /** 行数（含表头行），默认 3 */
+  rows?: number;
+  /** 列数，默认 3 */
+  cols?: number;
+  /** 首行是否为表头，默认 true */
+  withHeaderRow?: boolean;
+}
+
+/**
  * 编辑器配置
  */
 export interface AtriEditorOptions {
@@ -73,8 +85,8 @@ export interface AtriEditorOptions {
   placeholder?: string;
   /** 工具栏配置 */
   toolbar?: ToolbarConfig | false;
-  /** 扩展列表 */
-  extensions?: Extension[];
+  /** 扩展列表（节点 / 标记 / 普通扩展皆可，与 Tiptap 同口径） */
+  extensions?: Extensions;
   /** NodeView 自定义组件配置 */
   nodeViews?: AtriNodeViewConfig[];
   /** AI 配置 */
@@ -83,6 +95,8 @@ export interface AtriEditorOptions {
   markdown?: AtriMarkdownConfig;
   /** 媒体（图片 / 附件）配置，false 时不注册图片与附件节点 */
   media?: AtriMediaConfig | false;
+  /** 表格开关，false 时不注册表格节点、工具栏也不出插入表格按钮；默认开 */
+  table?: boolean;
   /** 创建完成回调 */
   onCreate?: (editor: IAtriEditor) => void;
   /** 内容变更回调 */
@@ -135,6 +149,8 @@ export interface IAtriEditor {
   insertImage(options: InsertImageOptions): void;
   /** 在选区处插入附件卡片 */
   insertAttachment(options: InsertAttachmentOptions): void;
+  /** 在选区处插入表格 */
+  insertTable(options?: InsertTableOptions): void;
   /** 走上传管线插入本地文件，promise 在这批文件全部落定后 resolve */
   uploadFiles(files: File[] | FileList, kind?: MediaKind): Promise<void>;
   /** 重试所有失败的上传 */

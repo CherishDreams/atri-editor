@@ -8,6 +8,8 @@ import { InsertPanel, type InsertPanelMode } from '../media/InsertPanel';
 import type { MediaRuntime } from '../media/MediaRuntime';
 import { BUBBLE_NODE_ITEMS, BUBBLE_TEXT_ITEMS } from './bubble-toolbar';
 import type { I18nManager } from './I18nManager';
+import { TableGridPanel } from './TableGridPanel';
+import { canInsertTable } from '../utils/table';
 import { icons } from './icons';
 
 /**
@@ -49,6 +51,7 @@ const TOOLTIP_KEYS: Record<string, string> = {
   insertImage: 'editor.image',
   insertAttachment: 'editor.attachment',
   attachmentDisplay: 'editor.attachmentDisplay',
+  insertTable: 'editor.table',
   delete: 'editor.delete',
 };
 
@@ -69,6 +72,7 @@ export class ToolbarManager {
   private itemDefs: Map<string, ToolbarItemDef>;
   private createdElements: HTMLElement[] = [];
   private panel: InsertPanel | null = null;
+  private tablePanel: TableGridPanel | null = null;
 
   constructor(
     editor: Editor,
@@ -153,6 +157,25 @@ export class ToolbarManager {
   }
 
   /**
+   * 表格网格面板按需创建：没点开过就不该有一个实例挂在编辑器上
+   */
+  private get gridPanel(): TableGridPanel | null {
+    if (!this.tableExtensionRegistered) return null;
+    this.tablePanel ??= new TableGridPanel({
+      editor: this.editor,
+      i18n: this.i18n,
+      // 开合不改文档，等不到 transaction，得主动刷一次按钮状态
+      onOpenChange: () => this.updateButtonStates(),
+    });
+    return this.tablePanel;
+  }
+
+  /** 内置表格真可用才摆按钮：table:false 未注册、或被用户同名扩展顶掉都不摆（判定见 canInsertTable） */
+  private get tableExtensionRegistered(): boolean {
+    return canInsertTable(this.editor);
+  }
+
+  /**
    * 创建工具栏 DOM - 直接将按钮插入 container
    */
   private createToolbarDOM(): void {
@@ -177,10 +200,10 @@ export class ToolbarManager {
       ['bold', 'italic', 'underline', 'strike', 'code'],
       ['bulletList', 'orderedList', 'blockquote', 'codeBlock'],
       ['alignLeft', 'alignCenter', 'alignRight'],
-      // 媒体节点没注册时这两项压根不存在，默认布局里也不摆空位
-      ...(this.itemDefs.has('insertImage')
-        ? [['insertImage', 'insertAttachment', 'attachmentDisplay']]
-        : []),
+      // 同媒体组的道理：表格节点没注册时这项不存在，默认布局里也不摆空位
+      ...(this.itemDefs.has('insertTable') ? [['insertTable']] : []),
+      // 「附件样式」不再常驻：切换形态改由选中附件时的浮动工具栏承接（bubble 默认开）
+      ...(this.itemDefs.has('insertImage') ? [['insertImage', 'insertAttachment']] : []),
     ];
 
     layout.forEach((group, groupIndex) => {
@@ -331,6 +354,19 @@ export class ToolbarManager {
         isActive: (editor) => editor.isActive('attachment') || editor.isActive('attachmentLink'),
         isDisabled: (editor) =>
           !editor.isActive('attachment') && !editor.isActive('attachmentLink'),
+      });
+    }
+
+    // 内置表格不可用（table:false 或被用户顶掉）时 insertTable 命令跑不通，按钮也不提供
+    if (this.tableExtensionRegistered) {
+      items.set('insertTable', {
+        id: 'insertTable',
+        icon: icons.table,
+        tooltip: '表格',
+        popup: true,
+        command: (_editor, button) => this.gridPanel?.toggle(button),
+        isActive: () => this.tablePanel?.isOpen === true,
+        isDisabled: (editor) => !editor.isEditable,
       });
     }
 
@@ -574,6 +610,8 @@ export class ToolbarManager {
     // 面板挂在 document.body 上，不跟着工具栏一起收就会留在页面上
     this.panel?.destroy();
     this.panel = null;
+    this.tablePanel?.destroy();
+    this.tablePanel = null;
     this.buttons.clear();
     this.customTooltips.clear();
     // 浮层元素归门面所有，要活过重建编辑器，所以这里既不 remove 也不清空它

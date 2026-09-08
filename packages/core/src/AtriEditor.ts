@@ -7,6 +7,7 @@ import type {
   IAtriEditor,
   InsertAttachmentOptions,
   InsertImageOptions,
+  InsertTableOptions,
   MediaKind,
   SetContentOptions,
   AtriAIConfig,
@@ -24,6 +25,7 @@ import { MediaStatusStrip } from './media/MediaStatusStrip';
 import { AIService } from './ai/AIService';
 import { AICommandMenuManager } from './ai/AICommandMenu';
 import { resolveElement, createContainer } from './utils/dom';
+import { canInsertTable } from './utils/table';
 import { getSelectedText as getSelectedTextFromSelection } from './utils/selection';
 
 export class AtriEditor implements IAtriEditor {
@@ -101,9 +103,9 @@ export class AtriEditor implements IAtriEditor {
     this.setupSubsystems();
   }
 
-  /** 开了 bubble 才建元素，且故意不插进文档：挂载与定位全归 BubbleMenu 插件管 */
+  /** bubble 默认开，显式 false 才不建元素；元素故意不插进文档：挂载与定位全归 BubbleMenu 插件管 */
   private ensureBubbleElement(toolbar: AtriEditorOptions['toolbar']): HTMLDivElement | null {
-    if (toolbar === false || !toolbar?.bubble) return null;
+    if (toolbar === false || toolbar?.bubble === false) return null;
     this.bubbleElement ??= createContainer('atri-editor-bubble-toolbar');
     return this.bubbleElement;
   }
@@ -159,6 +161,7 @@ export class AtriEditor implements IAtriEditor {
       extensions: [...(this.options.extensions || []), ...this.extensionManager.getAll()],
       markdown: this.options.markdown,
       media: this.options.media,
+      table: this.options.table,
       mediaRuntime: this.mediaRuntime ?? undefined,
       bubbleElement: this.ensureBubbleElement(this.options.toolbar),
       onCreate: () => {
@@ -367,6 +370,18 @@ export class AtriEditor implements IAtriEditor {
     } else {
       chain.setAttachment(options).run();
     }
+  }
+
+  /**
+   * 在选区处插入表格（默认 3×3 带表头）
+   */
+  insertTable(options?: InsertTableOptions): void {
+    if (!canInsertTable(this.editor)) {
+      console.warn('[Atri Editor] insertTable() ignored: table extensions are disabled.');
+      return;
+    }
+    const { rows = 3, cols = 3, withHeaderRow = true } = options ?? {};
+    this.editor.chain().focus().insertTable({ rows, cols, withHeaderRow }).run();
   }
 
   /**

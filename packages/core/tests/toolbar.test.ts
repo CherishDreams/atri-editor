@@ -48,12 +48,28 @@ describe('ToolbarManager', () => {
       'alignLeft',
       'alignCenter',
       'alignRight',
-      // 媒体扩展默认注册，末组是插入图片、附件与附件样式切换
+      // 表格节点默认注册，插入表格自成一组
+      'insertTable',
+      // 媒体扩展默认注册，末组是插入图片与附件；「附件样式」改由选中附件时的浮动工具栏承接
       'insertImage',
       'insertAttachment',
+    ]);
+    expect(separators).toBe(6);
+  });
+
+  it('attachmentDisplay 不再常驻，但可显式写回 items 恢复', async () => {
+    const editor = await mount({ content: '<p>x</p>', toolbar: { bubble: false } });
+    expect(toolbarOf(editor).buttons.map((b) => b.getAttribute('data-toolbar-item'))).not.toContain(
+      'attachmentDisplay'
+    );
+
+    const pinned = await mount({
+      content: '<p>x</p>',
+      toolbar: { items: ['attachmentDisplay'], bubble: false },
+    });
+    expect(toolbarOf(pinned).buttons.map((b) => b.getAttribute('data-toolbar-item'))).toEqual([
       'attachmentDisplay',
     ]);
-    expect(separators).toBe(5);
   });
 
   it('items 决定按钮内容与顺序', async () => {
@@ -90,7 +106,10 @@ describe('ToolbarManager', () => {
   });
 
   it('点击按钮执行对应命令并同步 active 状态', async () => {
-    const editor = await mount({ content: '<p>hello</p>', toolbar: { items: ['bold'] } });
+    const editor = await mount({
+      content: '<p>hello</p>',
+      toolbar: { items: ['bold'], bubble: false },
+    });
     const [button] = toolbarOf(editor).buttons;
     editor.editor.commands.focus();
     editor.editor.commands.setTextSelection({ from: 2, to: 5 });

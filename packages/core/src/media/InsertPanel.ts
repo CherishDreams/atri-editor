@@ -7,8 +7,13 @@
  * （本文件与 MediaStatusStrip），两者通过 MediaRuntime 的订阅接口协作，暂不拆分子目录。
  */
 import type { Editor } from '@tiptap/core';
-import { autoUpdate, computePosition, flip, offset, shift } from '@floating-ui/dom';
-import type { I18nManager } from '../core/I18nManager';
+import {
+  copyThemeClasses,
+  listenPanelDismiss,
+  positionPanel,
+  type FloatingPanel,
+} from '../core/floating-panel';
+import { tOrFallback, type I18nManager } from '../core/I18nManager';
 import type { MediaKind } from '../types';
 import type { MediaRuntime } from './MediaRuntime';
 import { filesOf } from '../utils/dom';
@@ -44,7 +49,7 @@ export class InsertPanel {
 
   private element: HTMLDivElement | null = null;
   private mode: InsertPanelMode | null = null;
-  private stopAutoUpdate: (() => void) | null = null;
+  private floating: FloatingPanel | null = null;
   private detachDismiss: (() => void) | null = null;
   private labelled: LabelledElement[] = [];
 
@@ -81,8 +86,8 @@ export class InsertPanel {
   close(): void {
     this.detachDismiss?.();
     this.detachDismiss = null;
-    this.stopAutoUpdate?.();
-    this.stopAutoUpdate = null;
+    this.floating?.stop();
+    this.floating = null;
     this.element?.remove();
     this.element = null;
     this.labelled = [];
@@ -99,9 +104,7 @@ export class InsertPanel {
   }
 
   private t(key: string, fallback: string): string {
-    // t() 在词条缺失时原样返回 key；未注入 i18n 或词条缺失时回退到内置文案，
-    // 与工具栏 tooltip 同一套规矩（走 I18nManager.tOr）
-    return this.i18n?.tOr(key, fallback) ?? fallback;
+    return tOrFallback(this.i18n, key, fallback);
   }
 
   /**
@@ -201,21 +204,10 @@ export class InsertPanel {
 
     document.body.appendChild(panel);
     this.element = panel;
-    this.applyTheme(panel);
+    copyThemeClasses(this.editor.view.dom, panel);
 
     // 焦点落进面板：图片先落在地址栏，附件没有输入框就落在选择文件按钮上
     (urlInput ?? altInput ?? browse).focus();
-  }
-
-  /**
-   * 主题变量写在 .atri-editor 上，浮层挂在 body 上够不着，只能把主题类复制一份
-   */
-  private applyTheme(panel: HTMLElement): void {
-    const root = this.editor.view.dom.closest('.atri-editor');
-    const themes = Array.from(root?.classList ?? []).filter((name) =>
-      name.startsWith('atri-theme-')
-    );
-    panel.classList.add(...themes);
   }
 
   /**
@@ -243,55 +235,18 @@ export class InsertPanel {
     this.close();
   }
 
-  private async position(anchor: HTMLElement): Promise<void> {
+  private position(anchor: HTMLElement): void {
     const panel = this.element;
     if (!panel) return;
-
-    const update = async () => {
-      if (this.element !== panel) return;
-      try {
-        const { x, y } = await computePosition(anchor, panel, {
-          placement: 'bottom-start',
-          middleware: [offset(6), flip(), shift({ padding: 8 })],
-        });
-        // 算位置的这几微秒里面板可能已经关了
-        if (this.element !== panel) return;
-        panel.style.position = 'fixed';
-        panel.style.left = `${x}px`;
-        panel.style.top = `${y}px`;
-      } catch {
-        // 量不到也要让面板看得见：宁可位置不理想，也不能点了没反应
-      }
-    };
-
-    await update();
-    if (this.element === panel) {
-      this.stopAutoUpdate = autoUpdate(anchor, panel, () => void update());
-    }
+    this.floating = positionPanel(anchor, panel, () => this.element === panel);
   }
 
   /**
    * 点外面与 Escape 关闭；锚点按钮交给 toggle，否则关了又立刻被这次点击重开
    */
   private listenForDismiss(anchor: HTMLElement): void {
-    const onPointerDown = (event: Event) => {
-      const target = event.target as Node | null;
-      if (!target || this.element?.contains(target) || anchor.contains(target)) return;
-      this.close();
-    };
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return;
-      event.preventDefault();
-      event.stopPropagation();
-      this.close();
-    };
-
-    document.addEventListener('pointerdown', onPointerDown, true);
-    document.addEventListener('keydown', onKeyDown, true);
-    this.detachDismiss = () => {
-      document.removeEventListener('pointerdown', onPointerDown, true);
-      document.removeEventListener('keydown', onKeyDown, true);
-    };
+    const panel = this.element;
+    if (!panel) return;
+    this.detachDismiss = listenPanelDismiss(anchor, panel, () => this.close());
   }
 }

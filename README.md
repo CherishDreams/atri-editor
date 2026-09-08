@@ -8,6 +8,7 @@
 - **Tiptap v3 内核** - 使用最新的 Tiptap v3.30.4 作为编辑引擎
 - **TypeScript 7** - 使用 TypeScript 7.x 开发，享受 10x 编译速度提升
 - **Markdown 支持** - 内置双向 Markdown 支持，AI 输出自动转换
+- **表格** - 工具栏网格选择器快捷插入，pipe table 与 Markdown 双向转换开箱可用
 - **AI 集成** - 开放式 AI 集成架构，支持自定义 AI 服务商
 - **图片与附件** - 上传通道可插拔（回调或内置 XHR），支持拖拽与粘贴投放、图片缩放手柄、上传进度与失败重试（图片可内联兜底）、类型与大小白名单；附件支持卡片与行内链接两种形态并可切换
 - **主题系统** - 支持亮色/暗色主题切换
@@ -17,11 +18,19 @@
 
 ### 安装
 
+作为依赖使用（已发布到 npm）：
+
 ```bash
-# 安装依赖
+npm install @atri-editor/core   # 或 pnpm add @atri-editor/core
+```
+
+在源码仓库里开发：
+
+```bash
+# 安装 workspace 依赖
 pnpm install
 
-# 构建核心包
+# 构建核心包（demo 直接消费 dist 产物）
 pnpm build:core
 ```
 
@@ -50,7 +59,7 @@ editor.setMarkdown('# Hello\n\nWorld');
 
 ### 图片与附件
 
-工具栏的「图片」「附件」按钮打开浮层：填地址、选本地文件，或者直接把文件拖进编辑区、从截图工具粘贴。选中任一附件后，「附件样式」按钮在卡片与行内链接之间切换。
+工具栏的「图片」「附件」按钮打开浮层：填地址、选本地文件，或者直接把文件拖进编辑区、从截图工具粘贴。选中任一附件后，选区旁浮出的「附件样式」按钮在卡片与行内链接之间切换（选区浮动工具栏默认开启）。
 
 ```typescript
 const editor = new AtriEditor({
@@ -81,9 +90,9 @@ if (editor.hasPendingUploads()) await editor.retryFailedUploads();
   - 代价是体积：data URL 约为原始文件的 1.37×，而 `maxFileSize` 校验的是文件本身，开启时建议把上限调小。
   - `status` 是「写得出、读不回」的瞬时态，所以编辑器重建后这张图就是一张普通 data URL 图片，重试机会随之丢失（内容不丢）。
 - **不配上传通道时**：这是另一条 base64 退路，由 `image.allowBase64: true` 决定（外链图片与粘贴远程 `<img>` 都不需要上传通道）；附件没有合理退路，回调 `onError({ reason: 'no-upload' })` 且不插节点。
-- **两种形态**：附件默认是块级卡片；`attachment.display: 'link'` 改为行内链接（文件图标 + 蓝色下划线文字，与正文同流），`insertAttachment({ display })` 可逐次覆盖。同一篇文档里卡片与链接可混排。附件点一下先选中（工具栏「附件样式」随即可以切），已选中再点它的链接文字才打开文件——「点击选中」与「点击下载」不会互相抢第一次点击。切换是整节点替换（两种形态是两个节点类型）：句中行链接转卡片会把所在段落劈开，这是块级语义使然；一步撤销只回切换。链接形态渲染成 `<a href download>`：`download` 只对同源地址触发下载，跨域时浏览器会退化成导航。
+- **两种形态**：附件默认是块级卡片；`attachment.display: 'link'` 改为行内链接（文件图标 + 蓝色下划线文字，与正文同流），`insertAttachment({ display })` 可逐次覆盖。同一篇文档里卡片与链接可混排。附件点一下先选中（选区旁浮出的「附件样式」随即可以切；常驻顶栏入口已被浮动工具栏取代，需要可把 `attachmentDisplay` 写回 `toolbar.items`），已选中再点它的链接文字才打开文件——「点击选中」与「点击下载」不会互相抢第一次点击。切换是整节点替换（两种形态是两个节点类型）：句中行链接转卡片会把所在段落劈开，这是块级语义使然；一步撤销只回切换。链接形态渲染成 `<a href download>`：`download` 只对同源地址触发下载，跨域时浏览器会退化成导航。
 - **Markdown**：图片走标准 `![alt](src)`；附件用自定义语法，卡片 `!file[名字](url "大小")`、行内链接 `!filelink[名字](url "大小")`，双向不丢。关闭 `markdown.enabled` 时两者都以字面文本进来——与其余标记语法在同样条件下的行为一致。
-- `media: false` 完全不注册图片与附件扩展，工具栏对应三项随之消失（显式声明则告警跳过），留给接入方自带扩展。
+- `media: false` 完全不注册图片与附件扩展，工具栏的「图片」「附件」两项随之消失（显式声明则告警跳过），选区浮层的节点组也不再提供「附件样式」，留给接入方自带扩展。
 
 ### Web Component 使用
 
@@ -102,7 +111,7 @@ if (editor.hasPendingUploads()) await editor.retryFailedUploads();
 </script>
 ```
 
-`theme` / `editable` / `lang` / `placeholder` 四个属性是响应式的，改了立即生效；`placeholder` 置为空串即移除占位符。初始内容只读一次 `data-content`，运行期改内容请用 `setContent()`。媒体配置不是属性可表达的，用 `setOptions({ media })` 传入；`insertImage()` / `insertAttachment()` / `uploadFiles()` / `retryFailedUploads()` / `hasPendingUploads()` 在自定义元素上同名可用。
+`theme` / `editable` / `lang` / `placeholder` 四个属性是响应式的，改了立即生效；`placeholder` 置为空串即移除占位符。初始内容只读一次 `data-content`，运行期改内容请用 `setContent()`。媒体配置不是属性可表达的，用 `setOptions({ media })` 传入；`insertImage()` / `insertAttachment()` / `insertTable()` / `uploadFiles()` / `retryFailedUploads()` / `hasPendingUploads()` 在自定义元素上同名可用。
 
 ### 框架接入（Vue / React）
 
@@ -206,7 +215,7 @@ atri-editor/
 │   ├── vue/                     # Vue 3 示例（元素 + 类两种用法）
 │   └── react/                   # React 19 示例（同上，StrictMode 开启）
 └── .github/
-    └── workflows/               # CI：check → test → build
+    └── workflows/               # CI：build → check → test
 ```
 
 ## API 参考
@@ -232,6 +241,7 @@ atri-editor/
 | `setPlaceholder(placeholder)` | 设置占位符，空串即移除 |
 | `insertImage(options)` | 在选区处插入图片（外链地址，不进上传队列） |
 | `insertAttachment(options)` | 在选区处插入附件，`options.display`（`'card' \| 'link'`）决定形态，缺省用 `media.attachment.display` 配置 |
+| `insertTable(options?)` | 在选区处插入表格，`rows` / `cols` / `withHeaderRow` 缺省 3×3 带表头；`table: false` 或内置表格被同名扩展顶掉时告警并跳过 |
 | `uploadFiles(files, kind?)` | 走上传管线插入本地文件，`kind` 缺省时按 MIME 分流 |
 | `retryFailedUploads()` | 重试所有失败的上传 |
 | `hasPendingUploads()` | 是否还有文件的内容只存在于本地预览地址（上传中与失败都算；已内联成 data URL 的图片不算） |
@@ -271,9 +281,9 @@ atri-editor/
 |------|------|------|
 | `toolbar` | `ToolbarConfig \| false` | `false` 时不渲染工具栏 |
 | `toolbar.items` | `(string \| ToolbarItem)[]` | 按顺序渲染，省略时使用默认全集 |
-| `toolbar.bubble` | `boolean` | 选中文字或图片 / 附件时在选区旁浮出的工具栏，默认 false；与固定顶栏共存 |
+| `toolbar.bubble` | `boolean` | 选中文字或图片 / 附件时在选区旁浮出的工具栏，默认 true；`false` 显式关闭。与固定顶栏共存 |
 
-内置项 id：`undo` `redo` `heading1` `heading2` `heading3` `paragraph` `bold` `italic` `underline` `strike` `code` `bulletList` `orderedList` `blockquote` `codeBlock` `alignLeft` `alignCenter` `alignRight` `insertImage` `insertAttachment` `attachmentDisplay` `delete`。媒体三项与媒体扩展绑定（`media: false` 时不存在）：前两项打开插入浮层，`attachmentDisplay` 在选中附件时切换卡片与行内链接形态。`delete` 只在选中整节点（图片 / 附件）时有作用对象，所以不在顶栏默认布局里——浮层的节点组会带上它，想摆上顶栏就自己写进 `items`。
+内置项 id：`undo` `redo` `heading1` `heading2` `heading3` `paragraph` `bold` `italic` `underline` `strike` `code` `bulletList` `orderedList` `blockquote` `codeBlock` `alignLeft` `alignCenter` `alignRight` `insertTable` `insertImage` `insertAttachment` `attachmentDisplay` `delete`。媒体两项与媒体扩展绑定（`media: false` 时不存在），打开插入浮层；`insertTable` 与表格扩展绑定（`table: false` 时不存在），打开网格选择器；`attachmentDisplay` 不再进默认布局——切换形态由选中附件时的浮动工具栏承接，想常驻就写进 `items`。`delete` 只在选中整节点（图片 / 附件）时有作用对象，所以不在顶栏默认布局里——浮层的节点组会带上它，想摆上顶栏就自己写进 `items`。
 
 `ToolbarItem` 只能挂在内置项上：`icon`（SVG 字符串）优先于 `label`（文字按钮）优先于内置图标；`tooltip` 优先于当前语言的内置词条；`children` 尚未实现，声明后会被忽略。未知 id 会告警并跳过。
 
@@ -283,7 +293,15 @@ toolbar: {
 }
 ```
 
-`toolbar.bubble` 打开的是选区旁边浮出来的一小排按钮，按选中的对象分两组：选中文字给 `bold` `italic` `underline` `strike` `code`（块级与列表仍留在顶栏，免得浮层长到盖住所选的字；代码块里这五项一个都挂不上，于是索性不浮出），选中附件给 `attachmentDisplay` + `delete`，选中图片只给 `delete`。浮层挂在编辑区内部，所以随正文一起滚动、也被编辑区裁切；选区在首行放不下时会翻到选区下方。该开关只在创建时生效——tiptap v3 没有运行时注册扩展的入口，改配置需要重建编辑器。
+`toolbar.bubble`（默认开启）打开的是选区旁边浮出来的一小排按钮，按选中的对象分两组：选中文字给 `bold` `italic` `underline` `strike` `code`（块级与列表仍留在顶栏，免得浮层长到盖住所选的字；代码块里这五项一个都挂不上，于是索性不浮出），选中附件给 `attachmentDisplay` + `delete`，选中图片只给 `delete`。浮层挂在编辑区内部，所以随正文一起滚动、也被编辑区裁切；选区在首行放不下时会翻到选区下方。该开关只在创建时生效——tiptap v3 没有运行时注册扩展的入口，改配置需要重建编辑器。
+
+### 表格配置
+
+| 属性 | 类型 | 说明 |
+|------|------|------|
+| `table` | `boolean` | 表格开关，默认 true：注册 Table / TableRow / TableHeader / TableCell 四件套，工具栏出「插入表格」网格选择器，Markdown 的 pipe table 双向转换随之开箱可用；`false` 时节点、按钮与 `insertTable()` 一并不提供（门面调用告警跳过） |
+
+行列操作（增删行列、合并拆分等命令由表格扩展提供）没有默认 UI，接入方可经 `editor.chain()` 自行编排。
 
 ### Markdown 配置
 
@@ -377,7 +395,7 @@ pnpm demo:react
 2. PR 合并到 main 后，CI 自动创建并维护一个 Version PR（bump 版本号、生成 CHANGELOG）。
 3. 合并 Version PR = 发布：CI 打 tag、构建并经 GitHub Actions 直发 npm（Trusted Publishing / OIDC，发布带 provenance 溯源）。
 
-发布闸门与 CI 相同（check → test → build），任一不过则不发布。认证走 npm Trusted Publishing（OIDC，发布带 provenance 溯源）；bootstrap 期若仓库配了 `NPM_TOKEN` secret 会优先用 token，配置好 trusted publisher 后删除该 secret 即自动切换，无需改 workflow。
+发布闸门与 CI 相同（build → check → test；demo 的 typecheck 消费 core 的 dist，必须先 build），任一不过则不发布。认证走 npm Trusted Publishing（OIDC，发布带 provenance 溯源）；bootstrap 期若仓库配了 `NPM_TOKEN` secret 会优先用 token，配置好 trusted publisher 后删除该 secret 即自动切换，无需改 workflow。
 
 ## 技术栈
 

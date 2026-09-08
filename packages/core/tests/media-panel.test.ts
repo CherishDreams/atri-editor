@@ -1,28 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AtriEditor } from '../src/index';
 import type { AtriMediaConfig, UploadHandler, UploadResult } from '../src/types';
-import { mount, rootOf, toolbarButtons, toolbarTitles } from './utils';
+import {
+  buttonOf,
+  click,
+  mount,
+  pointerDownOn,
+  pressEscape,
+  rootOf,
+  toolbarButtons,
+  toolbarTitles,
+} from './utils';
 
 function makeFile(name: string, type: string, size = 1024): File {
   return new File([new Uint8Array(size)], name, { type });
-}
-
-function buttonOf(editor: AtriEditor, id: string): HTMLButtonElement {
-  const button = rootOf(editor).querySelector<HTMLButtonElement>(`[data-toolbar-item="${id}"]`);
-  if (!button) throw new Error(`toolbar item "${id}" not rendered`);
-  return button;
-}
-
-function click(element: HTMLElement): void {
-  element.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-}
-
-function pointerDownOn(node: Node): void {
-  node.dispatchEvent(new Event('pointerdown', { bubbles: true, cancelable: true }));
-}
-
-function pressEscape(): void {
-  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
 }
 
 /** 面板挂在 document.body 上，不在编辑器容器里 */
@@ -126,17 +117,14 @@ describe('插入浮层', () => {
     warns.length = 0;
   });
 
-  it('默认工具栏末尾多出图片、附件与附件样式三项', async () => {
+  it('默认工具栏末尾多出图片与附件两项，附件样式不再常驻', async () => {
     const editor = await mount({ content: '<p>x</p>', toolbar: {} });
 
-    expect(itemIds(editor).slice(-3)).toEqual([
-      'insertImage',
-      'insertAttachment',
-      'attachmentDisplay',
-    ]);
+    expect(itemIds(editor).slice(-2)).toEqual(['insertImage', 'insertAttachment']);
+    expect(itemIds(editor)).not.toContain('attachmentDisplay');
     expect(toolbarButtons(editor)).toHaveLength(21);
-    expect(separatorCount(editor)).toBe(5);
-    expect(toolbarTitles(editor).slice(-3)).toEqual(['图片', '附件', '附件样式']);
+    expect(separatorCount(editor)).toBe(6);
+    expect(toolbarTitles(editor).slice(-2)).toEqual(['图片', '附件']);
     expect(buttonOf(editor, 'insertImage').querySelector('svg')).not.toBeNull();
   });
 
@@ -310,8 +298,9 @@ describe('插入浮层', () => {
 
   it('media:false 时两项从默认布局里消失，显式声明则跳过并告警', async () => {
     const plain = await mount({ content: '<p>x</p>', toolbar: {}, media: false });
-    expect(itemIds(plain)).toHaveLength(18);
-    expect(separatorCount(plain)).toBe(4);
+    // 表格节点与媒体无关，insertTable 仍在；媒体组消失
+    expect(itemIds(plain)).toHaveLength(19);
+    expect(separatorCount(plain)).toBe(5);
 
     const warned = await mount({
       content: '<p>x</p>',

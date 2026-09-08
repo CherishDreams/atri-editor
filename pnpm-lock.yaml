@@ -98,6 +98,9 @@ importers:
       '@tiptap/extension-image':
         specifier: ^3.30.4
         version: 3.30.5(@tiptap/core@3.30.4)
+      '@tiptap/extension-table':
+        specifier: ^3.30.4
+        version: 3.30.4(@tiptap/core@3.30.4)(@tiptap/pm@3.30.4)
       '@tiptap/extension-text-align':
         specifier: ^3.30.4
         version: 3.30.5(@tiptap/core@3.30.4)
@@ -1808,6 +1811,16 @@ packages:
       '@tiptap/core': 3.30.4
     dependencies:
       '@tiptap/core': 3.30.4(@tiptap/pm@3.30.4)
+    dev: false
+
+  /@tiptap/extension-table@3.30.4(@tiptap/core@3.30.4)(@tiptap/pm@3.30.4):
+    resolution: {integrity: sha512-hH6E4y4QK8F2h4Eb/qiu8/tRXSQPbJn8pNOIQqcvA30luUnFWSpqHFDxO/a/XrzwF6F1l268WTekrn0PKogOzg==}
+    peerDependencies:
+      '@tiptap/core': 3.30.4
+      '@tiptap/pm': 3.30.4
+    dependencies:
+      '@tiptap/core': 3.30.4(@tiptap/pm@3.30.4)
+      '@tiptap/pm': 3.30.4
     dev: false
 
   /@tiptap/extension-text-align@3.30.5(@tiptap/core@3.30.4):
