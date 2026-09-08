@@ -18,8 +18,8 @@ coverage/
 .DS_Store
 Thumbs.db
 
-# Documentation (not for version control)
-.doc/
+# 本地维护者文档（不入库）
+.docs/
 
 # ZCode 会话产物
 .zcode/
