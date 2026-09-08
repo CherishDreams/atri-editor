@@ -9,6 +9,7 @@ import type { MediaRuntime } from '../media/MediaRuntime';
 import { BUBBLE_NODE_ITEMS, BUBBLE_TEXT_ITEMS } from './bubble-toolbar';
 import type { I18nManager } from './I18nManager';
 import { TableGridPanel } from './TableGridPanel';
+import { canInsertTable } from '../utils/table';
 import { icons } from './icons';
 
 /**
@@ -169,9 +170,9 @@ export class ToolbarManager {
     return this.tablePanel;
   }
 
-  /** 用户可用同名扩展顶掉内置 table 或 table:false 关掉，没注册就不摆按钮 */
+  /** 内置表格真可用才摆按钮：table:false 未注册、或被用户同名扩展顶掉都不摆（判定见 canInsertTable） */
   private get tableExtensionRegistered(): boolean {
-    return this.editor.extensionManager.extensions.some((ext) => ext.name === 'table');
+    return canInsertTable(this.editor);
   }
 
   /**
@@ -356,7 +357,7 @@ export class ToolbarManager {
       });
     }
 
-    // 表格节点没注册（table:false 或被用户顶掉）时 insertTable 命令压根不存在，按钮也不提供
+    // 内置表格不可用（table:false 或被用户顶掉）时 insertTable 命令跑不通，按钮也不提供
     if (this.tableExtensionRegistered) {
       items.set('insertTable', {
         id: 'insertTable',

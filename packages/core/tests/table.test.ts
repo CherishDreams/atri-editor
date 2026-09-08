@@ -1,3 +1,4 @@
+import { Node } from '@tiptap/core';
 import { describe, expect, it, vi } from 'vitest';
 import type { AtriEditor } from '../src/index';
 import { buttonOf, click, mount, pointerDownOn, pressEscape, toolbarButtons } from './utils';
@@ -145,6 +146,27 @@ describe('TableGridPanel 插入表格', () => {
     );
   });
 
+  it('用户用同名 table 节点顶掉内置时，按钮也不摆（命令存在但插不出内置表格）', async () => {
+    // tiptap 对重名扩展只告警不去重：内置 insertTable 命令仍在，但 schema 里赢的是
+    // 这个没有 tableRole 的用户节点，此时按钮点了也插不出来——gate 必须认出这种顶掉
+    const UserTable = Node.create({
+      name: 'table',
+      group: 'block',
+      content: 'tableRow+',
+      parseHTML: () => [{ tag: 'table' }],
+      renderHTML: () => ['table', 0],
+    });
+    const editor = await mount({
+      content: '<p>x</p>',
+      toolbar: {},
+      extensions: [UserTable],
+    });
+
+    expect(toolbarButtons(editor).map((b) => b.getAttribute('data-toolbar-item'))).not.toContain(
+      'insertTable'
+    );
+  });
+
   it('destroy 时开着的面板一起清掉', async () => {
     const editor = await mountWithToolbar();
     click(buttonOf(editor, 'insertTable'));
@@ -174,6 +196,16 @@ describe('insertTable 门面 API', () => {
     expect((html.match(/<tr>/g) ?? []).length).toBe(2);
     expect((html.match(/<th[^>]*>/g) ?? []).length).toBe(0);
     expect((html.match(/<td[^>]*>/g) ?? []).length).toBe(8);
+  });
+
+  it('table:false 时 warn 后静默跳过，不抛（对齐 uploadFiles 的降级契约）', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const editor = await mount({ content: '<p>x</p>', table: false });
+
+    expect(() => editor.insertTable({ rows: 2, cols: 2 })).not.toThrow();
+    expect(editor.getHTML()).toBe('<p>x</p>');
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('insertTable() ignored'));
+    warn.mockRestore();
   });
 });
 

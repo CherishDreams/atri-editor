@@ -25,6 +25,7 @@ import { MediaStatusStrip } from './media/MediaStatusStrip';
 import { AIService } from './ai/AIService';
 import { AICommandMenuManager } from './ai/AICommandMenu';
 import { resolveElement, createContainer } from './utils/dom';
+import { canInsertTable } from './utils/table';
 import { getSelectedText as getSelectedTextFromSelection } from './utils/selection';
 
 export class AtriEditor implements IAtriEditor {
@@ -375,6 +376,10 @@ export class AtriEditor implements IAtriEditor {
    * 在选区处插入表格（默认 3×3 带表头）
    */
   insertTable(options?: InsertTableOptions): void {
+    if (!canInsertTable(this.editor)) {
+      console.warn('[Atri Editor] insertTable() ignored: table extensions are disabled.');
+      return;
+    }
     const { rows = 3, cols = 3, withHeaderRow = true } = options ?? {};
     this.editor.chain().focus().insertTable({ rows, cols, withHeaderRow }).run();
   }

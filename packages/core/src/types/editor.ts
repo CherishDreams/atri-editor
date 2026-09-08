@@ -1,4 +1,4 @@
-import type { Editor, Extension, JSONContent } from '@tiptap/core';
+import type { Editor, Extensions, JSONContent } from '@tiptap/core';
 import type { AtriAIConfig } from './ai';
 import type { AtriMarkdownConfig } from './markdown';
 import type {
@@ -85,8 +85,8 @@ export interface AtriEditorOptions {
   placeholder?: string;
   /** 工具栏配置 */
   toolbar?: ToolbarConfig | false;
-  /** 扩展列表 */
-  extensions?: Extension[];
+  /** 扩展列表（节点 / 标记 / 普通扩展皆可，与 Tiptap 同口径） */
+  extensions?: Extensions;
   /** NodeView 自定义组件配置 */
   nodeViews?: AtriNodeViewConfig[];
   /** AI 配置 */
