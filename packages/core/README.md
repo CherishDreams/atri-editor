@@ -36,7 +36,6 @@ editor.getMarkdown(); // HTML ⇄ Markdown 双向
 
 - ESM-only（与上游 Tiptap v3 一致），需要现代打包器；Node 端 import 安全，编辑功能只在浏览器生效。
 - `@tiptap/*`、`@floating-ui/dom`、`i18next` 为运行时依赖，由本包的 `dependencies` 声明；`@tiptap/core` 与 `@tiptap/pm` 是 peer 依赖，宿主项目里保持单实例。
-- 本包已在 npm registry 发布，CHANGELOG.md 随包发布（版本变更由 changesets 的 Version PR 生成）；发布记录另见 [releases 页](https://github.com/CherishDreams/atri-editor/releases)。
 
 ## License
 
