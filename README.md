@@ -18,11 +18,19 @@
 
 ### 安装
 
+作为依赖使用（已发布到 npm）：
+
 ```bash
-# 安装依赖
+npm install @atri-editor/core   # 或 pnpm add @atri-editor/core
+```
+
+在源码仓库里开发：
+
+```bash
+# 安装 workspace 依赖
 pnpm install
 
-# 构建核心包
+# 构建核心包（demo 直接消费 dist 产物）
 pnpm build:core
 ```
 
@@ -207,7 +215,7 @@ atri-editor/
 │   ├── vue/                     # Vue 3 示例（元素 + 类两种用法）
 │   └── react/                   # React 19 示例（同上，StrictMode 开启）
 └── .github/
-    └── workflows/               # CI：check → test → build
+    └── workflows/               # CI：build → check → test
 ```
 
 ## API 参考
@@ -387,7 +395,7 @@ pnpm demo:react
 2. PR 合并到 main 后，CI 自动创建并维护一个 Version PR（bump 版本号、生成 CHANGELOG）。
 3. 合并 Version PR = 发布：CI 打 tag、构建并经 GitHub Actions 直发 npm（Trusted Publishing / OIDC，发布带 provenance 溯源）。
 
-发布闸门与 CI 相同（check → test → build），任一不过则不发布。认证走 npm Trusted Publishing（OIDC，发布带 provenance 溯源）；bootstrap 期若仓库配了 `NPM_TOKEN` secret 会优先用 token，配置好 trusted publisher 后删除该 secret 即自动切换，无需改 workflow。
+发布闸门与 CI 相同（build → check → test；demo 的 typecheck 消费 core 的 dist，必须先 build），任一不过则不发布。认证走 npm Trusted Publishing（OIDC，发布带 provenance 溯源）；bootstrap 期若仓库配了 `NPM_TOKEN` secret 会优先用 token，配置好 trusted publisher 后删除该 secret 即自动切换，无需改 workflow。
 
 ## 技术栈
 
