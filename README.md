@@ -10,6 +10,7 @@
 - **Markdown 支持** - 内置双向 Markdown 支持，AI 输出自动转换
 - **表格** - 工具栏网格选择器快捷插入，光标进入表格浮出操作菜单（增删行列、合并拆分、切换表头、单元格对齐）、列宽可拖拽，pipe table 与 Markdown 双向转换开箱可用（对齐也随分隔行往返）
 - **链接** - 工具栏插入 / 编辑浮层，编辑态点击链接就地编辑而不是跳走
+- **任务列表** - 工具栏一键转换，勾选框写回状态，`- [ ]` / `- [x]` 双向往返，嵌套不丢
 - **AI 集成** - 开放式 AI 集成架构，支持自定义 AI 服务商
 - **图片与附件** - 上传通道可插拔（回调或内置 XHR），支持拖拽与粘贴投放、图片缩放手柄、上传进度与失败重试（图片可内联兜底）、类型与大小白名单；附件支持卡片与行内链接两种形态并可切换
 - **主题系统** - 支持亮色/暗色主题切换
@@ -284,7 +285,7 @@ atri-editor/
 | `toolbar.items` | `(string \| ToolbarItem)[]` | 按顺序渲染，省略时使用默认全集 |
 | `toolbar.bubble` | `boolean` | 选中文字或图片 / 附件时在选区旁浮出的工具栏，默认 true；`false` 显式关闭。与固定顶栏共存 |
 
-内置项 id：`undo` `redo` `heading1` `heading2` `heading3` `paragraph` `bold` `italic` `underline` `strike` `code` `insertLink` `bulletList` `orderedList` `blockquote` `codeBlock` `alignLeft` `alignCenter` `alignRight` `insertTable` `insertImage` `insertAttachment` `attachmentDisplay` `delete`。媒体两项与媒体扩展绑定（`media: false` 时不存在），打开插入浮层；`insertTable` 与表格扩展绑定（`table: false` 时不存在），打开网格选择器；`insertLink` 打开链接浮层（选区有链接时是编辑那一条）；`attachmentDisplay` 不再进默认布局——切换形态由选中附件时的浮动工具栏承接，想常驻就写进 `items`。`delete` 只在选中整节点（图片 / 附件）时有作用对象，所以不在顶栏默认布局里——浮层的节点组会带上它，想摆上顶栏就自己写进 `items`。
+内置项 id：`undo` `redo` `heading1` `heading2` `heading3` `paragraph` `bold` `italic` `underline` `strike` `code` `insertLink` `bulletList` `orderedList` `taskList` `blockquote` `codeBlock` `horizontalRule` `alignLeft` `alignCenter` `alignRight` `alignJustify` `insertTable` `insertImage` `insertAttachment` `attachmentDisplay` `delete`。媒体两项与媒体扩展绑定（`media: false` 时不存在），打开插入浮层；`insertTable` 与表格扩展绑定（`table: false` 时不存在），打开网格选择器，与 `horizontalRule` 同组（都是"往正文里插一块"的动作）；`insertLink` 打开链接浮层（选区有链接时是编辑那一条）；`attachmentDisplay` 不再进默认布局——切换形态由选中附件时的浮动工具栏承接，想常驻就写进 `items`。`delete` 只在选中整节点（图片 / 附件）时有作用对象，所以不在顶栏默认布局里——浮层的节点组会带上它，想摆上顶栏就自己写进 `items`。
 
 `ToolbarItem` 只能挂在内置项上：`icon`（SVG 字符串）优先于 `label`（文字按钮）优先于内置图标；`tooltip` 优先于当前语言的内置词条；`children` 尚未实现，声明后会被忽略。未知 id 会告警并跳过。
 

@@ -1,6 +1,6 @@
 # @atri-editor/core
 
-基于 Tiptap v3 的框架无关富文本编辑器：Web Component、Markdown 双向转换、表格（网格选择器插入、操作菜单与列宽拖拽、pipe table 双向转换）、链接插入与编辑浮层、图片与附件上传管线、可插拔 AI 集成、中英文 i18n 与亮/暗主题。
+基于 Tiptap v3 的框架无关富文本编辑器：Web Component、Markdown 双向转换、表格（网格选择器插入、操作菜单与列宽拖拽、pipe table 双向转换）、链接插入与编辑浮层、任务列表（`- [ ]` 双向）、图片与附件上传管线、可插拔 AI 集成、中英文 i18n 与亮/暗主题。
 
 完整文档见 [仓库 README](https://github.com/CherishDreams/atri-editor#readme)，示例见 [demos/](https://github.com/CherishDreams/atri-editor/tree/main/demos)（vanilla / vue / react 三个）。
 
