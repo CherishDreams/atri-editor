@@ -41,6 +41,8 @@ describe('ToolbarManager', () => {
       'underline',
       'strike',
       'code',
+      // 链接也是一段文字上的标记，跟在行内格式后面
+      'insertLink',
       'bulletList',
       'orderedList',
       'blockquote',

@@ -8,6 +8,7 @@ import { InsertPanel, type InsertPanelMode } from '../media/InsertPanel';
 import type { MediaRuntime } from '../media/MediaRuntime';
 import { BUBBLE_NODE_ITEMS, BUBBLE_TEXT_ITEMS } from './bubble-toolbar';
 import type { I18nManager } from './I18nManager';
+import type { LinkPanel } from './LinkPanel';
 import { TableGridPanel } from './TableGridPanel';
 import { canInsertTable } from '../utils/table';
 import { icons } from './icons';
@@ -52,6 +53,7 @@ const TOOLTIP_KEYS: Record<string, string> = {
   insertAttachment: 'editor.attachment',
   attachmentDisplay: 'editor.attachmentDisplay',
   insertTable: 'editor.table',
+  insertLink: 'editor.link',
   delete: 'editor.delete',
 };
 
@@ -64,6 +66,8 @@ export class ToolbarManager {
   private i18n?: I18nManager;
   private config?: ToolbarConfig;
   private mediaRuntime: MediaRuntime | null;
+  /** 链接浮层由门面持有：编辑态点击链接也要能打开它，跟工具栏渲染不渲染无关 */
+  private linkPanel: LinkPanel | null;
   private unsubscribeLanguage?: () => void;
   /** 同一个项可能同时渲染在顶栏与浮动工具栏里，所以一个 id 对应一组按钮 */
   private buttons: Map<string, Set<HTMLButtonElement>> = new Map();
@@ -79,13 +83,15 @@ export class ToolbarManager {
     container: HTMLElement,
     config?: ToolbarConfig,
     i18n?: I18nManager,
-    mediaRuntime?: MediaRuntime | null
+    mediaRuntime?: MediaRuntime | null,
+    linkPanel?: LinkPanel | null
   ) {
     this.editor = editor;
     this.container = container;
     this.config = config;
     this.i18n = i18n;
     this.mediaRuntime = mediaRuntime ?? null;
+    this.linkPanel = linkPanel ?? null;
     this.itemDefs = this.getDefaultItems();
     this.createToolbarDOM();
     this.bindEditorEvents();
@@ -197,7 +203,8 @@ export class ToolbarManager {
     const layout = [
       ['undo', 'redo'],
       ['heading1', 'heading2', 'heading3', 'paragraph'],
-      ['bold', 'italic', 'underline', 'strike', 'code'],
+      // 链接跟着行内格式走：它也是一段文字上的标记，只是要填地址所以带浮层
+      ['bold', 'italic', 'underline', 'strike', 'code', 'insertLink'],
       ['bulletList', 'orderedList', 'blockquote', 'codeBlock'],
       ['alignLeft', 'alignCenter', 'alignRight'],
       // 同媒体组的道理：表格节点没注册时这项不存在，默认布局里也不摆空位
@@ -366,6 +373,20 @@ export class ToolbarManager {
         popup: true,
         command: (_editor, button) => this.gridPanel?.toggle(button),
         isActive: () => this.tablePanel?.isOpen === true,
+        isDisabled: (editor) => !editor.isEditable,
+      });
+    }
+
+    // 链接入口：浮层归门面所有（点链接就地编辑也要用它），这里只摆一个触发按钮
+    if (this.linkPanel) {
+      items.set('insertLink', {
+        id: 'insertLink',
+        icon: icons.link,
+        tooltip: '链接',
+        popup: true,
+        command: (_editor, button) => this.linkPanel?.toggle(button),
+        // 浮层开着时按下去是关，所以按钮的"按下态"跟的是浮层，不是选区里有没有链接
+        isActive: (editor) => this.linkPanel?.isOpen === true || editor.isActive('link'),
         isDisabled: (editor) => !editor.isEditable,
       });
     }
@@ -581,8 +602,11 @@ export class ToolbarManager {
 
   /**
    * 更新所有按钮状态
+   *
+   * 公开是因为浮层开合不改文档，等不到 transaction：挂在门面上的浮层（链接）
+   * 由门面在开合时叫一次，挂在这里的浮层则在 onOpenChange 里叫
    */
-  private updateButtonStates(): void {
+  updateButtonStates(): void {
     this.buttons.forEach((buttons, itemId) => {
       const itemDef = this.itemDefs.get(itemId);
       if (!itemDef) return;

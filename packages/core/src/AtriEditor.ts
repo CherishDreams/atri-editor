@@ -20,12 +20,15 @@ import { I18nManager } from './core/I18nManager';
 import { ExtensionManager } from './core/ExtensionManager';
 import type { ThemeType } from './core/ThemeManager';
 import { ToolbarManager } from './core/ToolbarManager';
+import { LinkPanel } from './core/LinkPanel';
+import { TableMenu } from './core/TableMenu';
 import { MediaRuntime } from './media/MediaRuntime';
 import { MediaStatusStrip } from './media/MediaStatusStrip';
 import { AIService } from './ai/AIService';
 import { AICommandMenuManager } from './ai/AICommandMenu';
 import { resolveElement, createContainer } from './utils/dom';
 import { canInsertTable } from './utils/table';
+import { resolveTableConfig } from './extensions/table';
 import { getSelectedText as getSelectedTextFromSelection } from './utils/selection';
 
 export class AtriEditor implements IAtriEditor {
@@ -41,6 +44,9 @@ export class AtriEditor implements IAtriEditor {
   private toolbarContainer: HTMLDivElement | null = null;
   private aiService: AIService | null = null;
   private aiMenuManager: AICommandMenuManager | null = null;
+  /** 链接浮层与表格操作菜单归门面所有：两者都跟着"编辑行为"走，与工具栏渲染与否无关 */
+  private linkPanel: LinkPanel | null = null;
+  private tableMenu: TableMenu | null = null;
   private mediaRuntime: MediaRuntime | null;
   private mediaStatus: MediaStatusStrip | null = null;
   /** 重建后待恢复的选区，新视图就绪时应用 */
@@ -162,6 +168,7 @@ export class AtriEditor implements IAtriEditor {
       markdown: this.options.markdown,
       media: this.options.media,
       table: this.options.table,
+      link: this.options.link,
       mediaRuntime: this.mediaRuntime ?? undefined,
       bubbleElement: this.ensureBubbleElement(this.options.toolbar),
       onCreate: () => {
@@ -182,9 +189,24 @@ export class AtriEditor implements IAtriEditor {
     });
   }
 
-  /** 初始化依赖编辑器实例的子系统：Markdown 服务、工具栏、AI 服务，重建后同样要重新走一遍 */
+  /** 初始化依赖编辑器实例的子系统：Markdown 服务、链接浮层、工具栏、表格菜单、AI 服务，重建后同样要重新走一遍 */
   private setupSubsystems(): void {
     this.markdownService = new MarkdownService(this.editor, this.options.markdown);
+
+    // 链接 mark 不在 schema 里就没得插也没得改，浮层与按钮一并不提供。
+    // 这里不走"能不能改"的探测：同名 mark 顶掉内置链接时，两边的属性定义仍会按类型名
+    // 并到同一个 mark 上，判不出"被顶掉"，判了也是假判据
+    this.linkPanel = this.editor.schema.marks.link
+      ? new LinkPanel({
+          editor: this.editor,
+          root: this.container,
+          i18n: this.i18nManager,
+          openOnClick: this.options.link?.openOnClick ?? false,
+          target: this.options.link?.target ?? '_blank',
+          // 开合不改文档，工具栏等不到 transaction，按钮的按下态得主动推一次
+          onOpenChange: () => this.toolbarManager?.updateButtonStates(),
+        })
+      : null;
 
     if (this.toolbarContainer && this.options.toolbar !== false) {
       this.toolbarManager = new ToolbarManager(
@@ -192,10 +214,22 @@ export class AtriEditor implements IAtriEditor {
         this.toolbarContainer,
         this.options.toolbar,
         this.i18nManager,
-        this.mediaRuntime
+        this.mediaRuntime,
+        this.linkPanel
       );
       if (this.bubbleElement) this.toolbarManager.attachBubbleToolbar(this.bubbleElement);
     }
+
+    // 表格菜单与表格扩展共用同一份解析后的配置：两处对"表格开着没开"必须有一致的判断
+    const tableConfig = resolveTableConfig(this.options.table);
+    this.tableMenu =
+      tableConfig.menu && canInsertTable(this.editor)
+        ? new TableMenu({
+            editor: this.editor,
+            root: this.container,
+            i18n: this.i18nManager,
+          })
+        : null;
 
     if (this.options.ai) {
       this.initAI(this.options.ai);
@@ -213,10 +247,13 @@ export class AtriEditor implements IAtriEditor {
     const { from, to } = previousEditor.state.selection;
     this.pendingViewState = { from, to };
 
-    // 销毁旧编辑器
-    this.coreEditor.destroy();
+    // 先收 UI 再收编辑器：浮层与菜单挂在 document.body 上，不跟着 coreEditor 一起离开文档，
+    // 而它们的事件订阅都指向这个即将销毁的 Editor 实例
     this.toolbarManager?.destroy();
+    this.tableMenu?.destroy();
+    this.linkPanel?.destroy();
     this.aiMenuManager?.destroy();
+    this.coreEditor.destroy();
 
     // 换一个新的编辑区容器：旧容器连同内部视图一起离开文档
     const editorElement = this.container.querySelector(
@@ -544,6 +581,8 @@ export class AtriEditor implements IAtriEditor {
    */
   destroy(): void {
     this.toolbarManager?.destroy();
+    this.tableMenu?.destroy();
+    this.linkPanel?.destroy();
     this.aiMenuManager?.destroy();
     this.coreEditor.destroy();
     this.mediaStatus?.destroy();

@@ -54,3 +54,21 @@
   color: var(--atri-text-color-secondary);
   text-align: center;
 }
+
+// 表格操作菜单：光标落在表格里时浮出，外观与插入网格面板同一套底盘
+// （按钮复用 .atri-editor-toolbar-btn，尺寸与 active 态直接沿用顶栏）
+.atri-table-menu {
+  @extend .atri-table-panel;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  // 网格面板是大格子，菜单是一条工具栏，内边距要收窄
+  padding: $spacing-xs;
+}
+
+.atri-table-menu-separator {
+  width: 1px;
+  height: $toolbar-separator-height;
+  margin: 0 2px;
+  background-color: var(--atri-border-color);
+}

@@ -132,6 +132,9 @@ export function selectNode(editor: AtriEditor, nodeName: string): void {
  */
 export function stubGeometry(editor: AtriEditor): void {
   editor.editor.view.coordsAtPos = () => ({ top: 10, bottom: 26, left: 12, right: 60 });
+  // 位置量得出来之后 ProseMirror 会接着把选区滚进视口，而 jsdom 没有滚动实现，
+  // 不桩就在 stderr 刷一片 "Not implemented: Window's scrollBy()"
+  window.scrollBy = () => {};
 }
 
 afterEach(() => {

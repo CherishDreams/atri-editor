@@ -7,11 +7,23 @@ import { Markdown } from '@tiptap/markdown';
 import { Placeholder } from '@tiptap/extensions';
 import TextAlign from '@tiptap/extension-text-align';
 import BubbleMenu from '@tiptap/extension-bubble-menu';
-import { Table, TableHeader, TableCell, TableRow } from '@tiptap/extension-table';
+import { createTableExtensions, resolveTableConfig } from '../extensions/table';
 import { createMediaExtensions } from '../extensions/media';
 import { MediaRuntime } from '../media/MediaRuntime';
 import { shouldShowBubbleMenu } from './bubble-toolbar';
-import type { AtriMarkdownConfig, AtriMediaConfig } from '../types';
+import type {
+  AtriLinkConfig,
+  AtriMarkdownConfig,
+  AtriMediaConfig,
+  AtriTableConfig,
+} from '../types';
+
+/** 与 Tiptap 的 Link 默认 HTMLAttributes 同值，只在用户改了 target 时用来顶掉默认那份 */
+const LINK_HTML_ATTRIBUTES = {
+  target: '_blank',
+  rel: 'noopener noreferrer nofollow',
+  class: null,
+};
 
 export interface CoreEditorConfig {
   element: HTMLElement;
@@ -23,8 +35,10 @@ export interface CoreEditorConfig {
   markdown?: AtriMarkdownConfig;
   /** 媒体（图片 / 附件）配置，false 时不注册任何媒体节点 */
   media?: AtriMediaConfig | false;
-  /** 表格节点开关，false 时不注册 Table 扩展，工具栏也不出插入按钮；默认开 */
-  table?: boolean;
+  /** 表格配置，false 时不注册 Table 扩展，工具栏也不出插入按钮；默认开 */
+  table?: boolean | AtriTableConfig;
+  /** 链接配置，省略时编辑态点击不导航 */
+  link?: AtriLinkConfig;
   /**
    * 复用外部的上传运行时
    * AtriEditor 重建编辑器时会把同一个实例传进来，进行中的上传才不会丢
@@ -62,7 +76,18 @@ export class CoreEditor {
 
     const editorExtensions: EditorOptions['extensions'] = [
       StarterKit.configure({
-        // StarterKit v3 默认包含 Underline, Link, TrailingNode
+        // StarterKit v3 默认包含 Underline, Link, TrailingNode。
+        // 链接：openOnClick 默认关——编辑态点击落在链接上，用户要的是改它，
+        // 而 Link 扩展开着导航时会把这次点击吃掉（连光标都放不进去）并打开新标签页，
+        // 未保存的内容就跟着这次点击没了。关掉后点击交给 LinkPanel 就地编辑。
+        link: {
+          openOnClick: this.config.link?.openOnClick ?? false,
+          markdownLinks: this.config.link?.markdownLinks ?? false,
+          HTMLAttributes: {
+            ...LINK_HTML_ATTRIBUTES,
+            target: this.config.link?.target ?? LINK_HTML_ATTRIBUTES.target,
+          },
+        },
       }),
     ];
 
@@ -104,7 +129,7 @@ export class CoreEditor {
     // 表格四件套：自带 insertTable 等命令与 markdown 序列化钩子（pipe table ↔ 节点），
     // 与媒体扩展同理放在用户扩展之前，让用户能用同名扩展顶掉内置节点
     if (this.config.table !== false) {
-      editorExtensions.push(Table, TableRow, TableHeader, TableCell);
+      editorExtensions.push(...createTableExtensions(resolveTableConfig(this.config.table)));
     }
 
     // 选区浮动工具栏：默认 appendTo 就是 element（= view.dom.parentElement），

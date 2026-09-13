@@ -1,0 +1,91 @@
+// 链接浮层：插入新链接与编辑既有链接共用
+@use './variables' as *;
+
+// 与 .atri-media-panel 同一套底盘：挂在 document.body 上，字体与 box-sizing
+// 继承不到编辑器那套重置，位置由 floating-ui 写死 fixed
+.atri-link-panel {
+  position: fixed;
+  z-index: $z-dropdown;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+  min-width: 280px;
+  padding: $spacing-md;
+  font-family: $font-family;
+  font-size: $font-size;
+  color: var(--atri-text-color);
+  background-color: var(--atri-bg-color);
+  border: 1px solid var(--atri-border-color);
+  border-radius: $border-radius-lg;
+  box-shadow: $shadow-lg;
+  box-sizing: border-box;
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  input[type='url'] {
+    width: 100%;
+    padding: $spacing-xs $spacing-sm;
+    font-family: inherit;
+    font-size: inherit;
+    color: var(--atri-text-color);
+    background-color: var(--atri-bg-color);
+    border: 1px solid var(--atri-border-color);
+    border-radius: $border-radius;
+    transition: $transition;
+
+    &::placeholder {
+      color: var(--atri-text-color-disabled);
+    }
+
+    &:focus {
+      outline: none;
+      border-color: var(--atri-border-color-hover);
+    }
+  }
+}
+
+.atri-link-panel-target {
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs;
+  color: var(--atri-text-color-secondary);
+  cursor: pointer;
+}
+
+.atri-link-panel-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: $spacing-sm;
+}
+
+.atri-link-panel-apply,
+.atri-link-panel-remove {
+  padding: $spacing-xs $spacing-md;
+  font-family: inherit;
+  font-size: $font-size-sm;
+  border: 1px solid var(--atri-border-color);
+  border-radius: $border-radius;
+  background-color: var(--atri-bg-color-secondary);
+  color: var(--atri-text-color);
+  cursor: pointer;
+  transition: $transition;
+
+  &:hover {
+    background-color: var(--atri-bg-color-hover);
+  }
+}
+
+.atri-link-panel-apply {
+  border-color: var(--atri-color-primary);
+  background-color: var(--atri-color-primary);
+  color: var(--atri-bg-color);
+
+  &:hover {
+    background-color: var(--atri-color-primary-hover);
+    border-color: var(--atri-color-primary-hover);
+  }
+}
