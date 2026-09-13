@@ -7,6 +7,7 @@ import { Markdown } from '@tiptap/markdown';
 import { Placeholder } from '@tiptap/extensions';
 import TextAlign from '@tiptap/extension-text-align';
 import BubbleMenu from '@tiptap/extension-bubble-menu';
+import { TaskItem, TaskList } from '@tiptap/extension-list';
 import { createTableExtensions, resolveTableConfig } from '../extensions/table';
 import { createMediaExtensions } from '../extensions/media';
 import { MediaRuntime } from '../media/MediaRuntime';
@@ -151,6 +152,10 @@ export class CoreEditor {
         })
       );
     }
+
+    // 任务列表：与 StarterKit 里的无序 / 有序列表同族，同样无条件注册。
+    // 扩展自带 - [ ] / - [x] 的 Markdown 双向钩子，装饰（data-checked / 勾选框）也齐全
+    editorExtensions.push(TaskList, TaskItem);
 
     // 输入实时转换由 StarterKit 各扩展的 input rules 提供，与 Markdown 扩展启停无关
     const enableInputRules = this.config.markdown?.shortcuts !== false;

@@ -242,6 +242,13 @@
     }
   }
 
+  // 分割线：UA 默认的 3D 凹槽边框和整套设计语言不搭，统一成 1px 变量色
+  hr {
+    border: none;
+    border-top: 1px solid var(--atri-border-color);
+    margin: 1em 0;
+  }
+
   a {
     color: var(--atri-color-primary);
     text-decoration: none;

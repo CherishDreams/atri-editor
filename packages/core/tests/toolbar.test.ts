@@ -45,12 +45,17 @@ describe('ToolbarManager', () => {
       'insertLink',
       'bulletList',
       'orderedList',
+      // 任务列表与无序 / 有序同族，跟它们一组
+      'taskList',
       'blockquote',
       'codeBlock',
       'alignLeft',
       'alignCenter',
       'alignRight',
-      // 表格节点默认注册，插入表格自成一组
+      // 词条与命令早就有，这批只补按钮
+      'alignJustify',
+      // 分割线与插入表格同组：都是往正文里插一块的动作
+      'horizontalRule',
       'insertTable',
       // 媒体扩展默认注册，末组是插入图片与附件；「附件样式」改由选中附件时的浮动工具栏承接
       'insertImage',
