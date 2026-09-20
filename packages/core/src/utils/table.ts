@@ -7,16 +7,26 @@
 import type { Editor } from '@tiptap/core';
 
 /**
- * 内置表格是否真的可用：table:false 不注册、用户用同名扩展顶掉，两种情况都该判 false
+ * 内置表格是否真的赢下了 schema
  *
  * 不能扫 extensionManager 里的名字：tiptap 对重名扩展只告警不去重，顶掉场景下
- * 内置 Table 仍在列表里、赢的却是用户的 schema 节点，而内置 insertTable 命令
- * 按 spec.tableRole 找型，找不到就在点击当场抛错。命令存在性 + schema 角色
- * 两条一起看，判定的才是"这一下真能插出来"
+ * 内置 Table 仍在列表里、赢的却是用户的 schema 节点，而它没有 tableRole。
+ * prosemirror-tables 的列宽插件启动时就按 tableRole 找 table 节点，找不到直接抛错，
+ * 所以这个判据同时决定"按钮摆不摆"和"这套插件注不注册"
  */
-export function canInsertTable(editor: Editor): boolean {
-  if (typeof editor.commands.insertTable !== 'function') return false;
+export function isBuiltinTableActive(editor: Editor): boolean {
   // tableRole 由 extension-table 的 extendNodeSchema 写进 node spec，prosemirror 的类型里没有它
   const spec = editor.schema.nodes.table?.spec as { tableRole?: string } | undefined;
   return spec?.tableRole === 'table';
+}
+
+/**
+ * 内置表格是否真的可用：table:false 不注册、用户用同名扩展顶掉，两种情况都该判 false
+ *
+ * 命令存在性 + schema 角色两条一起看，判定的才是"这一下真能插出来"——
+ * 内置 insertTable 命令按 spec.tableRole 找型，找不到就在点击当场抛错
+ */
+export function canInsertTable(editor: Editor): boolean {
+  if (typeof editor.commands.insertTable !== 'function') return false;
+  return isBuiltinTableActive(editor);
 }

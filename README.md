@@ -8,7 +8,9 @@
 - **Tiptap v3 内核** - 使用最新的 Tiptap v3.30.4 作为编辑引擎
 - **TypeScript 7** - 使用 TypeScript 7.x 开发，享受 10x 编译速度提升
 - **Markdown 支持** - 内置双向 Markdown 支持，AI 输出自动转换
-- **表格** - 工具栏网格选择器快捷插入，pipe table 与 Markdown 双向转换开箱可用
+- **表格** - 工具栏网格选择器快捷插入，光标进入表格浮出操作菜单（增删行列、合并拆分、切换表头、单元格对齐）、列宽可拖拽，pipe table 与 Markdown 双向转换开箱可用（对齐也随分隔行往返）
+- **链接** - 工具栏插入 / 编辑浮层，编辑态点击链接就地编辑而不是跳走
+- **任务列表** - 工具栏一键转换，勾选框写回状态，`- [ ]` / `- [x]` 双向往返，嵌套不丢
 - **AI 集成** - 开放式 AI 集成架构，支持自定义 AI 服务商
 - **图片与附件** - 上传通道可插拔（回调或内置 XHR），支持拖拽与粘贴投放、图片缩放手柄、上传进度与失败重试（图片可内联兜底）、类型与大小白名单；附件支持卡片与行内链接两种形态并可切换
 - **主题系统** - 支持亮色/暗色主题切换
@@ -283,7 +285,7 @@ atri-editor/
 | `toolbar.items` | `(string \| ToolbarItem)[]` | 按顺序渲染，省略时使用默认全集 |
 | `toolbar.bubble` | `boolean` | 选中文字或图片 / 附件时在选区旁浮出的工具栏，默认 true；`false` 显式关闭。与固定顶栏共存 |
 
-内置项 id：`undo` `redo` `heading1` `heading2` `heading3` `paragraph` `bold` `italic` `underline` `strike` `code` `bulletList` `orderedList` `blockquote` `codeBlock` `alignLeft` `alignCenter` `alignRight` `insertTable` `insertImage` `insertAttachment` `attachmentDisplay` `delete`。媒体两项与媒体扩展绑定（`media: false` 时不存在），打开插入浮层；`insertTable` 与表格扩展绑定（`table: false` 时不存在），打开网格选择器；`attachmentDisplay` 不再进默认布局——切换形态由选中附件时的浮动工具栏承接，想常驻就写进 `items`。`delete` 只在选中整节点（图片 / 附件）时有作用对象，所以不在顶栏默认布局里——浮层的节点组会带上它，想摆上顶栏就自己写进 `items`。
+内置项 id：`undo` `redo` `heading1` `heading2` `heading3` `paragraph` `bold` `italic` `underline` `strike` `code` `insertLink` `bulletList` `orderedList` `taskList` `blockquote` `codeBlock` `horizontalRule` `alignLeft` `alignCenter` `alignRight` `alignJustify` `insertTable` `insertImage` `insertAttachment` `attachmentDisplay` `delete`。媒体两项与媒体扩展绑定（`media: false` 时不存在），打开插入浮层；`insertTable` 与表格扩展绑定（`table: false` 时不存在），打开网格选择器，与 `horizontalRule` 同组（都是"往正文里插一块"的动作）；`insertLink` 打开链接浮层（选区有链接时是编辑那一条）；`attachmentDisplay` 不再进默认布局——切换形态由选中附件时的浮动工具栏承接，想常驻就写进 `items`。`delete` 只在选中整节点（图片 / 附件）时有作用对象，所以不在顶栏默认布局里——浮层的节点组会带上它，想摆上顶栏就自己写进 `items`。
 
 `ToolbarItem` 只能挂在内置项上：`icon`（SVG 字符串）优先于 `label`（文字按钮）优先于内置图标；`tooltip` 优先于当前语言的内置词条；`children` 尚未实现，声明后会被忽略。未知 id 会告警并跳过。
 
@@ -299,9 +301,26 @@ toolbar: {
 
 | 属性 | 类型 | 说明 |
 |------|------|------|
-| `table` | `boolean` | 表格开关，默认 true：注册 Table / TableRow / TableHeader / TableCell 四件套，工具栏出「插入表格」网格选择器，Markdown 的 pipe table 双向转换随之开箱可用；`false` 时节点、按钮与 `insertTable()` 一并不提供（门面调用告警跳过） |
+| `table` | `boolean \| AtriTableConfig` | 表格开关，默认 true：注册 Table / TableRow / TableHeader / TableCell 四件套，工具栏出「插入表格」网格选择器，Markdown 的 pipe table 双向转换随之开箱可用；`false` 时节点、按钮、操作菜单与 `insertTable()` 一并不提供（门面调用告警跳过） |
+| `table.resizable` | `boolean` | 列宽拖拽，默认 true。拖宽了的列宽写回单元格的 `colwidth`，随 JSON / HTML 一起保存 |
+| `table.menu` | `boolean` | 光标进入表格时在单元格上方浮出的操作菜单，默认 true |
 
-行列操作（增删行列、合并拆分等命令由表格扩展提供）没有默认 UI，接入方可经 `editor.chain()` 自行编排。
+操作菜单一次给全 13 项：上 / 下插入行、删行、左 / 右插入列、删列、合并单元格、拆分单元格、切换表头行、单元格左 / 中 / 右对齐、删除表格。合并要有多个单元格被框住（拖选跨单元格），拆分要有合并过的单元格，够不着的那一项是禁用而不是隐藏——位置不跳，按不动的原因一眼可见。Escape 收起菜单，光标离开表格再进来会重新浮出；`menu: false` 只关菜单，行列命令仍可经 `editor.chain()` 自行编排。
+
+单元格对齐写在单元格自带的 `align` 属性上，导出 Markdown 时落到 pipe table 分隔行的 `:---` / `---:` / `:---:`，双向都不丢。
+
+### 链接配置
+
+| 属性 | 类型 | 说明 |
+|------|------|------|
+| `link` | `AtriLinkConfig` | 省略时按默认值走 |
+| `link.openOnClick` | `boolean` | 编辑态点击链接是否直接导航，**默认 false** |
+| `link.target` | `'_blank' \| '_self'` | 新链接的打开方式，默认 `'_blank'`；也是浮层里「在新窗口打开」的初始状态 |
+| `link.markdownLinks` | `boolean` | 输入 `[文字](url)` 时实时转成链接，默认 false |
+
+`openOnClick` 默认关是有意的：编辑时点链接多半是想改它，而链接扩展开着导航时会把这次点击整个吃掉——光标都放不进去，页面还直接被带走，未保存的内容跟着一起没了。关掉之后点击落在链接上，浮层就地打开编辑（与 wangEditor / AIEditor 一致），要导航就置 `true` 交回扩展去 `window.open`。
+
+浮层里只填域名会自动补 `https://`（已有协议的 `mailto:` 之类与站内路径 `/docs` 原样保留），光标有选区就套住选区、没选区就把地址本身当链接文字插进去；光标已在链接里时是编辑模式，带出原地址并多一个「移除链接」。
 
 ### Markdown 配置
 

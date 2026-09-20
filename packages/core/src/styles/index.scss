@@ -2,6 +2,7 @@
 @use './variables' as *;
 @use './media' as *;
 @use './table' as *;
+@use './link' as *;
 
 // CSS Custom Properties for runtime theme switching
 :root {
@@ -241,6 +242,13 @@
     }
   }
 
+  // 分割线：UA 默认的 3D 凹槽边框和整套设计语言不搭，统一成 1px 变量色
+  hr {
+    border: none;
+    border-top: 1px solid var(--atri-border-color);
+    margin: 1em 0;
+  }
+
   a {
     color: var(--atri-color-primary);
     text-decoration: none;
@@ -290,6 +298,29 @@
   background-color: var(--atri-color-primary);
   opacity: 0.12;
   pointer-events: none;
+}
+
+// 列宽拖拽。.tableWrapper / .column-resize-handle / .resize-cursor 三个类名都是
+// prosemirror-tables 的约定，不是本包起的名：包裹层与拖拽手柄由它生成，样式得这边补
+.atri-editor-content .tableWrapper {
+  // 列拖宽了要能横滚，否则超出的部分既拖不到也看不见
+  overflow-x: auto;
+}
+
+.atri-editor-content .column-resize-handle {
+  // 手柄插在单元格内部，靠单元格的 position: relative 定位（见上面的 td / th 规则）
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: -2px;
+  width: 4px;
+  background-color: var(--atri-color-primary);
+  // 拖动本身由插件按 handleWidth 接管，这层只负责把落点画出来
+  pointer-events: none;
+}
+
+.atri-editor-content.resize-cursor {
+  cursor: col-resize;
 }
 
 // Task List

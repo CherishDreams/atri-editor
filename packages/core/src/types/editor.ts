@@ -66,6 +66,36 @@ export interface InsertTableOptions {
 }
 
 /**
+ * 表格配置
+ */
+export interface AtriTableConfig {
+  /** 列宽拖拽，默认开 */
+  resizable?: boolean;
+  /** 光标进入表格时浮出的操作菜单，默认开 */
+  menu?: boolean;
+}
+
+/** 链接打开方式 */
+export type AtriLinkTarget = '_blank' | '_self';
+
+/**
+ * 链接配置
+ */
+export interface AtriLinkConfig {
+  /**
+   * 编辑态点击链接是否直接导航，默认 false
+   *
+   * 默认关：编辑时点链接多半是想改它，跳走会把当前页面连同未保存的内容一起丢下。
+   * 关闭时点击落在链接上，浮层就地打开编辑；置 true 交回链接扩展去 window.open
+   */
+  openOnClick?: boolean;
+  /** 新链接的打开方式，默认 '_blank'，也是浮层里「在新窗口打开」的初始状态 */
+  target?: AtriLinkTarget;
+  /** 输入 [文字](url) 时实时转成链接，默认 false */
+  markdownLinks?: boolean;
+}
+
+/**
  * 编辑器配置
  */
 export interface AtriEditorOptions {
@@ -95,8 +125,10 @@ export interface AtriEditorOptions {
   markdown?: AtriMarkdownConfig;
   /** 媒体（图片 / 附件）配置，false 时不注册图片与附件节点 */
   media?: AtriMediaConfig | false;
-  /** 表格开关，false 时不注册表格节点、工具栏也不出插入表格按钮；默认开 */
-  table?: boolean;
+  /** 表格开关，false 时不注册表格节点、工具栏也不出插入表格按钮、光标进入表格不再浮出操作菜单；默认开 */
+  table?: boolean | AtriTableConfig;
+  /** 链接配置；不设置时编辑态点击不导航，改为就地编辑 */
+  link?: AtriLinkConfig;
   /** 创建完成回调 */
   onCreate?: (editor: IAtriEditor) => void;
   /** 内容变更回调 */
