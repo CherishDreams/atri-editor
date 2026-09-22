@@ -35,6 +35,13 @@ jobs:
           node-version: 22
           cache: pnpm
 
+      # Node 22 自带的 npm 10.9.x 没有可信发布这条流程，缺 token 时直接 ENEEDAUTH
+      # 而不是去换 OIDC 凭据；npm 从 11 起才支持，故显式装新版（Gate 与构建走 pnpm，不受影响）
+      - name: Upgrade npm (trusted publishing needs npm >= 11)
+        run: |
+          npm install -g npm@12
+          npm --version
+
       - name: Install
         run: pnpm install --frozen-lockfile
 
