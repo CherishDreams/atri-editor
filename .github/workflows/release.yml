@@ -75,3 +75,5 @@ jobs:
           title: 'chore(release): version packages'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # 临时诊断：npm 可信发布的失败只写 verbose 日志，定位后移除
+          NPM_CONFIG_LOGLEVEL: verbose
