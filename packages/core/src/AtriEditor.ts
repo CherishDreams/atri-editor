@@ -58,6 +58,8 @@ export class AtriEditor implements IAtriEditor {
   private bubbleElement: HTMLDivElement | null = null;
   private container: HTMLDivElement;
   private options: AtriEditorOptions;
+  /** 销毁后就不再重建：registerNodeView 会往已经 remove() 的容器里复活一个编辑器 */
+  private destroyed = false;
 
   constructor(options: AtriEditorOptions) {
     this.options = options;
@@ -550,6 +552,8 @@ export class AtriEditor implements IAtriEditor {
    * 连续注册多个组件请改用 registerNodeViews，只需重建一次
    */
   registerNodeView(config: AtriNodeViewConfig): void {
+    if (this.refuseAfterDestroy('registerNodeView')) return;
+
     this.extensionManager.registerNodeView(config);
     // 如果编辑器已创建，需要重新创建以更新 schema
     if (this.coreEditor) {
@@ -562,11 +566,23 @@ export class AtriEditor implements IAtriEditor {
    * 注意：如果编辑器已创建，会重新创建编辑器以更新 schema
    */
   registerNodeViews(configs: AtriNodeViewConfig[]): void {
+    if (this.refuseAfterDestroy('registerNodeViews')) return;
+
     this.extensionManager.registerNodeViews(configs);
     // 如果编辑器已创建，需要重新创建以更新 schema
     if (this.coreEditor) {
       this.recreateEditor();
     }
+  }
+
+  /**
+   * 销毁后重建类 API 的统一守卫：判在改状态之前，
+   * 否则配置进了 extensionManager 却没有对应的编辑器，看起来就像"注册了但没生效"
+   */
+  private refuseAfterDestroy(api: string): boolean {
+    if (!this.destroyed) return false;
+    console.warn(`[Atri Editor] ${api}() was called on a destroyed editor and did nothing.`);
+    return true;
   }
 
   /**
@@ -580,6 +596,9 @@ export class AtriEditor implements IAtriEditor {
    * 销毁编辑器
    */
   destroy(): void {
+    if (this.destroyed) return;
+    this.destroyed = true;
+
     this.toolbarManager?.destroy();
     this.tableMenu?.destroy();
     this.linkPanel?.destroy();

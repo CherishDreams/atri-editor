@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { AtriEditor } from '../src/index';
+import { ToolbarManager, type AtriEditor } from '../src/index';
 import { mount, rootOf, toolbarButtons } from './utils';
 
 function toolbarOf(editor: AtriEditor) {
@@ -126,5 +126,29 @@ describe('ToolbarManager', () => {
       expect(editor.editor.isActive('bold')).toBe(true);
     });
     expect(button.classList.contains('active')).toBe(true);
+  });
+});
+
+describe('ToolbarManager 销毁后的订阅', () => {
+  it('destroy 之后编辑器事务不再叫它刷新按钮', async () => {
+    const editor = await mount({ content: '<p>正文</p>' });
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+
+    const spy = vi.spyOn(ToolbarManager.prototype, 'updateButtonStates');
+    const toolbar = new ToolbarManager(editor.editor, container);
+    // 构造时就绑事件并刷过一次初始状态
+    expect(spy).toHaveBeenCalled();
+    spy.mockClear();
+
+    editor.insertContent('<p>再来一段</p>');
+    expect(spy).toHaveBeenCalled();
+    spy.mockClear();
+
+    toolbar.destroy();
+    editor.insertContent('<p>又一段</p>');
+
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
   });
 });

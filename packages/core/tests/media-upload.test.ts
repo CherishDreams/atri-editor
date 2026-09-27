@@ -629,3 +629,34 @@ describe('宿主回调的异常隔离', () => {
     warn.mockRestore();
   });
 });
+
+describe('重试的去重', () => {
+  /**
+   * 钉住既有不变量，不是某次修复的回归用例：
+   * retryFailed 按 status === 'error' 过滤，而 startUpload 在第一个 await 之前
+   * 就同步把状态改成 uploading，所以第二点天然被挡住。
+   * 这个顺序一旦被改动（比如往后把状态赋值挪到 await 之后），这里会先红
+   */
+  it('连点两次重试只发一个请求', async () => {
+    const editor = await mount({
+      content: '<p>正文</p>',
+      media: { upload: { endpoint: '/api/upload' } },
+    });
+
+    const queued = editor.uploadFiles([makeFile('a.png', 'image/png')]);
+    FakeXHR.sent[0]!.respond({ url: 'x' }, 500);
+    await queued;
+    expect(editor.hasPendingUploads()).toBe(true);
+    expect(FakeXHR.sent).toHaveLength(1);
+
+    const first = editor.retryFailedUploads();
+    const second = editor.retryFailedUploads();
+    await Promise.resolve();
+
+    // 初始那一次 + 恰好一次重试
+    expect(FakeXHR.sent).toHaveLength(2);
+
+    FakeXHR.sent[1]!.respond({ url: 'https://cdn/a.png' });
+    await Promise.all([first, second]);
+  });
+});

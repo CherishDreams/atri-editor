@@ -2,6 +2,7 @@
  * AICommandMenu - AI 命令菜单（使用 Floating UI）
  */
 import type { Editor } from '@tiptap/core';
+import type { Transaction } from '@tiptap/pm/state';
 import { computePosition, flip, offset, shift } from '@floating-ui/dom';
 import type { AtriAIFunction } from '../types';
 
@@ -27,6 +28,7 @@ export class AICommandMenuManager {
   private triggerChar: string;
   private onSelect?: (func: AtriAIFunction) => void;
   private detachKeyListener?: () => void;
+  private detachTransactionListener?: () => void;
 
   constructor(
     editor: Editor,
@@ -59,7 +61,7 @@ export class AICommandMenuManager {
   }
 
   private setupKeyboardListener(): void {
-    this.editor.on('transaction', ({ transaction }) => {
+    const handler = ({ transaction }: { editor: Editor; transaction: Transaction }) => {
       // 检测触发字符输入
       if (transaction.docChanged) {
         const lastChar = this.getLastTypedChar();
@@ -67,7 +69,11 @@ export class AICommandMenuManager {
           this.show();
         }
       }
-    });
+    };
+    this.editor.on('transaction', handler);
+    // 这条订阅也要能解除：菜单是公开导出的类，宿主单独用它时，
+    // destroy 之后编辑器还活着的话，输入触发字符就仍能浮出菜单
+    this.detachTransactionListener = () => this.editor.off('transaction', handler);
   }
 
   private getLastTypedChar(): string {
@@ -251,6 +257,8 @@ export class AICommandMenuManager {
   destroy(): void {
     this.detachKeyListener?.();
     this.detachKeyListener = undefined;
+    this.detachTransactionListener?.();
+    this.detachTransactionListener = undefined;
     this.hide();
   }
 }

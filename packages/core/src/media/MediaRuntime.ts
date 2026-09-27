@@ -204,6 +204,7 @@ export class MediaRuntime {
       revokePreviewUrl(task);
     });
     this.tasks.clear();
+
     this.listeners.clear();
     this.editor = null;
   }
@@ -500,14 +501,7 @@ export class MediaRuntime {
     const editor = this.editor;
     if (!editor) return null;
 
-    let found: number | null = null;
-    editor.state.doc.descendants((node, position) => {
-      if (found !== null) return;
-      if (node.attrs.uploadId === task.id || node.attrs.src === task.previewUrl) {
-        found = position;
-      }
-    });
-    return found;
+    return findTaskPosition(editor.state.doc, task);
   }
 
   private taskByPreviewUrl(src: unknown): MediaTask | null {
@@ -548,6 +542,31 @@ export class MediaRuntime {
 
 function clampPercent(percent: number): number {
   return Math.round(Math.min(100, Math.max(0, percent)));
+}
+
+/**
+ * 找任务对应的节点位置。
+ *
+ * 预览地址这条兜底必须要求 previewUrl 非空：revokePreviewUrl 会把它置成 null，
+ * 而 `node.attrs.src === null` 对任何还没落地地址的媒体节点都成立，
+ * 于是进度与状态会写到第一张不相干的卡片上，真正的卡片反而永不更新。
+ * uploadId 唯一且稳定，所以先按它找，找不到才退到预览地址。
+ */
+export function findTaskPosition(
+  doc: PmNode,
+  task: { id: string; previewUrl: string | null }
+): number | null {
+  let byUploadId: number | null = null;
+  let byPreviewUrl: number | null = null;
+
+  doc.descendants((node, position) => {
+    if (byUploadId === null && node.attrs.uploadId === task.id) byUploadId = position;
+    if (byPreviewUrl === null && task.previewUrl !== null && node.attrs.src === task.previewUrl) {
+      byPreviewUrl = position;
+    }
+  });
+
+  return byUploadId ?? byPreviewUrl;
 }
 
 /**

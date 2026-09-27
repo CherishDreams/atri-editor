@@ -72,6 +72,7 @@ export class ToolbarManager {
   /** 链接浮层由门面持有：编辑态点击链接也要能打开它，跟工具栏渲染不渲染无关 */
   private linkPanel: LinkPanel | null;
   private unsubscribeLanguage?: () => void;
+  private unsubscribeEditor?: () => void;
   /** 同一个项可能同时渲染在顶栏与浮动工具栏里，所以一个 id 对应一组按钮 */
   private buttons: Map<string, Set<HTMLButtonElement>> = new Map();
   /** 按 id 记的覆盖文案：顶栏与浮层共用一份，改一处两处一起改，这是有意的 */
@@ -622,13 +623,17 @@ export class ToolbarManager {
    * 绑定编辑器事件，更新按钮状态
    */
   private bindEditorEvents(): void {
-    this.editor.on('transaction', () => {
-      this.updateButtonStates();
-    });
+    const refresh = () => this.updateButtonStates();
 
-    this.editor.on('selectionUpdate', () => {
-      this.updateButtonStates();
-    });
+    this.editor.on('transaction', refresh);
+    this.editor.on('selectionUpdate', refresh);
+
+    // 工具栏是公开导出的类：宿主单独用它、只销毁工具栏而留着编辑器时，
+    // 这两条订阅会常驻到编辑器结束，每次事务空跑一遍按钮刷新
+    this.unsubscribeEditor = () => {
+      this.editor.off('transaction', refresh);
+      this.editor.off('selectionUpdate', refresh);
+    };
 
     // 初始状态
     this.updateButtonStates();
@@ -665,6 +670,8 @@ export class ToolbarManager {
   destroy(): void {
     this.unsubscribeLanguage?.();
     this.unsubscribeLanguage = undefined;
+    this.unsubscribeEditor?.();
+    this.unsubscribeEditor = undefined;
     // 面板挂在 document.body 上，不跟着工具栏一起收就会留在页面上
     this.panel?.destroy();
     this.panel = null;

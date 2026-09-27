@@ -64,12 +64,15 @@ export class CoreEditor {
   /** 占位符文本：由 Placeholder 扩展以函数形式每次读取，改值即可生效 */
   private placeholderText: string;
   private mediaRuntime: MediaRuntime | null;
+  /** 注入的那种要活过重建编辑器（门面持有），只能自己 new 的那个才归这里回收 */
+  private ownsMediaRuntime = false;
 
   constructor(config: CoreEditorConfig) {
     this.config = config;
     this.placeholderText = config.placeholder ?? '';
     this.mediaRuntime =
       config.media === false ? null : (config.mediaRuntime ?? new MediaRuntime(config.media));
+    this.ownsMediaRuntime = this.mediaRuntime !== null && !config.mediaRuntime;
     this.editor = this.createEditor();
   }
 
@@ -313,5 +316,9 @@ export class CoreEditor {
    */
   destroy(): void {
     this.editor.destroy();
+    // 自建的运行时没人回收：在途请求会一直飞，blob: 预览地址也 leak 着不放。
+    // 门面那条路径由 AtriEditor.destroy 负责，它持有的实例要活过这里
+    if (this.ownsMediaRuntime) this.mediaRuntime?.destroy();
+    this.mediaRuntime = null;
   }
 }

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { AICommandMenuManager } from '../src/index';
 import { mount } from './utils';
 import type { AIRequestContext } from '../src/types';
 
@@ -279,5 +280,31 @@ describe('AI 失败的上报与超时', () => {
     await editor.ai!.execute('f');
 
     expect(editor.getHTML()).toContain('慢但有效');
+  });
+});
+
+describe('AI 命令菜单销毁后的订阅', () => {
+  it('destroy 之后再输入触发字符不浮出菜单', async () => {
+    const editor = await mount({ content: '<p>hello</p>' });
+    const menu = new AICommandMenuManager(editor.editor, [{ id: 'a', name: 'A' }], '/', () => {});
+
+    const typeSlash = () => {
+      const { view } = editor.editor;
+      const pos = view.state.doc.content.size - 1;
+      // 先落选区：getLastTypedChar 从 selection.from 往回看一个字符，
+      // 选区停在 0 时它直接返回空串，菜单永远不会浮出
+      editor.editor.commands.setTextSelection(pos);
+      view.dispatch(view.state.tr.insertText('/', pos));
+    };
+
+    typeSlash();
+    expect(document.querySelector('.atri-ai-command-menu')).not.toBeNull();
+
+    menu.destroy();
+    // hide() 会把菜单摘出文档，清空后才能把"没有再挂回来"和"没被摘掉"分辨开
+    document.body.replaceChildren();
+    typeSlash();
+
+    expect(document.querySelector('.atri-ai-command-menu')).toBeNull();
   });
 });
