@@ -362,3 +362,73 @@ describe('附件形态切换', () => {
     expect(editor.getHTML()).toContain('正文');
   });
 });
+
+describe('附件地址的协议白名单', () => {
+  /** href 从哪来不重要（命令、上传响应、粘贴、JSON 回灌），渲染出来不能有可执行协议 */
+  function hrefsOf(editor: { editor: { view: { dom: Element } } }): (string | null)[] {
+    return Array.from(editor.editor.view.dom.querySelectorAll('a')).map((a) =>
+      a.getAttribute('href')
+    );
+  }
+
+  it('insertAttachment 拒绝 javascript: 地址，命令按既有语义返回 false', async () => {
+    const editor = await mount({ content: '<p>正文</p>' });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const ran = editor.editor.commands.setAttachment({ src: 'javascript:alert(1)' });
+
+    expect(ran).toBe(false);
+    expect(hrefsOf(editor)).toEqual([]);
+    // 节点根本没进文档，正文还是那一个段落
+    expect(editor.editor.state.doc.childCount).toBe(1);
+    expect(warn).toHaveBeenCalledOnce();
+    warn.mockRestore();
+  });
+
+  it('卡片形态即使节点里已带着非法 src，也不产出可点击地址', async () => {
+    const editor = await mount({ content: '<p>正文</p>' });
+    editor.editor
+      .chain()
+      .setAttachment({ src: 'https://cdn.example.com/a.pdf', name: 'a.pdf' })
+      .run();
+
+    let pos = -1;
+    editor.editor.state.doc.descendants((node, nodePos) => {
+      if (pos < 0 && node.type.name === 'attachment') pos = nodePos;
+    });
+    // 绕过插入命令与 parseHTML，直接改属性：setJSON 回灌与 setNodeMarkup 就是这么进来的
+    editor.editor.commands.command(({ tr }) => {
+      tr.setNodeAttribute(pos, 'src', 'javascript:alert(1)');
+      return true;
+    });
+
+    expect(hrefsOf(editor)).toEqual([null]);
+    expect(editor.getHTML()).not.toContain('href="javascript:');
+  });
+
+  it('粘贴只带 href 的行内附件链接时，非法协议不被吸收成 src', async () => {
+    const editor = await mount({ content: '<p>正文</p>' });
+
+    editor.editor.commands.setContent(
+      '<p><a data-atri-attachment-link href="javascript:alert(1)">报告</a></p>',
+      { emitUpdate: false }
+    );
+
+    const srcs: unknown[] = [];
+    editor.editor.state.doc.descendants((node) => {
+      if (node.type.name === 'attachmentLink') srcs.push(node.attrs.src);
+    });
+
+    expect(srcs).toEqual([null]);
+    expect(hrefsOf(editor)).toEqual([null]);
+  });
+
+  it('合法地址照常渲染成 href，相对路径与 blob: 都不该被误伤', async () => {
+    const editor = await mount({ content: '<p>正文</p>' });
+
+    editor.editor.chain().setAttachmentLink({ src: '/files/a.pdf', name: 'a.pdf' }).run();
+
+    expect(hrefsOf(editor)).toContain('/files/a.pdf');
+    expect(editor.getHTML()).toContain('href="/files/a.pdf"');
+  });
+});

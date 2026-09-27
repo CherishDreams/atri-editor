@@ -141,3 +141,41 @@ describe('正则降级链路（markdown.enabled 为 false）', () => {
     expect(editor.getMarkdown()).toBe('![封面](https://cdn.example.com/a.png)');
   });
 });
+
+describe('降级转换器的不可信输入', () => {
+  it('原文里的标签被转义，不会原样落进输出', () => {
+    const html = simpleMarkdownToHtml('# 标题 <img src=x onerror=alert(1)>');
+
+    expect(html).toContain('&lt;img src=x onerror=alert(1)&gt;');
+    expect(html).not.toContain('<img');
+    // 标题语法本身还得照常认
+    expect(html).toContain('<h1>');
+  });
+
+  it('属性值里的引号不能提前闭合属性去挂事件处理器', () => {
+    const html = simpleMarkdownToHtml('[详情](https://example.com" onclick="alert(1))');
+
+    expect(html).not.toContain('onclick="alert');
+    expect(html).toContain('&quot;');
+  });
+
+  it('链接与图片不认危险协议，退化成文字而不是毒链接', () => {
+    expect(simpleMarkdownToHtml('[点我](javascript:alert)')).toBe('<p>点我</p>');
+    expect(simpleMarkdownToHtml('![预览](javascript:alert)')).toBe('<p>预览</p>');
+    // 带括号的写法会撞上既有的非贪婪捕获（URL 里的 ) 提前闭合），
+    // 那是排版瑕疵不是安全问题，这里只钉住"绝不产出可执行地址"
+    expect(simpleMarkdownToHtml('[点我](javascript:alert(1))')).not.toContain('href');
+  });
+
+  it('合法地址与查询串不受影响，& 以实体形式进属性', () => {
+    expect(simpleMarkdownToHtml('[详情](https://example.com/?a=1&b=2)')).toBe(
+      '<p><a href="https://example.com/?a=1&amp;b=2">详情</a></p>'
+    );
+  });
+
+  it('与反向转换构成往返：& 转出去还能转回来', () => {
+    const markdown = '[详情](https://example.com/?a=1&b=2)';
+
+    expect(simpleHtmlToMarkdown(simpleMarkdownToHtml(markdown))).toBe(markdown);
+  });
+});

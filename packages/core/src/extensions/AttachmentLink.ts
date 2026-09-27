@@ -7,7 +7,13 @@
  */
 import { Node, mergeAttributes } from '@tiptap/core';
 import type { InsertAttachmentOptions } from '../types';
-import { attachmentAttributes, attachmentLabel, insertAttachmentContent } from './attachment-attrs';
+import { safeHref } from '../utils/url';
+import {
+  attachmentAttributes,
+  attachmentLabel,
+  dataAttr,
+  insertAttachmentContent,
+} from './attachment-attrs';
 import { makeAttachmentMarkdown } from './attachment-markdown';
 
 declare module '@tiptap/core' {
@@ -43,9 +49,10 @@ export const AttachmentLink = Node.create({
       {
         tag: 'a[data-atri-attachment-link]',
         priority: 100,
-        // 手写或从别处粘来的 <a> 只带 href，没有 data-src：认下来，别留一枚空链接
+        // 手写或从别处粘来的 <a> 只带 href，没有 data-src：认下来，别留一枚空链接。
+        // data-src 那条来路在 attachmentAttributes().src.parseHTML 里已经洗过
         getAttrs: (element) =>
-          element.getAttribute('data-src') ? {} : { src: element.getAttribute('href') ?? null },
+          element.getAttribute('data-src') ? {} : { src: safeHref(element.getAttribute('href')) },
       },
     ];
   },
@@ -58,9 +65,11 @@ export const AttachmentLink = Node.create({
       mergeAttributes(HTMLAttributes, {
         'data-atri-attachment-link': '',
         class: 'atri-attachment-link',
-        href: src,
+        // 协议不合法就整枚 href 都不写，退化成一枚没有地址的文字，
+        // 而不是留着 href="javascript:…" 等用户点
+        ...dataAttr('href', safeHref(src)),
         // download 让同源地址点击即下载（跨域浏览器会退化成导航）；
-        // mergeAttributes 会丢掉 null，没名字就只剩普通链接
+        // 值为 null 时 PM 序列化会跳过，没名字就只剩普通链接
         download: name,
         rel: 'noopener noreferrer',
       }),

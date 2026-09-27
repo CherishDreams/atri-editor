@@ -8,6 +8,7 @@ import type { Attribute, CommandProps } from '@tiptap/core';
 import { NodeSelection, type Transaction } from '@tiptap/pm/state';
 import type { InsertAttachmentOptions } from '../types';
 import { mediaInsertTarget } from '../media/insert-position';
+import { safeMediaSrc } from '../utils/url';
 
 /** 两种形态的节点名，判一处用 */
 export function isAttachmentForm(name: string): boolean {
@@ -49,6 +50,15 @@ export function insertAttachmentContent(
   const { state, commands, tr, dispatch } = props;
   const target = mediaInsertTarget(state.selection);
   const anchor = typeof target === 'number' ? target : target.to;
+
+  // 渲染层已经会把非法协议洗掉，但那样宿主拿到的是"命令成功、节点没有链接"，
+  // 比直接拒更难看。返回 false 是这个命令本来就有的失败语义
+  if (safeMediaSrc(options.src) === null) {
+    console.warn(
+      `[Atri Editor] insertAttachment rejected: "${options.src}" is not a usable file address.`
+    );
+    return false;
+  }
 
   if (
     !commands.insertContentAt(target, {
@@ -101,7 +111,10 @@ export function attachmentAttributes(): Record<string, Attribute> {
   return {
     src: {
       default: null,
-      parseHTML: (element) => element.getAttribute('data-src'),
+      // 粘贴进来的 data-src 也洗一遍：不洗的话它绕开 AttachmentLink 那处 getAttrs，
+      // 直接落进节点属性，再由渲染层的 safeHref 挡掉——属性里仍留着地址，
+      // 而 setNodeMarkup / JSON 回灌都不经过渲染层
+      parseHTML: (element) => safeMediaSrc(element.getAttribute('data-src')),
       renderHTML: (attributes) => dataAttr('data-src', attributes.src),
     },
     name: {

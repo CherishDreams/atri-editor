@@ -1,14 +1,23 @@
 /**
  * Markdown 工具函数
  */
+import { escapeHtml, escapeQuotes } from './escape';
+import { safeHref, safeMediaSrc } from './url';
 
 /**
  * 简单的 Markdown 转 HTML（用于 AI 响应处理）
  * 注意：完整的 Markdown 解析由 @tiptap/markdown 处理
  * 这里仅提供基础的 Markdown 语法转换
+ *
+ * 定位是"降级渲染器"：输出的 HTML 仍需交给 schema 解析或宿主自行处理，
+ * 本身不构成一道安全的 sanitizer。但它的产物会经 markdownToHTML() 作为裸字符串
+ * 直接返回给宿主，所以不可信的 Markdown（AI 端点、用户上传的 .md）进来时，
+ * 尖括号与引号必须先转义、地址必须先过协议白名单。
  */
 export function simpleMarkdownToHtml(markdown: string): string {
-  let html = markdown;
+  // 整段先转义，后面每条规则产出的标签都是白名单自己拼的，
+  // 这一步不做的话原文里的 <img onerror=…> 会原样落到输出里
+  let html = escapeHtml(markdown);
 
   // 标题
   html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
@@ -27,11 +36,22 @@ export function simpleMarkdownToHtml(markdown: string): string {
   // 图片：必须先于链接，否则 ![alt](src) 会被下面的链接规则从 ! 之后开始匹配，吞成一个 <a>
   html = html.replace(
     /!\[([^\]]*)\]\(\s*([^\s)]+)(?:\s+"([^"]*)")?\s*\)/g,
-    (_all, alt, src, title) => `<img src="${src}" alt="${alt}"${title ? ` title="${title}"` : ''}>`
+    (_all, alt: string, src: string, title?: string) => {
+      const url = safeMediaSrc(src);
+      // 地址不合法就退化成这几个字符本身：图片显示不出来，但 alt 里的信息不丢，
+      // 也不会留一枚指向 javascript: 的 img
+      if (url === null) return alt;
+      const titleAttr = title ? ` title="${escapeQuotes(title)}"` : '';
+      return `<img src="${escapeQuotes(url)}" alt="${escapeQuotes(alt)}"${titleAttr}>`;
+    }
   );
 
   // 链接
-  html = html.replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2">$1</a>');
+  html = html.replace(/\[(.+?)\]\((.+?)\)/g, (_all, text: string, href: string) => {
+    const url = safeHref(href);
+    if (url === null) return text;
+    return `<a href="${escapeQuotes(url)}">${text}</a>`;
+  });
 
   // 列表
   html = html.replace(/^\* (.+)$/gm, '<li>$1</li>');

@@ -15,9 +15,11 @@ import {
 } from '@tiptap/pm/state';
 import type { AtriAttachmentDisplay, InsertAttachmentOptions } from '../types';
 import { formatFileSize } from '../media/file-policy';
+import { safeHref } from '../utils/url';
 import {
   attachmentAttributes,
   attachmentLabel,
+  dataAttr,
   insertAttachmentContent,
   isAttachmentForm,
 } from './attachment-attrs';
@@ -131,7 +133,19 @@ export const Attachment = Node.create({
     ];
 
     const body: DOMOutputSpec[] = [
-      ['a', { class: 'atri-attachment-name', href: src, rel: 'noopener noreferrer' }, label],
+      // src 有五条来路（宿主 insertAttachment、上传响应、外部粘贴、setNodeMarkup、
+      // setJSON 回灌），逐条在入口校验拦不全，渲染层是唯一都经过的地方。
+      // 不过 dataAttr 的"空值即省略键"是关键：传 null 会被 mergeAttributes 留下，
+      // 序列化出来就成了 href="null"，反而多一枚假链接
+      [
+        'a',
+        {
+          class: 'atri-attachment-name',
+          ...dataAttr('href', safeHref(src)),
+          rel: 'noopener noreferrer',
+        },
+        label,
+      ],
     ];
     if (size) {
       body.push(['span', { class: 'atri-attachment-size' }, formatFileSize(size)]);
