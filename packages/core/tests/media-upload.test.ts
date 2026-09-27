@@ -28,10 +28,12 @@ class FakeXHR {
   status = 200;
   responseText = '';
   withCredentials = false;
+  timeout = 0;
   upload = { onprogress: null as null | ((event: ProgressEvent) => void) };
   onload: (() => void) | null = null;
   onerror: (() => void) | null = null;
   onabort: (() => void) | null = null;
+  ontimeout: (() => void) | null = null;
 
   method = '';
   url = '';
@@ -76,6 +78,11 @@ class FakeXHR {
 
   failNetwork(): void {
     this.onerror?.();
+  }
+
+  /** 模拟 XHR 自己计时到点：真实浏览器里 abort 也由它内部触发 */
+  simulateTimeout(): void {
+    this.ontimeout?.();
   }
 }
 
@@ -519,5 +526,106 @@ describe('上传管线', () => {
 
     expect(editor.getHTML()).toContain('src="https://cdn/cover.png"');
     expect(editor.getHTML()).not.toContain('data-atri-upload-status');
+  });
+});
+
+describe('Uploader 的超时与响应形状', () => {
+  const context = (): UploadContext => ({
+    onProgress: vi.fn(),
+    signal: new AbortController().signal,
+  });
+
+  it('没配 timeout 时 xhr.timeout 保持 0，也就是浏览器的"不超时"', async () => {
+    const uploader = createUploader({ endpoint: '/api/upload' });
+    const pending = uploader!.upload(makeFile('a.png', 'image/png'), context());
+
+    FakeXHR.sent[0]!.respond({ url: 'https://cdn/a.png' });
+    await expect(pending).resolves.toEqual({ url: 'https://cdn/a.png' });
+
+    expect(FakeXHR.sent[0]!.timeout).toBe(0);
+  });
+
+  it('配了 timeout 就交给 XHR 自己计时，到点落在 reject 上', async () => {
+    const uploader = createUploader({ endpoint: '/api/upload', timeout: 8000 });
+    const pending = uploader!.upload(makeFile('a.png', 'image/png'), context());
+
+    expect(FakeXHR.sent[0]!.timeout).toBe(8000);
+
+    FakeXHR.sent[0]!.simulateTimeout();
+    await expect(pending).rejects.toThrow('8000ms');
+  });
+
+  it('网关返回 HTML 错误页时不把它当文件地址写进文档', async () => {
+    const uploader = createUploader({ endpoint: '/api/upload' });
+    const pending = uploader!.upload(makeFile('a.png', 'image/png'), context());
+
+    // JSON.parse 失败 → 整段响应体本会被当成地址
+    FakeXHR.sent[0]!.respond('<!DOCTYPE html>\n<html><body>502 Bad Gateway</body></html>');
+
+    await expect(pending).rejects.toThrow('找不到文件地址');
+  });
+
+  it('响应体本身就是地址字符串时仍认，尾部换行不影响', async () => {
+    const uploader = createUploader({ endpoint: '/api/upload' });
+    const pending = uploader!.upload(makeFile('a.png', 'image/png'), context());
+
+    FakeXHR.sent[0]!.respond('https://cdn/a.png\n');
+
+    await expect(pending).resolves.toEqual({ url: 'https://cdn/a.png' });
+  });
+
+  it('JSON 响应里挑出的地址同样过协议白名单', async () => {
+    const uploader = createUploader({ endpoint: '/api/upload' });
+    const pending = uploader!.upload(makeFile('a.png', 'image/png'), context());
+
+    FakeXHR.sent[0]!.respond({ url: 'javascript:alert(1)' });
+
+    await expect(pending).rejects.toThrow('找不到文件地址');
+  });
+});
+
+describe('宿主回调的异常隔离', () => {
+  it('media.onError 抛错不打断文件校验流程', async () => {
+    const editor = await mount({
+      content: '<p>正文</p>',
+      media: {
+        upload: { endpoint: '/api/upload' },
+        maxFileSize: 1024,
+        onError: () => {
+          throw new Error('宿主回调写错了');
+        },
+      },
+    });
+    const warn = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    // 超限文件会走 reject → onError；onError 抛错不能把 uploadFiles 一起带崩
+    await expect(
+      editor.uploadFiles([makeFile('big.png', 'image/png', 4096)])
+    ).resolves.toBeUndefined();
+
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it('onChange 抛错后文档仍能继续编辑', async () => {
+    const warn = vi.spyOn(console, 'error').mockImplementation(() => {});
+    let calls = 0;
+    const editor = await mount({
+      content: '<p>正文</p>',
+      onChange: () => {
+        calls += 1;
+        throw new Error('宿主回调写错了');
+      },
+    });
+
+    expect(() => editor.insertContent('<p>第一段</p>')).not.toThrow();
+    expect(() => editor.insertContent('<p>第二段</p>')).not.toThrow();
+
+    expect(calls).toBe(2);
+    // 第二次没被第一次的异常打断，文档也确实多了一段
+    expect(editor.getHTML()).toContain('第二段');
+    // 同一个坏回调只报一次日志
+    expect(warn).toHaveBeenCalledOnce();
+    warn.mockRestore();
   });
 });

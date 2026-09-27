@@ -4,6 +4,25 @@
 import type { AIRequestContext, AIResponse, AtriAIInterceptors } from '../types';
 import type { MarkdownService } from '../core/MarkdownService';
 
+/**
+ * 端点由宿主实现，返回值没有任何编译期保证：
+ * 不校验的话 4xx 的 HTML 响应体一路走到 insertCallback，最后什么也不发生
+ *
+ * 只判形状，不判空：空 content 是合法结果（"看过之后无需改写"），
+ * 拦它等于把宿主的一个正常业务分支变成报错
+ */
+function requireResponse(response: unknown, stage: string): AIResponse {
+  if (!response || typeof response !== 'object') {
+    throw new TypeError(`AI ${stage} must resolve to an AIResponse object.`);
+  }
+
+  if (typeof (response as AIResponse).content !== 'string') {
+    throw new TypeError(`AI ${stage} resolved with a non-string content.`);
+  }
+
+  return response as AIResponse;
+}
+
 export class AIInterceptor {
   private interceptors: AtriAIInterceptors;
   private markdownService: MarkdownService | null;
@@ -100,10 +119,13 @@ export class AIInterceptor {
     }
 
     // 2. requestEndpoint
-    let response = await requestEndpoint(processedContext);
+    let response = requireResponse(
+      await requestEndpoint(processedContext),
+      `requestEndpoint("${processedContext.functionId}")`
+    );
 
     // 3. afterPost
-    response = await this.runAfterPost(response, processedContext);
+    response = requireResponse(await this.runAfterPost(response, processedContext), 'afterPost');
 
     // 4. beforeRender
     let content = await this.runBeforeRender(response.content, processedContext);

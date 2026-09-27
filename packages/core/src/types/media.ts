@@ -47,6 +47,11 @@ export interface AtriUploadConfig {
   requestName?: (file: File) => string;
   /** 响应体形状千差万别，用它挑出 url；缺省时依次找 url / data.url / location */
   transformResult?: (body: unknown, file: File) => UploadResult;
+  /**
+   * 内置 XHR 通道的超时毫秒数。缺省不超时——大文件走慢网本就该能传完，
+   * 给一个通用上界反而会把原本成功的宿主变成失败
+   */
+  timeout?: number;
 }
 
 /**

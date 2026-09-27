@@ -78,4 +78,9 @@ export interface AtriAIConfig {
   autoTranslateMarkdownToHTML?: boolean;
   /** 全局错误处理 */
   onError?: (error: Error, context: AIRequestContext) => void;
+  /**
+   * 等待 requestEndpoint 的超时毫秒数，缺省不超时（长生成是合法场景）。
+   * 超时只让库停止等待并丢弃随后到达的结果——请求由宿主发出，库没有取消它的能力
+   */
+  timeout?: number;
 }

@@ -12,6 +12,7 @@ import { createTableExtensions, resolveTableConfig } from '../extensions/table';
 import { createMediaExtensions } from '../extensions/media';
 import { MediaRuntime } from '../media/MediaRuntime';
 import { shouldShowBubbleMenu } from './bubble-toolbar';
+import { runSafely } from '../utils/safe-call';
 import type {
   AtriLinkConfig,
   AtriMarkdownConfig,
@@ -178,19 +179,19 @@ export class CoreEditor {
         },
       },
       onCreate: () => {
-        this.config.onCreate?.();
+        runSafely(this.config.onCreate, 'onCreate');
       },
       onUpdate: () => {
-        this.config.onUpdate?.();
+        runSafely(this.config.onUpdate, 'onUpdate');
       },
       onFocus: () => {
-        this.config.onFocus?.();
+        runSafely(this.config.onFocus, 'onFocus');
       },
       onBlur: () => {
-        this.config.onBlur?.();
+        runSafely(this.config.onBlur, 'onBlur');
       },
       onDestroy: () => {
-        this.config.onDestroy?.();
+        runSafely(this.config.onDestroy, 'onDestroy');
       },
     });
 

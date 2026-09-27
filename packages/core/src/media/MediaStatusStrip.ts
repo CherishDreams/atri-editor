@@ -48,7 +48,13 @@ export class MediaStatusStrip {
     this.retry.type = 'button';
     this.retry.className = 'atri-media-status-retry';
     this.retry.hidden = true;
-    this.retry.addEventListener('click', () => void runtime.retryFailed());
+    // 重试失败要落地成一条日志：这条 promise 此前被 void 丢在半路，
+    // 一直失败时表现为"点了没反应"外加一片 unhandled rejection
+    this.retry.addEventListener('click', () => {
+      runtime.retryFailed().catch((error: unknown) => {
+        console.error('[Atri Editor] Retrying the failed uploads did not work:', error);
+      });
+    });
 
     this.element.append(this.text, this.retry);
     container.appendChild(this.element);

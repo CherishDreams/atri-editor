@@ -161,3 +161,123 @@ describe('AI 命令菜单键盘导航', () => {
     expect(() => t.press('ArrowDown')).not.toThrow();
   });
 });
+
+describe('AI 失败的上报与超时', () => {
+  const tick = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  it('没配 onError 时端点报错会留下日志，而不是静默', async () => {
+    const warn = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const editor = await mount({
+      content: '<p>正文</p>',
+      ai: {
+        functions: [{ id: 'f', name: 'f' }],
+        requestEndpoint: async () => {
+          throw new Error('端点 500');
+        },
+      },
+    });
+
+    await editor.ai!.execute('f');
+
+    expect(warn).toHaveBeenCalled();
+    expect(String(warn.mock.calls[0]?.[0])).toContain('"f"');
+    warn.mockRestore();
+  });
+
+  it('配了 onError 就走回调，不另外打日志', async () => {
+    const warn = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const onError = vi.fn();
+    const editor = await mount({
+      content: '<p>正文</p>',
+      ai: {
+        functions: [{ id: 'f', name: 'f' }],
+        requestEndpoint: async () => {
+          throw new Error('端点 500');
+        },
+        onError,
+      },
+    });
+
+    await editor.ai!.execute('f');
+
+    expect(onError).toHaveBeenCalledOnce();
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it('端点返回的形状不对时按失败处理，而不是悄悄什么都不插', async () => {
+    const onError = vi.fn();
+    const editor = await mount({
+      content: '<p>正文</p>',
+      ai: {
+        functions: [{ id: 'f', name: 'f', outputMode: 'insert' }],
+        // 4xx 的 HTML 响应体是最常见的一种"看起来成功了"
+        requestEndpoint: async () => undefined as never,
+        onError,
+      },
+    });
+
+    await editor.ai!.execute('f');
+
+    expect(onError).toHaveBeenCalledOnce();
+    expect(editor.getHTML()).toBe('<p>正文</p>');
+  });
+
+  it('空内容是合法结果：不报错，也不产出节点', async () => {
+    const onError = vi.fn();
+    const editor = await mount({
+      content: '<p>正文</p>',
+      ai: {
+        functions: [{ id: 'f', name: 'f' }],
+        requestEndpoint: async () => ({ content: '' }),
+        onError,
+      },
+    });
+
+    await editor.ai!.execute('f');
+
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it('配了 timeout 就停止等待，晚到的响应不再插进编辑器', async () => {
+    const onError = vi.fn();
+    const editor = await mount({
+      content: '<p>正文</p>',
+      ai: {
+        functions: [{ id: 'f', name: 'f', outputMode: 'insert' }],
+        requestEndpoint: async () => {
+          await tick(50);
+          return { content: '<p>迟到的结果</p>' };
+        },
+        timeout: 10,
+        onError,
+      },
+    });
+
+    await editor.ai!.execute('f');
+
+    expect(onError).toHaveBeenCalledOnce();
+    expect(String(onError.mock.calls[0]?.[0])).toContain('timed out');
+
+    // 等真实响应赶回来：光标位置早已不属于那次请求，不能插
+    await tick(80);
+    expect(editor.getHTML()).toBe('<p>正文</p>');
+  });
+
+  it('没配 timeout 时慢响应照常落地（默认行为不变）', async () => {
+    const editor = await mount({
+      content: '<p>正文</p>',
+      ai: {
+        functions: [{ id: 'f', name: 'f', outputMode: 'insert' }],
+        requestEndpoint: async () => {
+          await tick(30);
+          return { content: '<p>慢但有效</p>' };
+        },
+      },
+    });
+
+    await editor.ai!.execute('f');
+
+    expect(editor.getHTML()).toContain('慢但有效');
+  });
+});

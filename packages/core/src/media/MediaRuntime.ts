@@ -15,6 +15,7 @@ import type {
 } from '../types';
 import { createUploader, type Uploader } from './Uploader';
 import { mediaInsertTarget } from './insert-position';
+import { runSafely } from '../utils/safe-call';
 import { DEFAULT_MAX_FILES, acceptAttribute, isImageFile, validateFile } from './file-policy';
 
 /** 节点瞬时态，写进 data-atri-upload-status */
@@ -529,7 +530,8 @@ export class MediaRuntime {
 
   private reject(file: File, reason: MediaRejectReason, cause?: unknown): void {
     if (this.config.onError) {
-      this.config.onError({ file, reason, cause });
+      // 回调里抛错不能把整条投放链路打断：reject 是在 handleFiles 的同步路径上叫的
+      runSafely(this.config.onError, 'media.onError', [{ file, reason, cause }]);
       return;
     }
 

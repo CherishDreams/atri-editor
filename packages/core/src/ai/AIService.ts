@@ -5,6 +5,7 @@ import type { Editor } from '@tiptap/core';
 import type { AtriAIConfig, AtriAIFunction, AIRequestContext } from '../types';
 import { AIInterceptor } from './AIInterceptor';
 import { MarkdownService } from '../core/MarkdownService';
+import { runSafely } from '../utils/safe-call';
 import { getSelectedText, getCursorContext, getDocumentText } from '../utils/selection';
 
 export class AIService {
@@ -91,14 +92,42 @@ export class AIService {
     }
 
     const context = this.buildContext(func);
+    const timeout = this.config.timeout ?? 0;
+    // 超时只能"停止等待"：请求是宿主发的，库无权取消。
+    // 晚到的响应靠这个标记挡在插入之前，不能让它覆盖用户之后的光标位置
+    let timedOut = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const chain = this.interceptor.executeChain(context, this.config.requestEndpoint, (content) => {
+      if (timedOut) return;
+      this.insertContent(content, func.outputMode || 'insert');
+    });
 
     try {
-      await this.interceptor.executeChain(context, this.config.requestEndpoint, (content) =>
-        this.insertContent(content, func.outputMode || 'insert')
-      );
+      if (timeout > 0) {
+        await Promise.race([
+          chain,
+          new Promise<never>((_resolve, reject) => {
+            timer = setTimeout(() => {
+              timedOut = true;
+              reject(new Error(`AI function "${functionId}" timed out after ${timeout}ms.`));
+            }, timeout);
+          }),
+        ]);
+      } else {
+        await chain;
+      }
     } catch (error) {
+      // 不 rethrow：门面调用 execute 时不 await，抛出只会变成 unhandled rejection。
+      // 但没配 onError 也不能就这么静默——端点 500 与"这次确实没结果"得区分得开
       const err = error instanceof Error ? error : new Error(String(error));
-      this.config.onError?.(err, context);
+      if (this.config.onError) {
+        runSafely(this.config.onError, 'ai.onError', [err, context]);
+      } else {
+        console.error(`[Atri Editor] AI function "${functionId}" failed:`, err);
+      }
+    } finally {
+      if (timer !== undefined) clearTimeout(timer);
     }
   }
 
