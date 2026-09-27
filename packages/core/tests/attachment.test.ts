@@ -423,12 +423,37 @@ describe('附件地址的协议白名单', () => {
     expect(hrefsOf(editor)).toEqual([null]);
   });
 
-  it('合法地址照常渲染成 href，相对路径与 blob: 都不该被误伤', async () => {
+  it('插入命令与渲染用同一把尺子：不会"命令成功却没有链接"', async () => {
+    const editor = await mount({ content: '<p>正文</p>' });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    // blob:/data: 是媒体资源地址，但不是可点击地址。渲染层（safeHref）本来就不给
+    // 它们出 href，那插入命令就不该收下——否则宿主拿到 true 却得到一枚死文字
+    for (const src of ['blob:https://example.com/uuid', 'data:application/pdf;base64,JVBERi0=']) {
+      const ran = editor.editor.commands.setAttachmentLink({ src, name: 'a.pdf' });
+      expect(ran, src).toBe(false);
+    }
+
+    expect(hrefsOf(editor)).toEqual([]);
+    expect(warn).toHaveBeenCalledTimes(2);
+    warn.mockRestore();
+  });
+
+  it('合法地址照常渲染成 href，相对路径与 mailto: 都不该被误伤', async () => {
     const editor = await mount({ content: '<p>正文</p>' });
 
+    // 每次插入前把选区挪到文末：上一次插入留下的是 NodeSelection，
+    // 直接再插会把前一个附件替换掉，那样两条断言就测不到同一棵树里的两个链接
+    const atEnd = () => {
+      const { doc } = editor.editor.state;
+      editor.editor.commands.setTextSelection(doc.content.size);
+    };
+    atEnd();
     editor.editor.chain().setAttachmentLink({ src: '/files/a.pdf', name: 'a.pdf' }).run();
+    atEnd();
+    editor.editor.chain().setAttachmentLink({ src: 'mailto:ops@example.com', name: 'm' }).run();
 
-    expect(hrefsOf(editor)).toContain('/files/a.pdf');
+    expect(hrefsOf(editor)).toEqual(['/files/a.pdf', 'mailto:ops@example.com']);
     expect(editor.getHTML()).toContain('href="/files/a.pdf"');
   });
 });

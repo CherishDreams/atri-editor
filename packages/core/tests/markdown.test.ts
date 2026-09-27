@@ -152,11 +152,19 @@ describe('降级转换器的不可信输入', () => {
     expect(html).toContain('<h1>');
   });
 
-  it('属性值里的引号不能提前闭合属性去挂事件处理器', () => {
+  it('地址里混进引号的畸形写法不产出 <a>，破不出属性', () => {
     const html = simpleMarkdownToHtml('[详情](https://example.com" onclick="alert(1))');
 
-    expect(html).not.toContain('onclick="alert');
-    expect(html).toContain('&quot;');
+    // 真正要钉的是"没有元素被产出"：引号作为 <p> 的文本内容是无害的，
+    // 反过来要求输出里不出现 onclick 字样会把合法文本也一起禁掉，是假断言
+    expect(html).not.toContain('<a');
+    expect(html).toBe('<p>[详情](https://example.com" onclick="alert(1))</p>');
+  });
+
+  it('链接的 title 会剥掉，不会整串当地址', () => {
+    expect(simpleMarkdownToHtml('[详情](https://example.com "标题")')).toBe(
+      '<p><a href="https://example.com">详情</a></p>'
+    );
   });
 
   it('链接与图片不认危险协议，退化成文字而不是毒链接', () => {
@@ -170,6 +178,12 @@ describe('降级转换器的不可信输入', () => {
   it('合法地址与查询串不受影响，& 以实体形式进属性', () => {
     expect(simpleMarkdownToHtml('[详情](https://example.com/?a=1&b=2)')).toBe(
       '<p><a href="https://example.com/?a=1&amp;b=2">详情</a></p>'
+    );
+  });
+
+  it('链接的 title 会剥掉，不会整串当地址', () => {
+    expect(simpleMarkdownToHtml('[详情](https://example.com "标题")')).toBe(
+      '<p><a href="https://example.com">详情</a></p>'
     );
   });
 

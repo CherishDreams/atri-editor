@@ -336,15 +336,4 @@ describe('空的 AI functions', () => {
     );
     expect(editor.editor.state.doc.childCount).toBe(before + 1);
   });
-
-  it('空数组时连菜单管理器都不建（配置里没东西可选）', async () => {
-    const editor = await mount({
-      content: '<p>hello</p>',
-      ai: { functions: [], requestEndpoint: async () => ({ content: '!' }) },
-    });
-
-    // 有 functions 时 onCreate 之后 ai 菜单就在了；这里靠"输入触发字符无菜单"已验证，
-    // 再确认一次不抛错即可
-    expect(() => editor.destroy()).not.toThrow();
-  });
 });

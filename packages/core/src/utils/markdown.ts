@@ -46,12 +46,15 @@ export function simpleMarkdownToHtml(markdown: string): string {
     }
   );
 
-  // 链接
-  html = html.replace(/\[(.+?)\]\((.+?)\)/g, (_all, text: string, href: string) => {
-    const url = safeHref(href);
-    if (url === null) return text;
-    return `<a href="${escapeQuotes(url)}">${text}</a>`;
-  });
+  // 链接：title 要像图片那样剥掉，否则 `[文字](/x "T")` 会把整串当地址
+  html = html.replace(
+    /\[([^\]]*)\]\(\s*([^\s)]+)(?:\s+"[^"]*")?\s*\)/g,
+    (_all, text: string, href: string) => {
+      const url = safeHref(href);
+      if (url === null) return text;
+      return `<a href="${escapeQuotes(url)}">${text}</a>`;
+    }
+  );
 
   // 列表
   html = html.replace(/^\* (.+)$/gm, '<li>$1</li>');

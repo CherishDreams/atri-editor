@@ -226,19 +226,26 @@ describe('断连与重挂', () => {
     expect(element.getHTML()).toContain('用户打的字');
   });
 
-  it('快照只消费一次，宿主显式 destroy 后重挂回到配置的初值', async () => {
+  it('每轮断连重拍快照，不会拿上一轮的内容', async () => {
     const element = await mountElement({ 'data-content': '<p>初值</p>' });
-    element.getEditor()!.setContent('<p>用户打的字</p>');
 
+    // 第一轮
+    element.getEditor()!.setContent('<p>第一轮</p>');
     element.remove();
     await tick();
-    element.destroy();
+    document.body.appendChild(element);
+    await tick();
+    expect(element.getHTML()).toContain('第一轮');
 
+    // 第二轮：若快照不是每轮重拍，这里会退回"第一轮"
+    element.getEditor()!.setContent('<p>第二轮</p>');
+    element.remove();
+    await tick();
     document.body.appendChild(element);
     await tick();
 
-    expect(element.getHTML()).toContain('初值');
-    expect(element.getHTML()).not.toContain('用户打的字');
+    expect(element.getHTML()).toContain('第二轮');
+    expect(element.getHTML()).not.toContain('第一轮');
   });
 
   it('真的卸载还是会被清理，不会变成一个永久存活的编辑器', async () => {
@@ -252,5 +259,30 @@ describe('断连与重挂', () => {
     expect(element.getEditor()).toBeNull();
     // 容器随销毁一起离开文档：门面没活着的话，这里查得到就说明漏了
     expect(editor!.editor.isDestroyed).toBe(true);
+  });
+});
+
+describe('显式 destroy 的契约', () => {
+  const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+  it('连接状态下直接 destroy，重挂不再自动重建', async () => {
+    const element = await mountElement({ 'data-content': '<p>初值</p>' });
+
+    element.destroy();
+    document.body.appendChild(element);
+    await tick();
+
+    expect(element.getEditor()).toBeNull();
+  });
+
+  it('destroy 之后重挂不带走被销毁编辑器的内容', async () => {
+    const element = await mountElement({ 'data-content': '<p>初值</p>' });
+    element.getEditor()!.setContent('<p>用户打的字</p>');
+
+    element.destroy();
+    document.body.appendChild(element);
+    await tick();
+
+    expect(element.getEditor()).toBeNull();
   });
 });

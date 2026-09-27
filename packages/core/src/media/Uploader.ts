@@ -80,7 +80,30 @@ function uploadViaEndpoint(
       }
 
       if (config.transformResult) {
-        resolve(config.transformResult(body, file));
+        // 宿主函数在 XHR 回调里同步调用：抛出来这条 promise 就永远不落定，
+        // 卡片停在"上传中"、hasPendingUploads() 一直 true——宿主的保存闸门被卡死
+        let transformed: unknown;
+        try {
+          transformed = config.transformResult(body, file);
+        } catch (cause) {
+          reject(new Error(`上传失败：upload.transformResult 抛出了异常（${String(cause)}）`));
+          return;
+        }
+
+        const result = transformed as Partial<UploadResult> | null;
+        const picked = result && typeof result === 'object' ? result.url : undefined;
+        const url = typeof picked === 'string' ? usableUrl(picked) : null;
+
+        if (!url) {
+          reject(
+            new Error(
+              `上传失败：upload.transformResult 没有返回带可用 url 的 UploadResult（拿到 ${JSON.stringify(picked)}）`
+            )
+          );
+          return;
+        }
+
+        resolve({ ...(result as UploadResult), url });
         return;
       }
 

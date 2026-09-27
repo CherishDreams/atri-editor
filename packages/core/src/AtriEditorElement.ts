@@ -45,6 +45,8 @@ export class AtriEditorElement extends AtriEditorBase {
   private teardownToken = 0;
   /** 断连时留下的内容，重连时接回去 */
   private detachedContent: string | null = null;
+  /** 显式销毁过：之后重挂不再自动重建，也不该带任何快照 */
+  private destroyed = false;
 
   static get observedAttributes(): string[] {
     return ['theme', 'editable', 'lang', 'placeholder'];
@@ -56,6 +58,7 @@ export class AtriEditorElement extends AtriEditorBase {
 
   connectedCallback(): void {
     this.teardownToken += 1;
+    if (this.destroyed) return;
     this.initEditor();
   }
 
@@ -77,6 +80,8 @@ export class AtriEditorElement extends AtriEditorBase {
    * 断连本身已经会延迟拆除，这个方法的意义在于"别接回去了"
    */
   destroy(): void {
+    // 顺序要紧：先置 destroyed，teardownEditor 才不会把快照又写回来
+    this.destroyed = true;
     this.teardownToken += 1;
     this.detachedContent = null;
     this.teardownEditor();
@@ -84,8 +89,9 @@ export class AtriEditorElement extends AtriEditorBase {
 
   private teardownEditor(): void {
     if (!this.editor) return;
-    // 快照优先于 data-content：后者是用户动手之前的初值，拿它重建等于回滚输入
-    this.detachedContent = this.editor.getHTML();
+    // 快照优先于 data-content：后者是用户动手之前的初值，拿它重建等于回滚输入。
+    // 但显式 destroy 不留快照——宿主说的是"结束了"，重挂不该拿回已销毁实例的内容
+    if (!this.destroyed) this.detachedContent = this.editor.getHTML();
     this.editor.destroy();
     this.editor = null;
   }

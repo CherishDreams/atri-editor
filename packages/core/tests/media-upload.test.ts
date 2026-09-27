@@ -660,3 +660,56 @@ describe('重试的去重', () => {
     await Promise.all([first, second]);
   });
 });
+
+describe('transformResult 这个宿主函数的边界', () => {
+  const ctx = (): UploadContext => ({ onProgress: vi.fn(), signal: new AbortController().signal });
+
+  it('抛错时上传以错误落定，而不是把 promise 悬在半空', async () => {
+    const uploader = createUploader({
+      endpoint: '/api/upload',
+      transformResult: () => {
+        throw new Error('宿主实现写错了');
+      },
+    });
+    const pending = uploader!.upload(makeFile('a.png', 'image/png'), ctx());
+
+    FakeXHR.sent[0]!.respond({ data: { link: '/x' } });
+
+    // 不修的话这条 await 永远不会返回：卡片停在"上传中"，保存闸门卡死
+    await expect(pending).rejects.toThrow('transformResult 抛出了异常');
+  });
+
+  it('返回非法地址时按失败处理，不把 javascript: 写进文档', async () => {
+    const uploader = createUploader({
+      endpoint: '/api/upload',
+      transformResult: () => ({ url: 'javascript:alert(1)' }),
+    });
+    const pending = uploader!.upload(makeFile('a.png', 'image/png'), ctx());
+
+    FakeXHR.sent[0]!.respond({ url: '/ignored' });
+
+    await expect(pending).rejects.toThrow('没有返回带可用 url');
+  });
+
+  it('正常返回时 url 被洗过，其余字段原样保留', async () => {
+    const uploader = createUploader({
+      endpoint: '/api/upload',
+      transformResult: () => ({
+        url: 'https://cdn/a.png\n',
+        name: 'a.png',
+        size: 1024,
+        mime: 'image/png',
+      }),
+    });
+    const pending = uploader!.upload(makeFile('a.png', 'image/png'), ctx());
+
+    FakeXHR.sent[0]!.respond({});
+
+    await expect(pending).resolves.toEqual({
+      url: 'https://cdn/a.png',
+      name: 'a.png',
+      size: 1024,
+      mime: 'image/png',
+    });
+  });
+});

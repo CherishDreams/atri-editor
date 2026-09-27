@@ -8,7 +8,7 @@ import type { Attribute, CommandProps } from '@tiptap/core';
 import { NodeSelection, type Transaction } from '@tiptap/pm/state';
 import type { InsertAttachmentOptions } from '../types';
 import { mediaInsertTarget } from '../media/insert-position';
-import { safeMediaSrc } from '../utils/url';
+import { safeHref, safeMediaSrc } from '../utils/url';
 
 /** 两种形态的节点名，判一处用 */
 export function isAttachmentForm(name: string): boolean {
@@ -51,11 +51,13 @@ export function insertAttachmentContent(
   const target = mediaInsertTarget(state.selection);
   const anchor = typeof target === 'number' ? target : target.to;
 
-  // 渲染层已经会把非法协议洗掉，但那样宿主拿到的是"命令成功、节点没有链接"，
-  // 比直接拒更难看。返回 false 是这个命令本来就有的失败语义
-  if (safeMediaSrc(options.src) === null) {
+  // 判据与渲染层一致用 safeHref：附件的 src 最终就是要进 href 的那个值。
+  // 用更宽的 safeMediaSrc 会放行 blob:/data:，命令返回 true 而节点渲染出来没有链接，
+  // 正是"成功了但什么都没发生"。上传管线不经这条命令（直接 setNodeMarkup 写 src），
+  // 所以本地预览地址照常工作
+  if (safeHref(options.src) === null) {
     console.warn(
-      `[Atri Editor] insertAttachment rejected: "${options.src}" is not a usable file address.`
+      `[Atri Editor] insertAttachment rejected: "${options.src}" is not a clickable address.`
     );
     return false;
   }
