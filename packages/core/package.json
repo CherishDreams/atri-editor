@@ -25,6 +25,7 @@
   ],
   "type": "module",
   "sideEffects": [
+    "dist/index.js",
     "dist/style.css"
   ],
   "main": "./dist/index.js",

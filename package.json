@@ -13,8 +13,9 @@
     "typecheck": "pnpm -C packages/core typecheck",
     "typecheck:demos": "pnpm -C demos/vue typecheck && pnpm -C demos/react typecheck",
     "lint": "oxlint packages/core/src demos scripts",
+    "verify:side-effects": "node scripts/verify-side-effects.mjs",
     "format": "oxfmt --write packages demos scripts",
-    "check": "pnpm typecheck && pnpm typecheck:demos && pnpm lint && oxfmt --check packages demos scripts",
+    "check": "pnpm typecheck && pnpm typecheck:demos && pnpm lint && pnpm verify:side-effects && oxfmt --check packages demos scripts",
     "test": "pnpm -r --if-present test",
     "clean": "rimraf packages/*/dist",
     "changeset": "changeset",
@@ -23,6 +24,7 @@
   "devDependencies": {
     "@changesets/cli": "^3.0.2",
     "@types/node": "^20.0.0",
+    "esbuild": "^0.21.5",
     "oxfmt": "^0.65.0",
     "oxlint": "^1.80.0",
     "rimraf": "^5.0.0",

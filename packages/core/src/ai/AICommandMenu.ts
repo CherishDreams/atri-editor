@@ -86,7 +86,9 @@ export class AICommandMenuManager {
    * 显示菜单
    */
   show(): void {
-    if (this.isVisible) return;
+    // 没有可选项就没什么可浮出的：空菜单是个看不懂的空盒子，
+    // 还会把 Enter/方向键吃掉（selectedIndex 对 0 取模得 NaN）
+    if (this.isVisible || !this.functions.length) return;
     this.isVisible = true;
     this.selectedIndex = 0;
     this.createMenuElement();

@@ -41,6 +41,10 @@ export function registerAtriElement(): void {
 export class AtriEditorElement extends AtriEditorBase {
   private editor: AtriEditor | null = null;
   private _options: Partial<AtriEditorOptions> = {};
+  /** 连接与显式销毁都递增它，用来作废已经排队的拆除任务 */
+  private teardownToken = 0;
+  /** 断连时留下的内容，重连时接回去 */
+  private detachedContent: string | null = null;
 
   static get observedAttributes(): string[] {
     return ['theme', 'editable', 'lang', 'placeholder'];
@@ -51,11 +55,39 @@ export class AtriEditorElement extends AtriEditorBase {
   }
 
   connectedCallback(): void {
+    this.teardownToken += 1;
     this.initEditor();
   }
 
   disconnectedCallback(): void {
-    this.destroyEditor();
+    // 搬动节点（appendChild 重挂、框架 re-parent、虚拟列表滚动）会先同步 disconnect
+    // 再同步 connect。拆到微任务边界上，isConnected 已经恢复 true，据此把"搬家"
+    // 和"真的卸载"分开——同步拆的话用户输入连同在途上传一起没了。
+    // token 则挡住另一种情形：这一批里被重挂过，就不该再拆后来那个实例
+    const token = this.teardownToken;
+    queueMicrotask(() => {
+      if (token === this.teardownToken && !this.isConnected) this.teardownEditor();
+    });
+  }
+
+  /**
+   * 显式销毁：之后重挂不再自动重建，内容快照也一并丢掉
+   *
+   * 框架里对应 unmount 钩子（Vue 的 unmounted、React effect 的 cleanup）。
+   * 断连本身已经会延迟拆除，这个方法的意义在于"别接回去了"
+   */
+  destroy(): void {
+    this.teardownToken += 1;
+    this.detachedContent = null;
+    this.teardownEditor();
+  }
+
+  private teardownEditor(): void {
+    if (!this.editor) return;
+    // 快照优先于 data-content：后者是用户动手之前的初值，拿它重建等于回滚输入
+    this.detachedContent = this.editor.getHTML();
+    this.editor.destroy();
+    this.editor = null;
   }
 
   attributeChangedCallback(name: string, oldValue: string | null, newValue: string | null): void {
@@ -90,6 +122,8 @@ export class AtriEditorElement extends AtriEditorBase {
    */
   setOptions(options: Partial<AtriEditorOptions>): void {
     this._options = { ...this._options, ...options };
+    // 宿主显式给了内容就以它为准，断连快照不能压过它
+    if ('content' in options) this.detachedContent = null;
   }
 
   private initEditor(): void {
@@ -124,6 +158,15 @@ export class AtriEditorElement extends AtriEditorBase {
       | undefined;
     if (contentFormat) options.contentFormat = contentFormat;
 
+    // 快照排在最后：它是重连前那一刻的 HTML，优先级高于作为"初值"的 data-content。
+    // contentFormat 也得跟着钉成 html，否则属性写着 markdown 时会拿 Markdown 去解这段 HTML。
+    // 只消费一次，第二次重连（宿主自己 destroy 过）就该回到配置的初值
+    if (this.detachedContent !== null) {
+      options.content = this.detachedContent;
+      options.contentFormat = 'html';
+      this.detachedContent = null;
+    }
+
     this.editor = new AtriEditor(options);
 
     // 派发创建事件
@@ -133,13 +176,6 @@ export class AtriEditorElement extends AtriEditorBase {
         bubbles: true,
       })
     );
-  }
-
-  private destroyEditor(): void {
-    if (this.editor) {
-      this.editor.destroy();
-      this.editor = null;
-    }
   }
 
   /**

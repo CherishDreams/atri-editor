@@ -48,10 +48,12 @@ function styledPlaceholderHost(element: AtriEditorElement): Element | null {
   );
 }
 
-afterEach(() => {
+afterEach(async () => {
   while (created.length) {
     created.pop()?.remove();
   }
+  // 断连的拆除排在微任务上，不等一下就销毁不了，编辑器会漏到下一个用例
+  await Promise.resolve();
   document.body.innerHTML = '';
 });
 
@@ -189,5 +191,66 @@ describe('媒体委托方法', () => {
     expect(attempts).toBe(2);
     expect(element.hasPendingUploads()).toBe(false);
     expect(element.getHTML()).toContain('src="https://cdn.example.com/a.png"');
+  });
+});
+
+describe('断连与重挂', () => {
+  const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+  it('同一批任务里搬动节点不销毁编辑器', async () => {
+    const element = await mountElement({ 'data-content': '<p>初值</p>' });
+    const before = element.getEditor();
+    expect(before).not.toBeNull();
+    before!.setContent('<p>用户打的字</p>');
+
+    const holder = document.createElement('div');
+    document.body.appendChild(holder);
+    holder.appendChild(element);
+
+    expect(element.getEditor()).toBe(before);
+    expect(element.getHTML()).toContain('用户打的字');
+  });
+
+  it('隔了一个任务再重挂，接回断连前的内容', async () => {
+    const element = await mountElement({ 'data-content': '<p>初值</p>' });
+    element.getEditor()!.setContent('<p>用户打的字</p>');
+
+    element.remove();
+    await tick();
+    expect(element.getEditor()).toBeNull();
+
+    document.body.appendChild(element);
+    await tick();
+
+    expect(element.getEditor()).not.toBeNull();
+    expect(element.getHTML()).toContain('用户打的字');
+  });
+
+  it('快照只消费一次，宿主显式 destroy 后重挂回到配置的初值', async () => {
+    const element = await mountElement({ 'data-content': '<p>初值</p>' });
+    element.getEditor()!.setContent('<p>用户打的字</p>');
+
+    element.remove();
+    await tick();
+    element.destroy();
+
+    document.body.appendChild(element);
+    await tick();
+
+    expect(element.getHTML()).toContain('初值');
+    expect(element.getHTML()).not.toContain('用户打的字');
+  });
+
+  it('真的卸载还是会被清理，不会变成一个永久存活的编辑器', async () => {
+    const element = await mountElement();
+    const editor = element.getEditor();
+    expect(editor).not.toBeNull();
+
+    element.remove();
+    await tick();
+
+    expect(element.getEditor()).toBeNull();
+    // 容器随销毁一起离开文档：门面没活着的话，这里查得到就说明漏了
+    expect(editor!.editor.isDestroyed).toBe(true);
   });
 });

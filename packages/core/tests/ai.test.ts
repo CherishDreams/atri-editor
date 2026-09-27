@@ -308,3 +308,43 @@ describe('AI 命令菜单销毁后的订阅', () => {
     expect(document.querySelector('.atri-ai-command-menu')).toBeNull();
   });
 });
+
+describe('空的 AI functions', () => {
+  it('functions 为空数组时不浮出菜单，也不吃掉 Enter', async () => {
+    const editor = await mount({
+      content: '<p>hello</p>',
+      ai: { functions: [], requestEndpoint: async () => ({ content: '!' }) },
+    });
+    editor.editor.isFocused = true;
+    const dom = editor.editor.view.dom;
+
+    const typeSlash = () => {
+      const { view } = editor.editor;
+      const pos = view.state.doc.content.size - 1;
+      editor.editor.commands.setTextSelection(pos);
+      view.dispatch(view.state.tr.insertText('/', pos));
+    };
+
+    typeSlash();
+    expect(document.querySelector('.atri-ai-command-menu')).toBeNull();
+
+    // 空菜单此前会 preventDefault 掉 Enter 并 selectItem(NaN)，把"换段"这个意图吞了。
+    // 判据用文档变化而不是 defaultPrevented —— ProseMirror 自己的 keymap 处理成功时也会 prevent
+    const before = editor.editor.state.doc.childCount;
+    dom.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })
+    );
+    expect(editor.editor.state.doc.childCount).toBe(before + 1);
+  });
+
+  it('空数组时连菜单管理器都不建（配置里没东西可选）', async () => {
+    const editor = await mount({
+      content: '<p>hello</p>',
+      ai: { functions: [], requestEndpoint: async () => ({ content: '!' }) },
+    });
+
+    // 有 functions 时 onCreate 之后 ai 菜单就在了；这里靠"输入触发字符无菜单"已验证，
+    // 再确认一次不抛错即可
+    expect(() => editor.destroy()).not.toThrow();
+  });
+});

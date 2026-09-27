@@ -131,8 +131,8 @@ export class AtriEditor implements IAtriEditor {
       });
     }
 
-    // 初始化 AI 命令菜单
-    if (this.options.ai?.functions) {
+    // 初始化 AI 命令菜单：空数组也是真值，得判长度，否则挂一个没有选项的菜单管理器
+    if (this.options.ai?.functions?.length) {
       this.aiMenuManager = new AICommandMenuManager(
         this.editor,
         this.options.ai.functions,
