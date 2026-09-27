@@ -7,7 +7,7 @@ import type { ToolbarConfig, ToolbarItem } from '../types';
 import { InsertPanel, type InsertPanelMode } from '../media/InsertPanel';
 import type { MediaRuntime } from '../media/MediaRuntime';
 import { BUBBLE_NODE_ITEMS, BUBBLE_TEXT_ITEMS } from './bubble-toolbar';
-import type { I18nManager } from './I18nManager';
+import { zhText, type I18nManager } from './I18nManager';
 import type { LinkPanel } from './LinkPanel';
 import { TableGridPanel } from './TableGridPanel';
 import { canInsertTable } from '../utils/table';
@@ -19,7 +19,8 @@ import { icons } from './icons';
 interface ToolbarItemDef {
   id: string;
   icon: string;
-  tooltip: string;
+  /** 没有词条映射时的回退文案；内置项都走 TOOLTIP_KEYS -> 中文词条，不在此抄一份 */
+  tooltip?: string;
   /** 打开浮层的项不能把焦点抢回编辑器，否则浮层里的输入框永远打不了字 */
   popup?: boolean;
   command: (editor: Editor, button: HTMLButtonElement) => void;
@@ -28,7 +29,7 @@ interface ToolbarItemDef {
 }
 
 /**
- * 工具栏项与 i18n 词条的映射（缺词条时回退到 tooltip 文案）
+ * 工具栏项与 i18n 词条的映射（这些项的默认文案就是中文词条本身，见 zhText）
  */
 const TOOLTIP_KEYS: Record<string, string> = {
   undo: 'editor.undo',
@@ -318,10 +319,9 @@ export class ToolbarManager {
 
       const custom = this.customTooltips.get(itemId);
       const key = TOOLTIP_KEYS[itemId];
-      // 未注入 i18n 或词条缺失时回退到定义里的文案
-      const title =
-        custom ??
-        (key ? (this.i18n?.tOr(key, itemDef.tooltip) ?? itemDef.tooltip) : itemDef.tooltip);
+      // 有词条映射的项，中文原文就是词条本身；只有不带词条的自定义项才用定义里的 tooltip
+      const fallback = key ? zhText(key) : (itemDef.tooltip ?? '');
+      const title = custom ?? (key ? (this.i18n?.tOr(key, fallback) ?? fallback) : fallback);
 
       buttons.forEach((button) => {
         button.title = title;
@@ -340,7 +340,6 @@ export class ToolbarManager {
       items.set('insertImage', {
         id: 'insertImage',
         icon: icons.image,
-        tooltip: '图片',
         popup: true,
         command: (_editor, button) => this.openInsert('image', button),
         isActive: () => this.panel?.openMode === 'image',
@@ -350,7 +349,6 @@ export class ToolbarManager {
       items.set('insertAttachment', {
         id: 'insertAttachment',
         icon: icons.paperclip,
-        tooltip: '附件',
         popup: true,
         command: (_editor, button) => this.openInsert('attachment', button),
         isActive: () => this.panel?.openMode === 'attachment',
@@ -361,7 +359,6 @@ export class ToolbarManager {
       items.set('attachmentDisplay', {
         id: 'attachmentDisplay',
         icon: icons.link,
-        tooltip: '附件样式',
         command: (editor) => editor.chain().focus().toggleAttachmentDisplay().run(),
         isActive: (editor) => editor.isActive('attachment') || editor.isActive('attachmentLink'),
         isDisabled: (editor) =>
@@ -374,7 +371,6 @@ export class ToolbarManager {
       items.set('insertTable', {
         id: 'insertTable',
         icon: icons.table,
-        tooltip: '表格',
         popup: true,
         command: (_editor, button) => this.gridPanel?.toggle(button),
         isActive: () => this.tablePanel?.isOpen === true,
@@ -387,7 +383,6 @@ export class ToolbarManager {
       items.set('insertLink', {
         id: 'insertLink',
         icon: icons.link,
-        tooltip: '链接',
         popup: true,
         command: (_editor, button) => this.linkPanel?.toggle(button),
         // 浮层开着时按下去是关，所以按钮的"按下态"跟的是浮层，不是选区里有没有链接
@@ -400,7 +395,6 @@ export class ToolbarManager {
     items.set('delete', {
       id: 'delete',
       icon: icons.trash,
-      tooltip: '删除',
       command: (editor) => editor.chain().deleteSelection().run(),
       isActive: () => false,
       isDisabled: (editor) => !isNodeSelection(editor.state.selection),
@@ -410,7 +404,6 @@ export class ToolbarManager {
     items.set('undo', {
       id: 'undo',
       icon: icons.undo,
-      tooltip: '撤销',
       command: (editor) => editor.chain().undo().run(),
       isActive: () => false,
       isDisabled: (editor) => !editor.can().undo(),
@@ -420,7 +413,6 @@ export class ToolbarManager {
     items.set('redo', {
       id: 'redo',
       icon: icons.redo,
-      tooltip: '重做',
       command: (editor) => editor.chain().redo().run(),
       isActive: () => false,
       isDisabled: (editor) => !editor.can().redo(),
@@ -430,7 +422,6 @@ export class ToolbarManager {
     items.set('heading1', {
       id: 'heading1',
       icon: icons.heading1,
-      tooltip: '标题 1',
       command: (editor) => editor.chain().toggleHeading({ level: 1 }).run(),
       isActive: (editor) => editor.isActive('heading', { level: 1 }),
       isDisabled: (editor) => !editor.can().toggleHeading({ level: 1 }),
@@ -440,7 +431,6 @@ export class ToolbarManager {
     items.set('heading2', {
       id: 'heading2',
       icon: icons.heading2,
-      tooltip: '标题 2',
       command: (editor) => editor.chain().toggleHeading({ level: 2 }).run(),
       isActive: (editor) => editor.isActive('heading', { level: 2 }),
       isDisabled: (editor) => !editor.can().toggleHeading({ level: 2 }),
@@ -450,7 +440,6 @@ export class ToolbarManager {
     items.set('heading3', {
       id: 'heading3',
       icon: icons.heading3,
-      tooltip: '标题 3',
       command: (editor) => editor.chain().toggleHeading({ level: 3 }).run(),
       isActive: (editor) => editor.isActive('heading', { level: 3 }),
       isDisabled: (editor) => !editor.can().toggleHeading({ level: 3 }),
@@ -460,7 +449,6 @@ export class ToolbarManager {
     items.set('paragraph', {
       id: 'paragraph',
       icon: icons.paragraph,
-      tooltip: '正文',
       command: (editor) => editor.chain().setParagraph().run(),
       isActive: (editor) => editor.isActive('paragraph'),
       isDisabled: (editor) => !editor.can().setParagraph(),
@@ -470,7 +458,6 @@ export class ToolbarManager {
     items.set('bold', {
       id: 'bold',
       icon: icons.bold,
-      tooltip: '加粗',
       command: (editor) => editor.chain().toggleBold().run(),
       isActive: (editor) => editor.isActive('bold'),
       isDisabled: (editor) => !editor.can().toggleBold(),
@@ -480,7 +467,6 @@ export class ToolbarManager {
     items.set('italic', {
       id: 'italic',
       icon: icons.italic,
-      tooltip: '斜体',
       command: (editor) => editor.chain().toggleItalic().run(),
       isActive: (editor) => editor.isActive('italic'),
       isDisabled: (editor) => !editor.can().toggleItalic(),
@@ -490,7 +476,6 @@ export class ToolbarManager {
     items.set('underline', {
       id: 'underline',
       icon: icons.underline,
-      tooltip: '下划线',
       command: (editor) => editor.chain().toggleUnderline().run(),
       isActive: (editor) => editor.isActive('underline'),
       isDisabled: (editor) => !editor.can().toggleUnderline(),
@@ -500,7 +485,6 @@ export class ToolbarManager {
     items.set('strike', {
       id: 'strike',
       icon: icons.strikethrough,
-      tooltip: '删除线',
       command: (editor) => editor.chain().toggleStrike().run(),
       isActive: (editor) => editor.isActive('strike'),
       isDisabled: (editor) => !editor.can().toggleStrike(),
@@ -510,7 +494,6 @@ export class ToolbarManager {
     items.set('code', {
       id: 'code',
       icon: icons.code,
-      tooltip: '行内代码',
       command: (editor) => editor.chain().toggleCode().run(),
       isActive: (editor) => editor.isActive('code'),
       isDisabled: (editor) => !editor.can().toggleCode(),
@@ -520,7 +503,6 @@ export class ToolbarManager {
     items.set('bulletList', {
       id: 'bulletList',
       icon: icons.list,
-      tooltip: '无序列表',
       command: (editor) => editor.chain().toggleBulletList().run(),
       isActive: (editor) => editor.isActive('bulletList'),
       isDisabled: (editor) => !editor.can().toggleBulletList(),
@@ -530,7 +512,6 @@ export class ToolbarManager {
     items.set('orderedList', {
       id: 'orderedList',
       icon: icons.listOrdered,
-      tooltip: '有序列表',
       command: (editor) => editor.chain().toggleOrderedList().run(),
       isActive: (editor) => editor.isActive('orderedList'),
       isDisabled: (editor) => !editor.can().toggleOrderedList(),
@@ -540,7 +521,6 @@ export class ToolbarManager {
     items.set('taskList', {
       id: 'taskList',
       icon: icons.listChecks,
-      tooltip: '任务列表',
       command: (editor) => editor.chain().toggleTaskList().run(),
       isActive: (editor) => editor.isActive('taskList'),
       isDisabled: (editor) => !editor.can().toggleTaskList(),
@@ -550,7 +530,6 @@ export class ToolbarManager {
     items.set('blockquote', {
       id: 'blockquote',
       icon: icons.quote,
-      tooltip: '引用',
       command: (editor) => editor.chain().toggleBlockquote().run(),
       isActive: (editor) => editor.isActive('blockquote'),
       isDisabled: (editor) => !editor.can().toggleBlockquote(),
@@ -560,7 +539,6 @@ export class ToolbarManager {
     items.set('codeBlock', {
       id: 'codeBlock',
       icon: icons.codeBlock,
-      tooltip: '代码块',
       command: (editor) => editor.chain().toggleCodeBlock().run(),
       isActive: (editor) => editor.isActive('codeBlock'),
       isDisabled: (editor) => !editor.can().toggleCodeBlock(),
@@ -570,7 +548,6 @@ export class ToolbarManager {
     items.set('horizontalRule', {
       id: 'horizontalRule',
       icon: icons.horizontalRule,
-      tooltip: '分割线',
       command: (editor) => editor.chain().setHorizontalRule().run(),
       isActive: () => false,
       isDisabled: (editor) => !editor.can().setHorizontalRule(),
@@ -580,7 +557,6 @@ export class ToolbarManager {
     items.set('alignLeft', {
       id: 'alignLeft',
       icon: icons.alignLeft,
-      tooltip: '左对齐',
       command: (editor) => editor.chain().setTextAlign('left').run(),
       isActive: (editor) => editor.isActive({ textAlign: 'left' }),
       isDisabled: (editor) => !editor.can().setTextAlign('left'),
@@ -590,7 +566,6 @@ export class ToolbarManager {
     items.set('alignCenter', {
       id: 'alignCenter',
       icon: icons.alignCenter,
-      tooltip: '居中',
       command: (editor) => editor.chain().setTextAlign('center').run(),
       isActive: (editor) => editor.isActive({ textAlign: 'center' }),
       isDisabled: (editor) => !editor.can().setTextAlign('center'),
@@ -600,7 +575,6 @@ export class ToolbarManager {
     items.set('alignRight', {
       id: 'alignRight',
       icon: icons.alignRight,
-      tooltip: '右对齐',
       command: (editor) => editor.chain().setTextAlign('right').run(),
       isActive: (editor) => editor.isActive({ textAlign: 'right' }),
       isDisabled: (editor) => !editor.can().setTextAlign('right'),
@@ -610,7 +584,6 @@ export class ToolbarManager {
     items.set('alignJustify', {
       id: 'alignJustify',
       icon: icons.alignJustify,
-      tooltip: '两端对齐',
       command: (editor) => editor.chain().setTextAlign('justify').run(),
       isActive: (editor) => editor.isActive({ textAlign: 'justify' }),
       isDisabled: (editor) => !editor.can().setTextAlign('justify'),

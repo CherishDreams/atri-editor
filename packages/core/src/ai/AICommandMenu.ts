@@ -3,7 +3,8 @@
  */
 import type { Editor } from '@tiptap/core';
 import type { Transaction } from '@tiptap/pm/state';
-import { computePosition, flip, offset, shift } from '@floating-ui/dom';
+import { computePosition } from '@floating-ui/dom';
+import { panelMiddleware, placePanel } from '../core/floating-panel';
 import type { AtriAIFunction } from '../types';
 
 export interface AICommandMenuOptions {
@@ -167,7 +168,7 @@ export class AICommandMenuManager {
 
       ({ x, y } = await computePosition(virtualReference, menuElement, {
         placement: 'bottom-start',
-        middleware: [offset(8), flip(), shift()],
+        middleware: panelMiddleware(),
       }));
     } catch {
       // 测量或定位失败时保持菜单可见，仅跳过定位
@@ -177,9 +178,7 @@ export class AICommandMenuManager {
     // 异步定位期间菜单可能已关闭或被重建
     if (this.menuElement !== menuElement) return;
 
-    menuElement.style.position = 'fixed';
-    menuElement.style.left = `${x}px`;
-    menuElement.style.top = `${y}px`;
+    placePanel(menuElement, x, y);
   }
 
   private selectItem(index: number): void {

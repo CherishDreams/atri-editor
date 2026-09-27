@@ -11,6 +11,29 @@ export interface FloatingPanel {
   stop: () => void;
 }
 
+/** 浮层与锚点之间的间隙 */
+const PANEL_OFFSET = 6;
+/** 贴到视口边缘时留出的安全内边距 */
+const PANEL_SHIFT_PADDING = 8;
+
+/**
+ * 浮层共用的三段中间件：溢出翻转 + 贴边收拢。
+ *
+ * 各处只有 placement 不同（工具栏向下、表格菜单贴着单元格向上），
+ * 这三个参数此前被抄成 offset(6)/offset(6)/offset(8)、shift(8)/shift(8)/shift()，
+ * 差的那 2px 没人说得清是有意还是漏改
+ */
+export function panelMiddleware(): ReturnType<typeof offset | typeof flip | typeof shift>[] {
+  return [offset(PANEL_OFFSET), flip(), shift({ padding: PANEL_SHIFT_PADDING })];
+}
+
+/** 落位：浮层统一 fixed，坐标是 computePosition 给的视口值 */
+export function placePanel(panel: HTMLElement, x: number, y: number): void {
+  panel.style.position = 'fixed';
+  panel.style.left = `${x}px`;
+  panel.style.top = `${y}px`;
+}
+
 /**
  * 把面板锚定到 trigger 下方并持续跟随。
  * isCurrent 用于在异步计算间隙确认面板还没被关掉/换掉——关掉的实例不该再写样式
@@ -27,13 +50,11 @@ export function positionPanel(
     try {
       const { x, y } = await computePosition(trigger, panel, {
         placement: 'bottom-start',
-        middleware: [offset(6), flip(), shift({ padding: 8 })],
+        middleware: panelMiddleware(),
       });
       // 算位置的这几微秒里面板可能已经关了
       if (!isCurrent()) return;
-      panel.style.position = 'fixed';
-      panel.style.left = `${x}px`;
-      panel.style.top = `${y}px`;
+      placePanel(panel, x, y);
     } catch {
       // 量不到也要让面板看得见：宁可位置不理想，也不能点了没反应
     }

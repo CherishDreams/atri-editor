@@ -10,9 +10,9 @@
  */
 import type { Editor } from '@tiptap/core';
 import type { EditorState } from '@tiptap/pm/state';
-import { computePosition, flip, offset, shift } from '@floating-ui/dom';
-import { copyThemeClasses } from './floating-panel';
-import { tOrFallback, type I18nManager } from './I18nManager';
+import { computePosition } from '@floating-ui/dom';
+import { copyThemeClasses, panelMiddleware, placePanel } from './floating-panel';
+import { tOrFallback, zhText, type I18nManager } from './I18nManager';
 import { icons } from './icons';
 
 export interface TableMenuOptions {
@@ -33,8 +33,6 @@ interface TableMenuItemDef {
   id: string;
   icon: string;
   labelKey: string;
-  /** i18n 缺失时的中文兜底 */
-  label: string;
   /** 组序号，组与组之间画一条竖线 */
   group: number;
   command: (editor: Editor) => void;
@@ -63,7 +61,6 @@ function buildItems(): TableMenuItemDef[] {
       id: 'addRowBefore',
       icon: icons.tableRowBefore,
       labelKey: 'table.rowBefore',
-      label: '上方插入行',
       group: 0,
       command: (editor) => editor.chain().focus().addRowBefore().run(),
     },
@@ -71,7 +68,6 @@ function buildItems(): TableMenuItemDef[] {
       id: 'addRowAfter',
       icon: icons.tableRowAfter,
       labelKey: 'table.rowAfter',
-      label: '下方插入行',
       group: 0,
       command: (editor) => editor.chain().focus().addRowAfter().run(),
     },
@@ -79,7 +75,6 @@ function buildItems(): TableMenuItemDef[] {
       id: 'deleteRow',
       icon: icons.tableRowDelete,
       labelKey: 'table.deleteRow',
-      label: '删除行',
       group: 0,
       command: (editor) => editor.chain().focus().deleteRow().run(),
     },
@@ -87,7 +82,6 @@ function buildItems(): TableMenuItemDef[] {
       id: 'addColumnBefore',
       icon: icons.tableColumnBefore,
       labelKey: 'table.columnBefore',
-      label: '左侧插入列',
       group: 1,
       command: (editor) => editor.chain().focus().addColumnBefore().run(),
     },
@@ -95,7 +89,6 @@ function buildItems(): TableMenuItemDef[] {
       id: 'addColumnAfter',
       icon: icons.tableColumnAfter,
       labelKey: 'table.columnAfter',
-      label: '右侧插入列',
       group: 1,
       command: (editor) => editor.chain().focus().addColumnAfter().run(),
     },
@@ -103,7 +96,6 @@ function buildItems(): TableMenuItemDef[] {
       id: 'deleteColumn',
       icon: icons.tableColumnDelete,
       labelKey: 'table.deleteColumn',
-      label: '删除列',
       group: 1,
       command: (editor) => editor.chain().focus().deleteColumn().run(),
     },
@@ -112,7 +104,6 @@ function buildItems(): TableMenuItemDef[] {
       id: 'mergeCells',
       icon: icons.tableMergeCells,
       labelKey: 'table.mergeCells',
-      label: '合并单元格',
       group: 2,
       command: (editor) => editor.chain().focus().mergeCells().run(),
       isDisabled: (editor) => !editor.can().mergeCells(),
@@ -121,7 +112,6 @@ function buildItems(): TableMenuItemDef[] {
       id: 'splitCell',
       icon: icons.tableSplitCell,
       labelKey: 'table.splitCell',
-      label: '拆分单元格',
       group: 2,
       command: (editor) => editor.chain().focus().splitCell().run(),
       isDisabled: (editor) => !editor.can().splitCell(),
@@ -130,7 +120,6 @@ function buildItems(): TableMenuItemDef[] {
       id: 'toggleHeaderRow',
       icon: icons.tableHeaderRow,
       labelKey: 'table.toggleHeaderRow',
-      label: '切换表头行',
       group: 2,
       command: (editor) => editor.chain().focus().toggleHeaderRow().run(),
       isActive: (editor) => editor.isActive('tableHeader'),
@@ -139,18 +128,17 @@ function buildItems(): TableMenuItemDef[] {
 
   // 对齐写在单元格自带的 align 属性上：Markdown 的 pipe table 分隔行（:---）也读它，
   // 于是这一下对齐在导出 Markdown 后仍然成立
-  const alignments: [CellAlignment, string, string][] = [
-    ['left', 'table.alignLeft', '单元格左对齐'],
-    ['center', 'table.alignCenter', '单元格居中'],
-    ['right', 'table.alignRight', '单元格右对齐'],
+  const alignments: [CellAlignment, string][] = [
+    ['left', 'table.alignLeft'],
+    ['center', 'table.alignCenter'],
+    ['right', 'table.alignRight'],
   ];
-  alignments.forEach(([align, labelKey, label]) => {
+  alignments.forEach(([align, labelKey]) => {
     const suffix = `${align[0].toUpperCase()}${align.slice(1)}`;
     items.push({
       id: `cellAlign${suffix}`,
       icon: icons[`align${suffix}`],
       labelKey,
-      label,
       group: 3,
       command: (editor) => editor.chain().focus().setCellAttribute('align', align).run(),
       isActive: cellAlignmentActive(align),
@@ -161,7 +149,6 @@ function buildItems(): TableMenuItemDef[] {
     id: 'deleteTable',
     icon: icons.trash,
     labelKey: 'table.deleteTable',
-    label: '删除表格',
     group: 4,
     command: (editor) => editor.chain().focus().deleteTable().run(),
   });
@@ -213,8 +200,8 @@ export class TableMenu {
     this.hide();
   }
 
-  private t(key: string, fallback: string): string {
-    return tOrFallback(this.i18n, key, fallback);
+  private t(key: string): string {
+    return tOrFallback(this.i18n, key, zhText(key));
   }
 
   /**
@@ -288,7 +275,7 @@ export class TableMenu {
     const panel = document.createElement('div');
     panel.className = 'atri-table-menu';
     panel.setAttribute('role', 'toolbar');
-    panel.setAttribute('aria-label', this.t('table.menuLabel', '表格操作'));
+    panel.setAttribute('aria-label', this.t('table.menuLabel'));
 
     // 按钮不抢焦点：抢走会让编辑器 blur，而 blur 正是收起菜单的条件，
     // 于是 mousedown 一按菜单就没了、click 根本派发不到按钮上
@@ -307,7 +294,7 @@ export class TableMenu {
       button.type = 'button';
       button.className = 'atri-editor-toolbar-btn';
       button.setAttribute('data-table-item', item.id);
-      button.title = this.t(item.labelKey, item.label);
+      button.title = this.t(item.labelKey);
       button.innerHTML = item.icon;
       button.addEventListener('click', (event) => {
         event.preventDefault();
@@ -326,10 +313,10 @@ export class TableMenu {
   private applyLabels(): void {
     const panel = this.element;
     if (!panel) return;
-    panel.setAttribute('aria-label', this.t('table.menuLabel', '表格操作'));
+    panel.setAttribute('aria-label', this.t('table.menuLabel'));
     this.items.forEach((item) => {
       const button = panel.querySelector<HTMLButtonElement>(`[data-table-item="${item.id}"]`);
-      if (button) button.title = this.t(item.labelKey, item.label);
+      if (button) button.title = this.t(item.labelKey);
     });
   }
 
@@ -391,7 +378,7 @@ export class TableMenu {
       ({ x, y } = await computePosition(reference, panel, {
         // 贴在单元格上沿：菜单跟着当前格走，长表格里也不会跑到视口外
         placement: 'top-start',
-        middleware: [offset(6), flip(), shift({ padding: 8 })],
+        middleware: panelMiddleware(),
       }));
     } catch {
       // 定位失败也要让菜单可见：宁可位置不理想，也不能点了没反应
@@ -400,8 +387,6 @@ export class TableMenu {
 
     // 异步算位置的间隙里菜单可能已经收起或被重建
     if (this.element !== panel) return;
-    panel.style.position = 'fixed';
-    panel.style.left = `${x}px`;
-    panel.style.top = `${y}px`;
+    placePanel(panel, x, y);
   }
 }

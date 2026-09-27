@@ -224,3 +224,22 @@ export class I18nManager {
 export function tOrFallback(i18n: I18nManager | undefined, key: string, fallback: string): string {
   return i18n?.tOr(key, fallback) ?? fallback;
 }
+
+/**
+ * 直接取中文原文。
+ *
+ * 中文词条本身就是这些控件的默认文案，再在组件里抄一份字面量就是给漂移留位置：
+ * 改一处、另一处不变，而 tOr 的回退值恰好是最不容易被发现出错的那条路径
+ * （只在没注入 i18n 或词条缺失时才露出来）。有词条可指的地方用它。
+ */
+export function zhText(key: string): string {
+  const found = key
+    .split('.')
+    .reduce<unknown>(
+      (node, part) =>
+        node && typeof node === 'object' ? (node as Record<string, unknown>)[part] : undefined,
+      zhResources
+    );
+
+  return typeof found === 'string' ? found : '';
+}

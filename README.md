@@ -115,6 +115,8 @@ if (editor.hasPendingUploads()) await editor.retryFailedUploads();
 
 `theme` / `editable` / `lang` / `placeholder` 四个属性是响应式的，改了立即生效；`placeholder` 置为空串即移除占位符。初始内容只读一次 `data-content`，运行期改内容请用 `setContent()`。媒体配置不是属性可表达的，用 `setOptions({ media })` 传入；`insertImage()` / `insertAttachment()` / `insertTable()` / `uploadFiles()` / `retryFailedUploads()` / `hasPendingUploads()` 在自定义元素上同名可用。
 
+搬动节点（`appendChild` 重挂、框架 re-parent、虚拟列表滚动）不会丢内容：拆除排在微任务边界上，届时若元素已回到文档就取消。真的卸载后在同一元素上重新挂载，会接回断连前的内容而不是退回 `data-content`；要连这次快照一起放弃、并让后续重挂不再自动重建，调用 `destroy()`（框架的 unmount 钩子里对应它）。
+
 ### 框架接入（Vue / React）
 
 编辑器框架无关：类用法挂进框架生命周期（卸载时记得 `destroy()`），元素用法在模板里直接写 `<atri-editor>`。`demos/vue` 与 `demos/react` 两种用法都有活例，且都直接消费 `dist` 构建产物。要点：
@@ -155,7 +157,11 @@ const editor = new AtriEditor({
           content: context.selection || context.cursorContext,
         }),
       });
+      // 先判 ok：网关返回 HTML 错误页时 response.json() 抛的是解析错误，
+      // 排查起来完全看不出是端点挂了
+      if (!response.ok) throw new Error(`AI 端点返回 HTTP ${response.status}`);
       const data = await response.json();
+      // content 必须是非空 string 之外的形状问题会被库挡下并报给 onError
       return { content: data.result, contentType: 'markdown' };
     },
     // 自动将 Markdown 转换为 HTML
@@ -266,7 +272,8 @@ atri-editor/
 | `requestEndpoint` | `(ctx) => Promise<AIResponse>` | 请求端点 |
 | `interceptors` | `AtriAIInterceptors` | 拦截器链 |
 | `autoTranslateMarkdownToHTML` | `boolean` | 自动转换 Markdown（默认 true） |
-| `onError` | `(err, ctx) => void` | 错误处理 |
+| `onError` | `(err, ctx) => void` | 错误处理；**不配也会打一条 console.error**，端点失败不会静默 |
+| `timeout` | `number` | 等待 `requestEndpoint` 的毫秒数，缺省不超时（长生成是合法场景）。超时只让编辑器停止等待并丢弃随后到达的结果，请求本身由宿主发出，库无法取消 |
 
 `prompt` 模板支持的变量：
 
@@ -357,6 +364,7 @@ toolbar: {
 | `withCredentials` | `boolean` | 是否携带 Cookie |
 | `requestName` | `(file) => string` | 服务端要求的文件名与本地不同时使用 |
 | `transformResult` | `(body, file) => UploadResult` | 从响应体里挑出 `url`；缺省依次找 `url` / `data.url` / `location` |
+| `timeout` | `number` | 内置 XHR 通道的超时毫秒数，缺省不超时（大文件走慢网本就该传完）。走 `upload` handler 时由你的实现负责超时 |
 
 给函数时完全接管：`(file, { onProgress, signal }) => Promise<UploadResult>`。`onProgress({ percent, loaded, total })` 可不上报（附件卡片会走不定长动画），`signal` 在编辑器销毁或用户删掉节点时中止；`UploadResult` 为 `{ url, name?, size?, mime? }`，后三项缺省时沿用本地文件的值。
 
