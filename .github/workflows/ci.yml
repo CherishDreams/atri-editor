@@ -27,6 +27,10 @@ jobs:
       - name: Build
         run: pnpm build
 
+      # 单独成一步：体积超预算时红叉直接落在"Size budget"上，不用去合并日志里找是谁
+      - name: Size budget
+        run: pnpm size
+
       - name: Typecheck, lint and format check
         run: pnpm check
 
