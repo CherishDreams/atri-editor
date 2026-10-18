@@ -68,9 +68,10 @@ jobs:
           # changesets/action@v1 在「无 changeset」分支会无条件执行本命令，
           # 不做任何 registry/tag 判重；而 0.1.0 是在 changesets 引入前手动发布的，
           # 裸 npm publish 每次 push main 都会撞 registry 的重复版本 403。
-          # 判重与补 tag（@atri-editor/core@<version>，与 changesets 惯例同名）
-          # 都在守卫脚本里：已发布→跳过；未发布→publish 后打 tag 推回
-          publish: node scripts/publish-core.mjs
+          # 判重与补 tag（<name>@<version>，与 changesets 惯例同名）都在守卫脚本里：
+          # 已发布→跳过；未发布→publish 后打 tag 推回。脚本按包循环，
+          # 只认 core 一个包会让第二个包永远被静默跳过
+          publish: node scripts/publish-packages.mjs
           commit: 'chore(release): version packages'
           title: 'chore(release): version packages'
         env:
