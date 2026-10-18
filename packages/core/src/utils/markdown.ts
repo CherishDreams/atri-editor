@@ -19,7 +19,11 @@ export function simpleMarkdownToHtml(markdown: string): string {
   // 这一步不做的话原文里的 <img onerror=…> 会原样落到输出里
   let html = escapeHtml(markdown);
 
-  // 标题
+  // 标题：必须从六个 # 往下匹配。反过来的话 `#### x` 会先被 /^## / 命中，
+  // 剩下两个 # 当成正文内容吐出来
+  html = html.replace(/^###### (.+)$/gm, '<h6>$1</h6>');
+  html = html.replace(/^##### (.+)$/gm, '<h5>$1</h5>');
+  html = html.replace(/^#### (.+)$/gm, '<h4>$1</h4>');
   html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
   html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
   html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
@@ -87,6 +91,9 @@ export function simpleHtmlToMarkdown(html: string): string {
   md = md.replace(/<h1[^>]*>(.+?)<\/h1>/gi, '# $1\n\n');
   md = md.replace(/<h2[^>]*>(.+?)<\/h2>/gi, '## $1\n\n');
   md = md.replace(/<h3[^>]*>(.+?)<\/h3>/gi, '### $1\n\n');
+  md = md.replace(/<h4[^>]*>(.+?)<\/h4>/gi, '#### $1\n\n');
+  md = md.replace(/<h5[^>]*>(.+?)<\/h5>/gi, '##### $1\n\n');
+  md = md.replace(/<h6[^>]*>(.+?)<\/h6>/gi, '###### $1\n\n');
 
   // 粗体和斜体
   md = md.replace(/<strong[^>]*>(.+?)<\/strong>/gi, '**$1**');

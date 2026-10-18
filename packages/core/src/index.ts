@@ -30,6 +30,8 @@ export type { CoreEditorConfig, ThemeType } from './core';
 export { AtriImage } from './extensions/AtriImage';
 export { Attachment } from './extensions/Attachment';
 export { createMediaExtensions } from './extensions/media';
+export { createFormattingExtensions } from './extensions/formatting';
+export type { AtriFormattingOptions } from './extensions/formatting';
 export { MediaRuntime } from './media/MediaRuntime';
 
 export type { MediaState, MediaStatus } from './media/MediaRuntime';

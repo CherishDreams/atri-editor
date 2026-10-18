@@ -7,7 +7,8 @@
 - **框架无关** - 基于 Web Component，可在 React/Vue/Angular/jQuery 等任意框架中使用
 - **Tiptap v3 内核** - 使用最新的 Tiptap v3.30.4 作为编辑引擎
 - **TypeScript 7** - 使用 TypeScript 7.x 开发，享受 10x 编译速度提升
-- **Markdown 支持** - 内置双向 Markdown 支持，AI 输出自动转换
+- **Markdown 支持** - 内置双向 Markdown 支持，AI 输出自动转换；颜色 / 上下标 / 彩色高亮以内联 HTML 承载，导出与载入逐字节幂等（见「Markdown 往返能力矩阵」）
+- **基础格式** - 文字颜色、背景色、字号、字体、高亮（含多色）、上下标，`formatting: false` 可整片关掉；这组能力只有命令没有 UI 的历史包袱最重，本条先补通了数据链路，按钮与取色面板在路上
 - **表格** - 工具栏网格选择器快捷插入，光标进入表格浮出操作菜单（增删行列、合并拆分、切换表头、单元格对齐）、列宽可拖拽，pipe table 与 Markdown 双向转换开箱可用（对齐也随分隔行往返）
 - **链接** - 工具栏插入 / 编辑浮层，编辑态点击链接就地编辑而不是跳走
 - **任务列表** - 工具栏一键转换，勾选框写回状态，`- [ ]` / `- [x]` 双向往返，嵌套不丢
@@ -347,6 +348,27 @@ toolbar: {
 
 浮层里只填域名会自动补 `https://`（已有协议的 `mailto:` 之类与站内路径 `/docs` 原样保留），光标有选区就套住选区、没选区就把地址本身当链接文字插进去；光标已在链接里时是编辑模式，带出原地址并多一个「移除链接」。
 
+### 基础格式配置
+
+| 属性 | 类型 | 说明 |
+|------|------|------|
+| `formatting` | `boolean` | 文字颜色 / 背景色 / 字号 / 字体 / 高亮 / 上下标的开关，默认 true。`false` 时这四类 mark 一个都不注册，外来 HTML 里的 `<span style="color:…">` 也不会再变成带样式的文字 |
+
+命令走 Tiptap 的原生命令，可以直接经 `editor.editor` 编排：
+
+```typescript
+editor.editor.chain().focus().setTextSelection({ from: 1, to: 6 }).setColor('#1890ff').run();
+editor.editor.commands.setBackgroundColor('#fffbe6');
+editor.editor.commands.setFontSize('20px');
+editor.editor.commands.toggleHighlight();
+editor.editor.commands.setSubscript();
+editor.editor.commands.unsetAllMarks(); // 清除格式
+```
+
+行高（`LineHeight`）**刻意不提供**：上游它是 span 级属性，挂在选中的文字片段上，而用户心里的行高是段落属性——span 级改动在视觉上几乎看不出来，给个按钮反而误导。段落级行高要自己实现，且没有 Markdown 归宿。
+
+工具栏按钮、取色面板与字号选择器尚未接上，届时按"能力存在才出按钮"的规则挂进 `toolbar.items`。
+
 ### Markdown 配置
 
 | 属性 | 类型 | 说明 |
@@ -355,6 +377,30 @@ toolbar: {
 | `indentation` | `{ style?: 'space' \| 'tab'; size?: number }` | 列表与代码块缩进，默认 `{ style: 'space', size: 2 }` |
 | `markedOptions` | `{ gfm?; breaks?; pedantic? }` | 传给 `marked` 的解析选项 |
 | `shortcuts` | `boolean` | 输入时实时转换（`**粗体**`、`# ` 等），默认 true；不影响粘贴与序列化 |
+| `inlineStyles` | `'html' \| 'drop'` | 颜色 / 背景色 / 字号 / 字体 / 彩色高亮 / 上下标导出 Markdown 时怎么落，默认 `'html'`；见下方往返矩阵 |
+
+### Markdown 往返能力矩阵
+
+Markdown 没有"这段字是红的"这种表示法。上游 Tiptap 对这些 mark 一个 `renderMarkdown` 钩子都没给，而序列化器对没有钩子的类型是**静默丢弃**——正文照常输出、样式无痕消失、不报错也不留痕迹。本包给它们补了钩子，落点是内联 HTML。
+
+| 内容 | 导出成 | 载回 | 说明 |
+|------|--------|------|------|
+| 粗体 / 斜体 / 删除线 / 行内代码 / 链接 | `**b**` `*i*` `~~s~~` `` `c` `` `[t](u)` | ✅ | Markdown 原生 |
+| 标题 1–6 / 列表 / 任务列表 / 引用 / 分割线 | `# …` `- ` `- [x]` `> ` `---` | ✅ | Markdown 原生 |
+| 代码块与语言 | ` ```js … ``` ` | ✅ | 语言属性随围栏信息串往返 |
+| 表格与单元格对齐 | pipe table + `:---` / `---:` | ✅ | 对齐落在单元格的 `align` 属性上 |
+| 图片 / 附件 | `![alt](src)`、`!file[名字](url "大小")` | ✅ | 附件是自定义语法 |
+| 无色高亮 | `==text==` | ✅ | Markdown 社区语法，上游本就支持 |
+| 文字颜色 / 背景色 / 字号 / 字体 | `<span style="…">…</span>` | ✅ | `inlineStyles: 'drop'` 时不输出 |
+| 下标 / 上标 | `<sub>…</sub>` / `<sup>…</sup>` | ✅ | **不采用** `~x~` / `^x^`：marked 把单波浪线当 GFM 删除线，`H~2~O` 会回来成 `<s>2</s>` |
+| 彩色高亮 | `<mark data-color="…">…</mark>` | ✅ | 上游的 `==` 写法从不读颜色属性，multicolor 一开即丢 |
+| 段落 / 标题对齐 | — | ❌ | **会丢**。node 属性没有 Markdown 归宿，`:::div` 那类方案会毁掉 CommonMark 兼容性。此为本包之前既有的行为，非本次引入 |
+
+发出与载入都做了**逐字节幂等**保障：`getMarkdown → setMarkdown → getMarkdown` 输出不变。这一点比"能不能带上样式"更要紧——带不上样式只是少个特性，不幂等则是每存一次都再损坏一点。为此内联 HTML 片段必须自己写 tokenizer 重新分词内层内容，否则 `<span>` 里的 `**粗体**` 会回来成字面文本（那条路径走的是 HTML 解析而非 Markdown 解析），而正文里的反斜杠每轮翻倍。
+
+`'drop'` 是给要严格 CommonMark 的下游用的：导出最纯净，代价是这次导出丢内容。两种模式下**导入都照常解析** `<span style>`——关掉一个导出偏好不该连带把导入能力也削掉。
+
+发到 GitHub 一类渲染器时，`<span>` 的 `style` 会被剥掉但标签本身参与渲染，读者看到的是干净纯文本，而不是 `<span style="color:red">` 这样的字面标记。
 
 ### 媒体配置
 

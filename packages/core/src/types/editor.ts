@@ -129,6 +129,12 @@ export interface AtriEditorOptions {
   table?: boolean | AtriTableConfig;
   /** 链接配置；不设置时编辑态点击不导航，改为就地编辑 */
   link?: AtriLinkConfig;
+  /**
+   * 基础格式（文字颜色 / 背景色 / 字号 / 字体 / 高亮 / 上下标）开关，默认开。
+   * `false` 时这些 mark 一个都不注册，外来 HTML 里的 `<span style="color:…">`
+   * 也不会再变成带样式的文字。导出行为见 `markdown.inlineStyles`。
+   */
+  formatting?: boolean;
   /** 创建完成回调 */
   onCreate?: (editor: IAtriEditor) => void;
   /** 内容变更回调 */

@@ -43,3 +43,23 @@ export function escapeHtml(value: string): string {
 export function escapeQuotes(value: string): string {
   return replaceAll(value, QUOTE_CHARS, /["']/g);
 }
+
+const DECODED: Readonly<Record<string, string>> = {
+  '&amp;': '&',
+  '&lt;': '<',
+  '&gt;': '>',
+  '&quot;': '"',
+  '&#39;': "'",
+};
+
+/**
+ * escapeHtml + escapeQuotes 的逆运算。
+ *
+ * 只有一处需要它：内联 HTML 片段的 Markdown 往返（见 extensions/markdown-inline-html.ts）。
+ * 那边发出时把值转义成 &amp;，读回来却不会再解码，于是同一个值每导出一次就多背一层
+ * 转义（& → &amp; → &amp;amp;），getMarkdown→setMarkdown→getMarkdown 直接不幂等。
+ * 发与收必须成对改动，只改一边就把幂等性换掉了。
+ */
+export function decodeEntities(value: string): string {
+  return value.replace(/&(?:amp|lt|gt|quot|#39);/g, (entity) => DECODED[entity] ?? entity);
+}

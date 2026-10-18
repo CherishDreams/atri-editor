@@ -10,6 +10,7 @@ import BubbleMenu from '@tiptap/extension-bubble-menu';
 import { TaskItem, TaskList } from '@tiptap/extension-list';
 import { createTableExtensions, resolveTableConfig } from '../extensions/table';
 import { createMediaExtensions } from '../extensions/media';
+import { createFormattingExtensions } from '../extensions/formatting';
 import { MediaRuntime } from '../media/MediaRuntime';
 import { shouldShowBubbleMenu } from './bubble-toolbar';
 import { runSafely } from '../utils/safe-call';
@@ -41,6 +42,8 @@ export interface CoreEditorConfig {
   table?: boolean | AtriTableConfig;
   /** 链接配置，省略时编辑态点击不导航 */
   link?: AtriLinkConfig;
+  /** 基础格式（颜色 / 字号 / 字体 / 高亮 / 上下标）开关，默认开 */
+  formatting?: boolean;
   /**
    * 复用外部的上传运行时
    * AtriEditor 重建编辑器时会把同一个实例传进来，进行中的上传才不会丢
@@ -160,6 +163,16 @@ export class CoreEditor {
     // 任务列表：与 StarterKit 里的无序 / 有序列表同族，同样无条件注册。
     // 扩展自带 - [ ] / - [x] 的 Markdown 双向钩子，装饰（data-checked / 勾选框）也齐全
     editorExtensions.push(TaskList, TaskItem);
+
+    // 基础格式：颜色 / 背景色 / 字号 / 字体 / 高亮 / 上下标。
+    // 与媒体、表格同理放在用户扩展之前，让宿主能用同名扩展顶掉内置 mark。
+    // 它们的 Markdown 往返要自己补钩子（上游除 ==x== 外一个都没给，没钩子的 mark
+    // 会被序列化器静默丢掉），所以这里要把 markdown 那边的偏好一并传进去
+    if (this.config.formatting !== false) {
+      editorExtensions.push(
+        ...createFormattingExtensions({ inlineStyles: this.config.markdown?.inlineStyles })
+      );
+    }
 
     // 输入实时转换由 StarterKit 各扩展的 input rules 提供，与 Markdown 扩展启停无关
     const enableInputRules = this.config.markdown?.shortcuts !== false;

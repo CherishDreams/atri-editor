@@ -171,6 +171,7 @@ export class AtriEditor implements IAtriEditor {
       media: this.options.media,
       table: this.options.table,
       link: this.options.link,
+      formatting: this.options.formatting,
       mediaRuntime: this.mediaRuntime ?? undefined,
       bubbleElement: this.ensureBubbleElement(this.options.toolbar),
       onCreate: () => {
