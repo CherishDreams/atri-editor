@@ -39,7 +39,11 @@ export interface ToolbarItem {
   icon?: string;
   /** 提示文字，优先于当前语言的内置词条 */
   tooltip?: string;
-  /** 子菜单（尚未实现，声明后会被忽略） */
+  /**
+   * 下拉菜单的子项 id 列表，替换该内置菜单的默认子项。
+   * 目前只有 `heading` 与 `align` 两个内置项是下拉，写在其他项上会告警并忽略。
+   * 只支持一层；子项走的是与顶栏项同一张表，所以同样受能力门控，未知 id 告警跳过
+   */
   children?: ToolbarItem[];
 }
 

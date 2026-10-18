@@ -57,6 +57,18 @@ export function buttonOf(editor: AtriEditor, id: string): HTMLButtonElement {
   return button;
 }
 
+/** 顶栏下拉菜单的面板：菜单是共用实例，开着才在文档里 */
+export function menuPanel(): HTMLElement | null {
+  return document.body.querySelector<HTMLElement>('.atri-toolbar-menu');
+}
+
+/** 按 id 取菜单里的一行，查不到直接抛，别让断言拿着 null 出假阳性 */
+export function menuItem(id: string): HTMLButtonElement {
+  const row = menuPanel()?.querySelector<HTMLButtonElement>(`[data-menu-item="${id}"]`);
+  if (!row) throw new Error(`menu item "${id}" not rendered`);
+  return row;
+}
+
 /** 手动派发冒泡的 click：不会先走 mousedown/focus，够用 */
 export function click(element: HTMLElement): void {
   element.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));

@@ -311,11 +311,22 @@ atri-editor/
 | `toolbar.items` | `(string \| ToolbarItem)[]` | 按顺序渲染，省略时使用默认全集 |
 | `toolbar.bubble` | `boolean` | 选中文字或图片 / 附件时在选区旁浮出的工具栏，默认 true；`false` 显式关闭。与固定顶栏共存 |
 
-内置项 id：`undo` `redo` `heading1` `heading2` `heading3` `paragraph` `bold` `italic` `underline` `strike` `code` `insertLink` `textColor` `highlight` `highlightColor` `fontSize` `fontFamily` `bulletList` `orderedList` `taskList` `blockquote` `codeBlock` `horizontalRule` `alignLeft` `alignCenter` `alignRight` `alignJustify` `insertTable` `subscript` `superscript` `clearFormat` `insertImage` `insertAttachment` `attachmentDisplay` `delete`。媒体两项与媒体扩展绑定（`media: false` 时不存在），打开插入浮层；`insertTable` 与表格扩展绑定（`table: false` 时不存在），打开网格选择器，与 `horizontalRule` 同组（都是"往正文里插一块"的动作）；`insertLink` 打开链接浮层（选区有链接时是编辑那一条）；`attachmentDisplay` 不再进默认布局——切换形态由选中附件时的浮动工具栏承接，想常驻就写进 `items`。`delete` 只在选中整节点（图片 / 附件）时有作用对象，所以不在顶栏默认布局里——浮层的节点组会带上它，想摆上顶栏就自己写进 `items`。
+内置项 id：`undo` `redo` `heading` `heading1`…`heading6` `paragraph` `bold` `italic` `underline` `strike` `code` `insertLink` `textColor` `highlight` `highlightColor` `fontSize` `fontFamily` `bulletList` `orderedList` `taskList` `blockquote` `codeBlock` `align` `alignLeft` `alignCenter` `alignRight` `alignJustify` `horizontalRule` `insertTable` `subscript` `superscript` `clearFormat` `insertImage` `insertAttachment` `attachmentDisplay` `delete`。媒体两项与媒体扩展绑定（`media: false` 时不存在），打开插入浮层；`insertTable` 与表格扩展绑定（`table: false` 时不存在），打开网格选择器，与 `horizontalRule` 同组（都是"往正文里插一块"的动作）；`insertLink` 打开链接浮层（选区有链接时是编辑那一条）；`attachmentDisplay` 不再进默认布局——切换形态由选中附件时的浮动工具栏承接，想常驻就写进 `items`。`delete` 只在选中整节点（图片 / 附件）时有作用对象，所以不在顶栏默认布局里——浮层的节点组会带上它，想摆上顶栏就自己写进 `items`。
+
+`heading` 与 `align` 是**下拉菜单**：默认布局只摆这两个触发器，展开才给全六级标题 + 正文、四种对齐。收成下拉是因为这两组都是"多选一"，七个加四个平铺要占十一个格子而一次只用得上一个。触发器的图标与悬停提示跟着当前值走——光标在三级标题里时按钮上就是 H3、提示写「标题 3」，不点开也知道现在是什么。`heading4`…`heading6` 也能单独写进 `items`（schema 与输入规则一直支持到六级，这批只是补上入口），但它们只用通用标题图标加文字标签，因为数字字形在手搓 SVG 的情况下没法验证好不好看，而 tooltip 已经带着级别。
 
 格式那五项按能力逐项判定，不是同生共死：`textColor` / `fontSize` / `fontFamily` 看 `textStyle` mark 上有没有对应属性**并且**相应命令存在（两条都要对上，判据见下），`highlight` / `highlightColor` 看 `highlight` 是否在册，`subscript` / `superscript` 各看自己那个 mark。`formatting: false` 时这七项一起消失，而 `clearFormat` 不受它牵连——清除格式走 `unsetAllMarks` + `clearNodes`，加粗斜体本来就有，把它绑在这批 mark 上是错绑。整组一项都不剩时那一组连分隔符一起撤掉，不会在顶栏上吊出两根相邻的光杆。
 
-`ToolbarItem` 只能挂在内置项上：`icon`（SVG 字符串）优先于 `label`（文字按钮）优先于内置图标；`tooltip` 优先于当前语言的内置词条；`children` 尚未实现，声明后会被忽略。未知 id 会告警并跳过。
+`ToolbarItem` 只能挂在内置项上：`icon`（SVG 字符串）优先于 `label`（文字按钮）优先于内置图标；`tooltip` 优先于当前语言的内置词条。未知 id 会告警并跳过。
+
+`children` 替换某个内置下拉的子项，目前只有 `heading` 与 `align` 是下拉——写在别的项上会告警并忽略（自定义项还没有公开注册入口，挂上去只会得到一个静默无效的声明）。只支持一层；子项走的是与顶栏项同一张表，所以同样受能力门控，未知 id 告警跳过，带浮层的子项（如 `textColor`）不收——菜单一关，面板就无处可锚。
+
+```ts
+toolbar: {
+  // 标题下拉只留三级和正文
+  items: [{ id: 'heading', children: [{ id: 'heading1' }, { id: 'heading3' }, { id: 'paragraph' }] }],
+}
+```
 
 ```ts
 toolbar: {

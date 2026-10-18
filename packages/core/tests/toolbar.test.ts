@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ToolbarManager, type AtriEditor } from '../src/index';
-import { mount, rootOf, toolbarButtons } from './utils';
+import { buttonOf, mount, rootOf, toolbarButtons } from './utils';
 
 function toolbarOf(editor: AtriEditor) {
   return {
@@ -32,16 +32,14 @@ describe('ToolbarManager', () => {
     expect(buttons.map((b) => b.getAttribute('data-toolbar-item'))).toEqual([
       'undo',
       'redo',
-      'heading1',
-      'heading2',
-      'heading3',
-      'paragraph',
+      // 标题收成一下拉：一到六级 + 正文，平铺要占七格而一次只用得上一个
+      'heading',
+      // 链接也是一段文字上的标记，跟在行内格式后面
       'bold',
       'italic',
       'underline',
       'strike',
       'code',
-      // 链接也是一段文字上的标记，跟在行内格式后面
       'insertLink',
       // 颜色与字号字体一组：都是"这段文字长什么样"，除 highlight 外都带浮层
       'textColor',
@@ -55,11 +53,8 @@ describe('ToolbarManager', () => {
       'taskList',
       'blockquote',
       'codeBlock',
-      'alignLeft',
-      'alignCenter',
-      'alignRight',
-      // 词条与命令早就有，这批只补按钮
-      'alignJustify',
+      // 对齐同样收成一下拉
+      'align',
       // 分割线与插入表格同组：都是往正文里插一块的动作
       'horizontalRule',
       'insertTable',
@@ -108,7 +103,7 @@ describe('ToolbarManager', () => {
     expect(separators).toBe(0);
   });
 
-  it('未知 id 被跳过并告警，children 声明被忽略并告警', async () => {
+  it('未知 id 被跳过并告警；children 写在非下拉项上告警并忽略', async () => {
     const editor = await mount({
       content: '<p>x</p>',
       toolbar: { items: ['bold', 'nope', { id: 'italic', children: [{ id: 'bold' }] }] },
@@ -119,7 +114,9 @@ describe('ToolbarManager', () => {
       'italic',
     ]);
     expect(warns.filter((w) => w.includes('Unknown toolbar item'))).toHaveLength(1);
-    expect(warns.some((w) => w.includes('children'))).toBe(true);
+    // italic 不是下拉，children 挂上去不会有任何效果——静默吞掉的话宿主永远不知道为什么
+    expect(warns.some((w) => w.includes('not a dropdown'))).toBe(true);
+    expect(buttonOf(editor, 'italic').getAttribute('aria-haspopup')).toBeNull();
   });
 
   it('点击按钮执行对应命令并同步 active 状态', async () => {

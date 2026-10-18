@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { AtriEditor } from '../src/index';
-import { buttonOf, click, mount, toolbarButtons } from './utils';
+import { buttonOf, click, menuPanel, menuItem, mount, toolbarButtons } from './utils';
 
 function settled(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0));
@@ -98,12 +98,19 @@ describe('分割线与两端对齐按钮', () => {
     expect(buttonOf(editor, 'horizontalRule').classList.contains('active')).toBe(false);
   });
 
-  it('两端对齐按钮写 textAlign: justify 并点亮自己', async () => {
+  it('两端对齐走对齐菜单：写 textAlign: justify，触发器跟着反映当前值', async () => {
     const editor = await mount({ content: '<p>x</p>', toolbar: {} });
     editor.editor.commands.setTextSelection(2);
 
-    click(buttonOf(editor, 'alignJustify'));
+    // alignJustify 不再平铺在顶栏，它在 align 下拉里
+    click(buttonOf(editor, 'align'));
+    click(menuItem('alignJustify'));
+
     expect(editor.getHTML()).toMatch(/text-align:\s*justify/);
-    expect(buttonOf(editor, 'alignJustify').classList.contains('active')).toBe(true);
+    // 菜单关掉之后触发器本身不该按着
+    expect(buttonOf(editor, 'align').getAttribute('aria-expanded')).toBe('false');
+    // 但触发器的提示要跟着当前命中的子项，用户不点开也知道现在是什么对齐
+    expect(buttonOf(editor, 'align').title).toBe('两端对齐');
+    expect(menuPanel()).toBeNull();
   });
 });

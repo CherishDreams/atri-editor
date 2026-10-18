@@ -4,6 +4,7 @@
 @use './table' as *;
 @use './link' as *;
 @use './formatting' as *;
+@use './menu' as *;
 
 // CSS Custom Properties for runtime theme switching
 :root {

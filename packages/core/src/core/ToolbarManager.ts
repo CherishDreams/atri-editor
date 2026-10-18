@@ -18,6 +18,11 @@ import {
   type StyleOption,
 } from './style-presets';
 import { TableGridPanel } from './TableGridPanel';
+import {
+  ToolbarMenuPanel,
+  type ToolbarMenuItemRow,
+  type ToolbarMenuSpec,
+} from './ToolbarMenuPanel';
 import { canInsertTable } from '../utils/table';
 import { canUseTextStyle, hasMark, type TextStyleAttr } from '../utils/formatting';
 import { icons } from './icons';
@@ -30,8 +35,17 @@ interface ToolbarItemDef {
   icon: string;
   /** 没有词条映射时的回退文案；内置项都走 TOOLTIP_KEYS -> 中文词条，不在此抄一份 */
   tooltip?: string;
-  /** 打开浮层的项不能把焦点抢回编辑器，否则浮层里的输入框永远打不了字 */
-  popup?: boolean;
+  /**
+   * 会打开浮层。true（或 'dialog'）是带输入框的面板，'menu' 是下拉菜单：
+   * 两者的 aria-haspopup 不同，读屏报出来的语义也不同。
+   * 不管是哪种，都不能把焦点抢回编辑器——抢了浮层里的输入框就根本打不了字
+   */
+  popup?: boolean | 'menu';
+  /**
+   * 下拉菜单里的子项 id，走的仍是同一张 itemDefs 表：
+   * 子项因此和顶栏项一样受能力门控（比如表格被顶掉时 insertTable 就不会出现在菜单里）
+   */
+  children?: string[];
   command: (editor: Editor, button: HTMLButtonElement) => void;
   isActive: (editor: Editor) => boolean;
   isDisabled: (editor: Editor) => boolean;
@@ -46,6 +60,13 @@ const TOOLTIP_KEYS: Record<string, string> = {
   heading1: 'editor.heading1',
   heading2: 'editor.heading2',
   heading3: 'editor.heading3',
+  heading4: 'editor.heading4',
+  heading5: 'editor.heading5',
+  heading6: 'editor.heading6',
+  // 两个下拉触发器。'editor.heading' 这条词条躺了很久、背后没有任何功能，
+  // 这批终于有了真正读它的人
+  heading: 'editor.heading',
+  align: 'editor.align',
   paragraph: 'editor.paragraph',
   bold: 'editor.bold',
   italic: 'editor.italic',
@@ -101,6 +122,8 @@ export class ToolbarManager {
   private tablePanel: TableGridPanel | null = null;
   /** 颜色 / 字号 / 字体四个入口共用一个面板实例：同时只会开一个 */
   private stylePanel: StyleOptionPanel | null = null;
+  /** 下拉菜单同理，所有 children 菜单共用一个实例 */
+  private menuPanel: ToolbarMenuPanel | null = null;
 
   constructor(
     editor: Editor,
@@ -220,6 +243,92 @@ export class ToolbarManager {
     return this.i18n?.tOr(key, fallback) ?? fallback;
   }
 
+  /** 下拉菜单面板按需创建：没点开过就不该有一个实例挂在编辑器上 */
+  private get menu(): ToolbarMenuPanel {
+    this.menuPanel ??= new ToolbarMenuPanel({
+      editor: this.editor,
+      // 开合不改文档，等不到 transaction，得主动刷一次按钮状态
+      onOpenChange: () => this.updateButtonStates(),
+    });
+    return this.menuPanel;
+  }
+
+  /**
+   * 把一个项做成下拉触发器。
+   * 子项走的仍是同一张 itemDefs 表，所以它们和顶栏项一样受能力门控——
+   * 表格被顶掉时 insertTable 就不会出现在菜单里，而不是摆一行按了没反应的
+   */
+  private menuItem(key: string, icon: string, children: string[]): ToolbarItemDef {
+    const def: ToolbarItemDef = {
+      id: key,
+      icon,
+      popup: 'menu',
+      children,
+      command: (_editor, button) => {
+        // 必须现读而不是用上面那个闭包参数：宿主用 { id: 'heading', children: [...] }
+        // 覆盖时改的就是 def.children，闭包里那份还是内置默认值，
+        // 用闭包会让"覆盖写在类型上、点在旧列表上"这种错配静默生效
+        const live = this.itemDefs.get(key)?.children ?? children;
+        this.menu.toggle(button, this.menuSpec(key, live, button));
+      },
+      isActive: () => this.menuPanel?.openKey === key,
+      isDisabled: (editor) => !editor.isEditable,
+    };
+    return def;
+  }
+
+  /** 当前命中的子项：触发器的图标与提示都跟着它走，用户不必点开就知道现在的级别 */
+  private activeChild(def: ToolbarItemDef): ToolbarItemDef | null {
+    for (const childId of def.children ?? []) {
+      const child = this.itemDefs.get(childId);
+      if (child && !child.popup && child.isActive(this.editor) && !child.isDisabled(this.editor)) {
+        return child;
+      }
+    }
+    return null;
+  }
+
+  /** 子项词条 key；没有映射的（宿主的自定义项）退回定义里的兜底文案 */
+  private rowLabel(childId: string, child: ToolbarItemDef): string {
+    const key = TOOLTIP_KEYS[childId];
+    return key ? this.tOr(key, zhText(key)) : (child.tooltip ?? childId);
+  }
+
+  /**
+   * 菜单里带浮层的子项一律不收：子项被点中后菜单就关了，
+   * 而面板要锚在触发器上——锚一个即将从文档里消失的行没有意义。
+   * 这与 attachBubbleToolbar 拒绝浮层项是同一条理由。
+   */
+  private menuSpec(key: string, children: string[], trigger: HTMLButtonElement): ToolbarMenuSpec {
+    const menuKey = TOOLTIP_KEYS[key];
+    return {
+      key,
+      label: menuKey ? this.tOr(menuKey, zhText(menuKey)) : key,
+      rows: children.reduce<ToolbarMenuItemRow[]>((rows, childId) => {
+        const child = this.itemDefs.get(childId);
+        if (!child) {
+          console.warn(`[Atri Editor] Menu "${key}" declares unknown item "${childId}".`);
+          return rows;
+        }
+        if (child.popup) {
+          console.warn(
+            `[Atri Editor] Menu item "${childId}" opens a panel, which menus cannot host.`
+          );
+          return rows;
+        }
+        rows.push({
+          id: childId,
+          label: this.rowLabel(childId, child),
+          active: child.isActive(this.editor),
+          disabled: child.isDisabled(this.editor),
+          // 子项自己不需要触发器元素（只有浮层项会用），传过去是为了共用同一份定义
+          run: () => child.command(this.editor, trigger),
+        });
+        return rows;
+      }, []),
+    };
+  }
+
   /**
    * 面板文案在这里现取，不在建项时算好存下来：
    * 语言切换后重开面板要拿到新词条，而项定义只在建栏时求值一次
@@ -301,13 +410,15 @@ export class ToolbarManager {
     // 默认工具栏布局（分组）
     const layout = [
       ['undo', 'redo'],
-      ['heading1', 'heading2', 'heading3', 'paragraph'],
+      // 标题收成一下拉：一到六级加正文七个取值平铺要占七格，而一次只用得上一个
+      ['heading'],
       // 链接跟着行内格式走：它也是一段文字上的标记，只是要填地址所以带浮层
       ['bold', 'italic', 'underline', 'strike', 'code', 'insertLink'],
       // 颜色与字号字体自成一组：都是"这段文字长什么样"，且除 highlight 外都带浮层
       ['textColor', 'highlight', 'highlightColor', 'fontSize', 'fontFamily'],
       ['bulletList', 'orderedList', 'taskList', 'blockquote', 'codeBlock'],
-      ['alignLeft', 'alignCenter', 'alignRight', 'alignJustify'],
+      // 对齐同样收成一下拉
+      ['align'],
       // 分割线与表格是一组：都是"往正文里插一块"的动作，没有激活态
       ['horizontalRule', 'insertTable'],
       // 上下标与清除格式：作用于选区已有的格式，而不是加一种新格式
@@ -359,7 +470,28 @@ export class ToolbarManager {
     }
 
     if (item.children?.length) {
-      console.warn(`[Atri Editor] Toolbar item "${id}" declares children, which is not supported.`);
+      // 目前只有内置的下拉项（heading / align）能挂子项：公开注册自定义项还没有入口，
+      // 让宿主把 children 写在普通按钮上只会得到一个静默无效的声明——
+      // 那正是本包在别处反复消除的"写了没反应"，所以这里明确告警而不是默默吞掉
+      if (def.popup !== 'menu') {
+        console.warn(
+          `[Atri Editor] Toolbar item "${id}" declares children, but it is not a dropdown; ` +
+            'only the built-in dropdown items (heading, align) accept children.'
+        );
+      } else {
+        // 只支持一层：子项再带 children 就变成"菜单里套菜单"，而菜单面板没有嵌套定位能力。
+        // 覆盖写在 def 上而不是只记这一次渲染，因为同一个项可能同时出现在顶栏与浮层，
+        // 与 customTooltips 一样是"一份定义两处共用"的有意选择
+        const nested = item.children.filter((child) => child.children?.length);
+        if (nested.length) {
+          console.warn(
+            `[Atri Editor] Nested children on "${nested
+              .map((child) => child.id)
+              .join(', ')}" are not supported and were ignored.`
+          );
+        }
+        def.children = item.children.map((child) => child.id);
+      }
     }
 
     return { id, def, overrides: item };
@@ -388,8 +520,18 @@ export class ToolbarManager {
     }
 
     if (itemDef.popup) {
-      button.setAttribute('aria-haspopup', 'dialog');
+      button.setAttribute('aria-haspopup', itemDef.popup === 'menu' ? 'menu' : 'dialog');
       button.setAttribute('aria-expanded', 'false');
+    }
+
+    if (itemDef.popup === 'menu') {
+      // 下拉触发器要带一个下箭头：不带的话它和旁边的普通按钮长得一模一样，
+      // 用户得点下去才知道里面还有一层。
+      // 基础图标单独存一份：状态刷新要按"当前命中的子项"换图标，
+      // 换完还得能退回建按钮时那一版（里面可能带着宿主覆盖的图标）
+      button.classList.add('atri-editor-toolbar-btn--menu');
+      button.dataset.menuIcon = button.innerHTML;
+      button.innerHTML += icons.chevronDown;
     }
 
     button.addEventListener('click', (e) => {
@@ -417,11 +559,9 @@ export class ToolbarManager {
       const itemDef = this.itemDefs.get(itemId);
       if (!itemDef) return;
 
-      const custom = this.customTooltips.get(itemId);
-      const key = TOOLTIP_KEYS[itemId];
-      // 有词条映射的项，中文原文就是词条本身；只有不带词条的自定义项才用定义里的 tooltip
-      const fallback = key ? zhText(key) : (itemDef.tooltip ?? '');
-      const title = custom ?? (key ? (this.i18n?.tOr(key, fallback) ?? fallback) : fallback);
+      // 有词条映射的项，中文原文就是词条本身；只有不带词条的自定义项才用定义里的 tooltip。
+      // 下拉触发器与宿主覆盖的优先级都收在 itemTitle 里，与状态刷新共用同一份判定
+      const title = this.itemTitle(itemId, itemDef);
 
       buttons.forEach((button) => {
         button.title = title;
@@ -644,31 +784,23 @@ export class ToolbarManager {
       isDisabled: (editor) => !editor.can().redo(),
     });
 
-    // 标题1
-    items.set('heading1', {
-      id: 'heading1',
-      icon: icons.heading1,
-      command: (editor) => editor.chain().toggleHeading({ level: 1 }).run(),
-      isActive: (editor) => editor.isActive('heading', { level: 1 }),
-      isDisabled: (editor) => !editor.can().toggleHeading({ level: 1 }),
-    });
-
-    // 标题2
-    items.set('heading2', {
-      id: 'heading2',
-      icon: icons.heading2,
-      command: (editor) => editor.chain().toggleHeading({ level: 2 }).run(),
-      isActive: (editor) => editor.isActive('heading', { level: 2 }),
-      isDisabled: (editor) => !editor.can().toggleHeading({ level: 2 }),
-    });
-
-    // 标题3
-    items.set('heading3', {
-      id: 'heading3',
-      icon: icons.heading3,
-      command: (editor) => editor.chain().toggleHeading({ level: 3 }).run(),
-      isActive: (editor) => editor.isActive('heading', { level: 3 }),
-      isDisabled: (editor) => !editor.can().toggleHeading({ level: 3 }),
+    // 标题 1–6。原来只到 3，而 schema 与输入规则一直是 1..6（StarterKit 默认 levels），
+    // 缺的只是入口——4/5/6 落在标题菜单里，不用点开顶栏也够得着。
+    // 四个新级别用通用 heading 图标：它们只在菜单里以文字标签出现，
+    // 而我要是真去手搓三个数字字形，既没法验证好不好看、又和 tooltip 里的"标题 4"重复
+    [1, 2, 3, 4, 5, 6].forEach((level) => {
+      const id = `heading${level}`;
+      items.set(id, {
+        id,
+        icon: level <= 3 ? icons[id] : icons.heading,
+        command: (editor) =>
+          editor
+            .chain()
+            .toggleHeading({ level } as never)
+            .run(),
+        isActive: (editor) => editor.isActive('heading', { level } as never),
+        isDisabled: (editor) => !editor.can().toggleHeading({ level } as never),
+      });
     });
 
     // 正文
@@ -815,6 +947,32 @@ export class ToolbarManager {
       isDisabled: (editor) => !editor.can().setTextAlign('justify'),
     });
 
+    // 两个内置下拉。之所以收成菜单而不是平铺：标题本来就有六级、对齐四种，
+    // 平铺在顶栏上要占十个格子，而用户一次只关心"现在改成哪一级"。
+    // children 走同一张 itemDefs，所以能力门控自动生效（段落在 schema 里没有时不会出现在菜单）
+    items.set(
+      'heading',
+      this.menuItem('heading', icons.heading, [
+        'heading1',
+        'heading2',
+        'heading3',
+        'heading4',
+        'heading5',
+        'heading6',
+        'paragraph',
+      ])
+    );
+
+    items.set(
+      'align',
+      this.menuItem('align', icons.align, [
+        'alignLeft',
+        'alignCenter',
+        'alignRight',
+        'alignJustify',
+      ])
+    );
+
     return items;
   }
 
@@ -859,8 +1017,43 @@ export class ToolbarManager {
 
         // 更新 disabled 状态
         button.disabled = disabled;
+
+        if (itemDef.popup === 'menu') this.refreshMenuTrigger(itemDef, button);
       });
     });
+  }
+
+  /**
+   * 一项当前该显示的文字。下拉触发器跟着命中的子项走（现在是三级标题就写「标题 3」），
+   * 宿主显式写的 tooltip 优先级最高。
+   * 抽出来是因为图标与提示必须由同一份判定得出：只换其中一个就会出现
+   * "按钮画着 H3、悬停写标题"这种一半新一半旧的界面
+   */
+  private itemTitle(itemId: string, def: ToolbarItemDef): string {
+    const custom = this.customTooltips.get(itemId);
+    if (custom) return custom;
+
+    let key = TOOLTIP_KEYS[itemId];
+    if (def.popup === 'menu') {
+      const activeKey = TOOLTIP_KEYS[this.activeChild(def)?.id ?? ''];
+      if (activeKey) key = activeKey;
+    }
+
+    const fallback = key ? zhText(key) : (def.tooltip ?? '');
+    return key ? this.tOr(key, fallback) : fallback;
+  }
+
+  /**
+   * 下拉触发器的图标与提示跟着当前值走：现在是二级标题就显示 H2，
+   * 一个都不匹配才退回通用图标。只有菜单项会走到这里，不是每次刷新对所有按钮都做一遍
+   */
+  private refreshMenuTrigger(def: ToolbarItemDef, button: HTMLButtonElement): void {
+    const base = button.dataset.menuIcon ?? def.icon;
+    const next = `${this.activeChild(def)?.icon ?? base}${icons.chevronDown}`;
+    if (button.innerHTML !== next) button.innerHTML = next;
+
+    const title = this.itemTitle(def.id, def);
+    if (button.title !== title) button.title = title;
   }
 
   /**
@@ -878,6 +1071,8 @@ export class ToolbarManager {
     this.tablePanel = null;
     this.stylePanel?.destroy();
     this.stylePanel = null;
+    this.menuPanel?.destroy();
+    this.menuPanel = null;
     this.buttons.clear();
     this.customTooltips.clear();
     // 浮层元素归门面所有，要活过重建编辑器，所以这里既不 remove 也不清空它

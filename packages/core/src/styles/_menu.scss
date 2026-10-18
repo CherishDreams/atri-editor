@@ -1,0 +1,82 @@
+// 工具栏下拉菜单（ToolbarItem.children）
+@use './variables' as *;
+
+// 触发器：图标 + 下箭头两段，所以宽度不能再是固定 32px 的方块，
+// 箭头也比正图标小一号、淡一些——它是提示信息不是操作对象
+.atri-editor-toolbar-btn--menu {
+  width: auto;
+  min-width: $toolbar-btn-size;
+  padding: 0 $spacing-xs;
+  gap: 2px;
+
+  svg:last-child {
+    width: 12px;
+    height: 12px;
+    opacity: 0.65;
+  }
+}
+
+// 菜单面板：与 .atri-table-panel / .atri-style-panel 同一套底盘（挂在 body 上，
+// 字体与 box-sizing 继承不到编辑器那套重置，所以自己声明）
+.atri-toolbar-menu {
+  position: fixed;
+  z-index: $z-dropdown;
+  min-width: 140px;
+  padding: $spacing-xs;
+  font-family: $font-family;
+  font-size: $font-size-sm;
+  color: var(--atri-text-color);
+  background-color: var(--atri-bg-color);
+  border: 1px solid var(--atri-border-color);
+  border-radius: $border-radius-lg;
+  box-shadow: $shadow-lg;
+  box-sizing: border-box;
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  &:focus {
+    outline: none;
+  }
+}
+
+.atri-toolbar-menu-item {
+  display: block;
+  width: 100%;
+  padding: 5px $spacing-sm;
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  text-align: left;
+  background: none;
+  border: none;
+  border-radius: $border-radius;
+  cursor: pointer;
+  transition: $transition;
+
+  &:hover,
+  &:focus-visible {
+    background-color: var(--atri-bg-color-hover);
+  }
+
+  &:focus-visible {
+    outline: 1px solid var(--atri-border-color-hover);
+    outline-offset: -1px;
+  }
+
+  // 当前命中的那一项：菜单是"多选一"，不用勾不用点，加粗 + 主色就够认了，
+  // 读屏那侧靠 aria-checked
+  &.active {
+    color: var(--atri-color-primary);
+    font-weight: 600;
+  }
+
+  &:disabled {
+    color: var(--atri-text-color-disabled);
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+}
