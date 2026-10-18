@@ -11,7 +11,7 @@
 import type { Editor } from '@tiptap/core';
 import type { EditorState } from '@tiptap/pm/state';
 import { computePosition } from '@floating-ui/dom';
-import { copyThemeClasses, panelMiddleware, placePanel } from './floating-panel';
+import { followThemeClasses, panelMiddleware, placePanel } from './floating-panel';
 import { tOrFallback, zhText, type I18nManager } from './I18nManager';
 import { icons } from './icons';
 
@@ -165,6 +165,7 @@ export class TableMenu {
 
   private element: HTMLDivElement | null = null;
   private detachEscape: (() => void) | undefined;
+  private detachTheme: (() => void) | undefined;
   /** Escape 收起后不再自动浮出，直到光标离开表格（否则下一次状态更新立刻又把它拉出来） */
   private dismissed = false;
 
@@ -251,6 +252,8 @@ export class TableMenu {
   private hide(): void {
     this.detachEscape?.();
     this.detachEscape = undefined;
+    this.detachTheme?.();
+    this.detachTheme = undefined;
     if (!this.element) return;
     this.element.remove();
     this.element = null;
@@ -306,7 +309,7 @@ export class TableMenu {
 
     document.body.appendChild(panel);
     this.element = panel;
-    copyThemeClasses(this.root, panel);
+    this.detachTheme = followThemeClasses(this.root, panel);
     this.detachEscape = this.listenEscape();
   }
 

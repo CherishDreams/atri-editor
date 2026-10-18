@@ -11,7 +11,7 @@
  */
 import type { Editor } from '@tiptap/core';
 import {
-  copyThemeClasses,
+  followThemeClasses,
   listenPanelDismiss,
   positionPanel,
   type FloatingPanel,
@@ -53,6 +53,7 @@ export class StyleOptionPanel {
   private element: HTMLDivElement | null = null;
   private floating: FloatingPanel | null = null;
   private detachDismiss: (() => void) | null = null;
+  private detachTheme: (() => void) | null = null;
   /** 当前锚在哪个触发器上：同一个再点是关，换一个是改开那个 */
   private anchor: HTMLElement | null = null;
   /** 当前开着的是哪个入口的 spec.key，工具栏据此把按下态只给那一个按钮 */
@@ -93,6 +94,8 @@ export class StyleOptionPanel {
     if (!this.element) return;
     this.detachDismiss?.();
     this.detachDismiss = null;
+    this.detachTheme?.();
+    this.detachTheme = null;
     this.floating?.stop();
     this.floating = null;
     this.element.remove();
@@ -110,7 +113,7 @@ export class StyleOptionPanel {
   private open(anchor: HTMLElement, spec: StylePanelSpec): void {
     const panel = this.build(spec);
     document.body.appendChild(panel);
-    copyThemeClasses(this.editor.view.dom, panel);
+    this.detachTheme = followThemeClasses(this.editor.view.dom, panel);
     this.element = panel;
     this.anchor = anchor;
     this.currentKey = spec.key;

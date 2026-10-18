@@ -316,3 +316,73 @@ describe('格式选择面板', () => {
     expect(panels()).toHaveLength(0);
   });
 });
+
+/**
+ * 浮层的主题类是打开那一刻从容器上拍的快照，所以"开着面板切主题"过去会得到一个
+ * 浅色面板配深色正文。这条查的是修好之后的跟随行为，两个面板各查一个：
+ * 一个是这批新加的，一个是既有的——证明补在公共底盘上而不是新面板的特例。
+ */
+describe('浮层跟随主题切换', () => {
+  /** MutationObserver 的回调排在微任务里，同步读不到 */
+  async function flush(): Promise<void> {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+
+  function themeClasses(el: Element): string[] {
+    return Array.from(el.classList).filter((name) => name.startsWith('atri-theme-'));
+  }
+
+  it('颜色面板跟着换主题，且同时只有一个主题类', async () => {
+    const editor = await mountBar();
+    click(buttonOf(editor, 'textColor'));
+    expect(themeClasses(panels()[0])).toEqual(['atri-theme-light']);
+
+    editor.setTheme('dark');
+    await flush();
+
+    expect(themeClasses(panels()[0])).toEqual(['atri-theme-dark']);
+  });
+
+  it('自定义主题名也跟随，并且不攒出第二个主题类', async () => {
+    const editor = await mountBar();
+    click(buttonOf(editor, 'fontSize'));
+
+    editor.setTheme('sepia');
+    await flush();
+    editor.setTheme('navy');
+    await flush();
+
+    expect(themeClasses(panels()[0])).toEqual(['atri-theme-navy']);
+
+    // 切回内置主题时残类也要一起摘掉：面板与容器的规则得是同一套
+    editor.setTheme('light');
+    await flush();
+    expect(themeClasses(panels()[0])).toEqual(['atri-theme-light']);
+  });
+
+  it('既有的表格网格面板同样跟随（补在 floating-panel 公共底盘上）', async () => {
+    const editor = await mountBar();
+    click(buttonOf(editor, 'insertTable'));
+    const panel = document.body.querySelector('.atri-table-panel') as HTMLElement;
+    expect(themeClasses(panel)).toEqual(['atri-theme-light']);
+
+    editor.setTheme('dark');
+    await flush();
+
+    expect(themeClasses(panel)).toEqual(['atri-theme-dark']);
+  });
+
+  it('关掉面板就停止观察：再切主题不报错，也不再有面板可跟', async () => {
+    const editor = await mountBar();
+    click(buttonOf(editor, 'textColor'));
+    pressEscape();
+    expect(panels()).toHaveLength(0);
+
+    expect(() => {
+      editor.setTheme('dark');
+    }).not.toThrow();
+    await flush();
+    expect(panels()).toHaveLength(0);
+    editor.setTheme('light');
+  });
+});

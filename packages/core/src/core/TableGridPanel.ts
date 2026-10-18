@@ -6,7 +6,7 @@
  */
 import type { Editor } from '@tiptap/core';
 import {
-  copyThemeClasses,
+  followThemeClasses,
   listenPanelDismiss,
   positionPanel,
   type FloatingPanel,
@@ -32,6 +32,7 @@ export class TableGridPanel {
   private element: HTMLDivElement | null = null;
   private floating: FloatingPanel | null = null;
   private detachDismiss: (() => void) | null = null;
+  private detachTheme: (() => void) | null = null;
   /** 键盘高亮的当前格，-1 表示还没进入键盘导航 */
   private cursorRow = -1;
   private cursorCol = -1;
@@ -66,6 +67,8 @@ export class TableGridPanel {
     if (!this.element) return;
     this.detachDismiss?.();
     this.detachDismiss = null;
+    this.detachTheme?.();
+    this.detachTheme = null;
     this.floating?.stop();
     this.floating = null;
     this.element.remove();
@@ -121,7 +124,7 @@ export class TableGridPanel {
 
     document.body.appendChild(panel);
     this.element = panel;
-    copyThemeClasses(this.editor.view.dom, panel);
+    this.detachTheme = followThemeClasses(this.editor.view.dom, panel);
     panel.focus();
   }
 

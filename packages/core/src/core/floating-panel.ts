@@ -2,7 +2,8 @@
  * floating-panel - 工具栏浮层的公共底盘
  *
  * 浮层统一挂 document.body + fixed 定位：工具栏链路任何一处 overflow 都会裁掉子元素。
- * InsertPanel 与 TableGridPanel 共用这里的定位、外点/Escape 关闭与主题类复制三段。
+ * InsertPanel / TableGridPanel / LinkPanel / TableMenu / 格式选择面板共用这里的
+ * 定位、外点与 Escape 关闭、主题类跟随三段。
  */
 import { autoUpdate, computePosition, flip, offset, shift } from '@floating-ui/dom';
 
@@ -104,12 +105,33 @@ export function listenPanelDismiss(
   };
 }
 
+const THEME_PREFIX = 'atri-theme-';
+
+/** 把 target 上的主题类换成 source 当前那一套；先摘后加，所以重复调用不会攒出两套主题 */
+function syncThemeClasses(target: HTMLElement, root: Element): void {
+  Array.from(target.classList)
+    .filter((name) => name.startsWith(THEME_PREFIX))
+    .forEach((name) => target.classList.remove(name));
+
+  const themes = Array.from(root.classList).filter((name) => name.startsWith(THEME_PREFIX));
+  target.classList.add(...themes);
+}
+
 /**
  * 主题变量写在 .atri-editor 上，浮层挂在 body 上够不着，只能把主题类复制一份。
  * 面板此刻往往还没入 DOM，closest 搜不到编辑器根，所以源元素必须由编辑器侧给（如 view.dom）
+ *
+ * 只复制一次是不够的：ThemeManager 换主题只动容器上的 class，已经打开的浮层无从得知，
+ * 于是"开着面板切主题"会得到一个浅色面板配深色正文。这里改成持续跟随：
+ * 观察者盯的是容器自己的 class（面板自己的改动不会触发它，没有回环），
+ * 返回的 disposer 由面板在关闭与销毁时调用。
  */
-export function copyThemeClasses(source: Element | null, panel: HTMLElement): void {
-  const root = source?.closest('.atri-editor');
-  const themes = Array.from(root?.classList ?? []).filter((name) => name.startsWith('atri-theme-'));
-  panel.classList.add(...themes);
+export function followThemeClasses(source: Element | null, panel: HTMLElement): () => void {
+  const root = source?.closest('.atri-editor') ?? null;
+  if (root) syncThemeClasses(panel, root);
+  if (!root || typeof MutationObserver === 'undefined') return () => {};
+
+  const observer = new MutationObserver(() => syncThemeClasses(panel, root));
+  observer.observe(root, { attributes: true, attributeFilter: ['class'] });
+  return () => observer.disconnect();
 }

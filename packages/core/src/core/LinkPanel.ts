@@ -9,7 +9,7 @@
  */
 import type { Editor } from '@tiptap/core';
 import {
-  copyThemeClasses,
+  followThemeClasses,
   listenPanelDismiss,
   positionPanel,
   type FloatingPanel,
@@ -64,6 +64,7 @@ export class LinkPanel {
   private element: HTMLDivElement | null = null;
   private floating: FloatingPanel | null = null;
   private detachDismiss: (() => void) | null = null;
+  private detachTheme: (() => void) | null = null;
   private labelled: LabelledElement[] = [];
   private urlInput: HTMLInputElement | null = null;
   private targetInput: HTMLInputElement | null = null;
@@ -112,6 +113,8 @@ export class LinkPanel {
 
     this.detachDismiss?.();
     this.detachDismiss = null;
+    this.detachTheme?.();
+    this.detachTheme = null;
     this.floating?.stop();
     this.floating = null;
     this.element?.remove();
@@ -229,7 +232,7 @@ export class LinkPanel {
     panel.appendChild(actions);
     document.body.appendChild(panel);
     this.element = panel;
-    copyThemeClasses(this.root, panel);
+    this.detachTheme = followThemeClasses(this.root, panel);
 
     url.focus();
     url.select();

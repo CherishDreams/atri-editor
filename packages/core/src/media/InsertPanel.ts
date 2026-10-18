@@ -8,7 +8,7 @@
  */
 import type { Editor } from '@tiptap/core';
 import {
-  copyThemeClasses,
+  followThemeClasses,
   listenPanelDismiss,
   positionPanel,
   type FloatingPanel,
@@ -51,6 +51,7 @@ export class InsertPanel {
   private mode: InsertPanelMode | null = null;
   private floating: FloatingPanel | null = null;
   private detachDismiss: (() => void) | null = null;
+  private detachTheme: (() => void) | null = null;
   private labelled: LabelledElement[] = [];
 
   constructor(options: InsertPanelOptions) {
@@ -86,6 +87,8 @@ export class InsertPanel {
   close(): void {
     this.detachDismiss?.();
     this.detachDismiss = null;
+    this.detachTheme?.();
+    this.detachTheme = null;
     this.floating?.stop();
     this.floating = null;
     this.element?.remove();
@@ -204,7 +207,7 @@ export class InsertPanel {
 
     document.body.appendChild(panel);
     this.element = panel;
-    copyThemeClasses(this.editor.view.dom, panel);
+    this.detachTheme = followThemeClasses(this.editor.view.dom, panel);
 
     // 焦点落进面板：图片先落在地址栏，附件没有输入框就落在选择文件按钮上
     (urlInput ?? altInput ?? browse).focus();
