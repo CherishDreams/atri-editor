@@ -14,7 +14,7 @@
 - **AI 集成** - 开放式 AI 集成架构，支持自定义 AI 服务商
 - **图片与附件** - 上传通道可插拔（回调或内置 XHR），支持拖拽与粘贴投放、图片缩放手柄、上传进度与失败重试（图片可内联兜底）、类型与大小白名单；附件支持卡片与行内链接两种形态并可切换
 - **主题系统** - 支持亮色/暗色主题切换
-- **国际化** - 内置中英文支持，可扩展其他语言
+- **国际化** - 内置中英文词条，其余语言可自行注册语言包
 
 ## 快速开始
 
@@ -195,6 +195,23 @@ await editor.setLanguage('zh'); // 异步，语言包就绪后 resolve
 
 每个编辑器实例持有独立的 i18next 实例，页面上多个编辑器互不污染语言设置。
 
+内置清单之外的语言要自己注册语言包，否则 `lang: 'ja'` 不报错、只是安静地回退中文——看起来像生效了：
+
+```typescript
+editor.i18n.addResources('ja', {
+  editor: { bold: '太字', italic: '斜体' },
+  media: { retry: '再試行' },
+});
+editor.i18n.hasLanguage('ja'); // true；想知道有没有真的收录就问这个
+await editor.setLanguage('ja');
+```
+
+三点语义：
+
+- **只影响这一个编辑器**。语言包注册在实例上，不写回内置词条字面量，页面上别的编辑器与之后新建的编辑器都看不到。
+- **盖不掉内置文案**。同名 key 以先注册的一方为准（i18next 的 `overwrite: false`），后加载的代码改不了 `editor.bold`。要自定义措辞就给你的界面用 `toolbar.items` 的 `tooltip`，那是显式优先级更高的入口。
+- **注册当前语言会立刻重刷界面文案**，注册别的语言则不动界面，等 `setLanguage` 过去再生效。没补的 key 仍按 `fallbackLng` 回退中文，不是回显 key 本身。
+
 ### 主题
 
 `theme: 'light' | 'dark'` 指定初始主题，运行期用 `setTheme(theme)` / `toggleTheme()` 切换。实现是替换 `.atri-editor` 容器上的 `atri-theme-light` / `atri-theme-dark` class，并同步 `data-atri-theme` 属性，因此也接受任意自定义主题名：`setTheme('sepia')` 挂上 `atri-theme-sepia`，样式自备（`toggleTheme()` 在自定义主题下会切回亮色）。Web Component 用法下 `theme` 属性是响应式的，改了立即生效。
@@ -258,6 +275,7 @@ atri-editor/
 | `setTheme(theme)` | 设置主题 |
 | `toggleTheme()` | 切换主题 |
 | `setLanguage(lang)` | 切换语言（异步） |
+| `i18n` | 国际化管理器：`addResources()` 注册语言包、`hasLanguage()` 查收录、`t()` 取词条 |
 | `updateAIConfig(config)` | 增量更新 AI 配置 |
 | `registerNodeView(config)` | 注册自定义 NodeView；会重建编辑器，内容与选区保持不变 |
 | `registerNodeViews(configs)` | 批量注册 NodeView |

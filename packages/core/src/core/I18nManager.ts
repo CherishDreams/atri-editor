@@ -161,6 +161,19 @@ const enResources = {
   },
 };
 
+/**
+ * 深拷贝内置词条。
+ *
+ * 不能把模块级字面量直接交给 i18next：init({ resources }) 存的是引用，而
+ * addResourceBundle 的 deepMerge 是就地合并。于是接入方调一次 addResources 就会永久
+ * 改掉 zhResources / enResources 本身——页面上所有编辑器实例、以及之后新建的实例，
+ * 全都跟着被污染。zhText() 读的同样是这两个字面量，它作为内置默认文案的单源也会一起坏掉。
+ * 每个实例持有一份自己的拷贝，注册才真的是"注册到这个编辑器"。
+ */
+function cloneResources<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
 export class I18nManager {
   private instance: I18nInstance;
 
@@ -173,8 +186,8 @@ export class I18nManager {
       fallbackLng: 'zh',
       initImmediate: false,
       resources: {
-        zh: { translation: zhResources },
-        en: { translation: enResources },
+        zh: { translation: cloneResources(zhResources) },
+        en: { translation: cloneResources(enResources) },
       },
     });
   }
@@ -199,6 +212,32 @@ export class I18nManager {
    */
   async changeLanguage(lang: string): Promise<void> {
     await this.instance.changeLanguage(lang);
+  }
+
+  /**
+   * 注册语言包：给已存在的语言补词条，或引入一门内置清单之外的新语言。
+   *
+   * 内置词条是源码里的两个字面量对象，接入方改不到，于是 lang: 'ja' 只能静默回退中文
+   * ——看起来像"支持可扩展"，实际没有入口。这里补上那个入口。
+   *
+   * overwrite 传 false：同名 key 以先注册的一方为准，防止后加载的包把内置文案悄悄换掉。
+   * 要自定义措辞走 toolbar.items 的 tooltip，那本来就是优先级更高的显式入口。
+   * 注册当前语言时补发一次 languageChanged，让已挂载的界面重取文案；
+   * 不是当前语言就不发，白重刷一遍界面没有意义。
+   */
+  addResources(lang: string, resources: Record<string, unknown>): void {
+    this.instance.addResourceBundle(lang, 'translation', resources, true, false);
+    if (lang === this.instance.language) {
+      this.instance.emit('languageChanged', lang);
+    }
+  }
+
+  /**
+   * 该语言是否已有语言包。未注册的语言不会抛错，只会按 fallbackLng 回退，
+   * 所以想知道有没有真的生效得问这里。
+   */
+  hasLanguage(lang: string): boolean {
+    return this.instance.hasResourceBundle(lang, 'translation');
   }
 
   /**
