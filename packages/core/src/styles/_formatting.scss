@@ -1,0 +1,129 @@
+// 基础格式：颜色 / 字号 / 字体的选择面板
+@use './variables' as *;
+
+// 与 .atri-table-panel 同一套底盘：挂在 document.body 上，所以字体与 box-sizing
+// 继承不到编辑器那套重置，必须自己声明；位置由 floating-ui 写死 fixed
+.atri-style-panel {
+  position: fixed;
+  z-index: $z-dropdown;
+  padding: $spacing-md;
+  font-family: $font-family;
+  font-size: $font-size-sm;
+  color: var(--atri-text-color);
+  background-color: var(--atri-bg-color);
+  border: 1px solid var(--atri-border-color);
+  border-radius: $border-radius-lg;
+  box-shadow: $shadow-lg;
+  box-sizing: border-box;
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  &:focus {
+    outline: none;
+  }
+}
+
+.atri-style-panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+// 色板：6 列方阵，12 色正好两行
+.atri-style-panel--grid .atri-style-panel-body {
+  display: grid;
+  grid-template-columns: repeat(6, 24px);
+  gap: 4px;
+}
+
+.atri-style-panel-row {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  min-width: 120px;
+  padding: 4px 6px;
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  text-align: left;
+  background: none;
+  border: none;
+  border-radius: $border-radius;
+  cursor: pointer;
+  transition: $transition;
+
+  &:hover,
+  &:focus-visible {
+    background-color: var(--atri-bg-color-hover);
+  }
+
+  &:focus-visible {
+    outline: 1px solid var(--atri-border-color-hover);
+    outline-offset: 1px;
+  }
+}
+
+.atri-style-panel--grid .atri-style-panel-row {
+  min-width: 0;
+  padding: 0;
+  justify-content: center;
+}
+
+// 色块方阵里不排文字：CSS 值当名字又长又难读，语义已经在 title 与 aria-label 上
+.atri-style-panel-row--swatch-only .atri-style-panel-text {
+  display: none;
+}
+
+.atri-style-panel-swatch {
+  width: 22px;
+  height: 22px;
+  // 浅色（浅黄、浅灰那几档）在白底上不画边就看不见，边框不是装饰是可辨性
+  border: 1px solid var(--atri-border-color);
+  border-radius: $border-radius;
+  flex: none;
+}
+
+.atri-style-panel-text {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+// 「清除」行与选项之间隔一条线：它做的事是"去掉"，混在取值里会被误读成某个取值
+.atri-style-panel-row--clear {
+  margin-top: 2px;
+  color: var(--atri-text-color-secondary);
+  border-top: 1px solid var(--atri-border-color);
+  border-radius: 0;
+}
+
+.atri-style-panel--grid .atri-style-panel-row--clear,
+.atri-style-panel-custom {
+  grid-column: 1 / -1;
+}
+
+.atri-style-panel-custom {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  margin-top: $spacing-sm;
+  padding-top: $spacing-sm;
+  color: var(--atri-text-color-secondary);
+  border-top: 1px solid var(--atri-border-color);
+  cursor: pointer;
+}
+
+// 原生取色器：只要那块颜色，尺寸交给外层 label 排版
+.atri-style-panel-custom-input {
+  width: 28px;
+  height: 22px;
+  padding: 0;
+  background: none;
+  border: 1px solid var(--atri-border-color);
+  border-radius: $border-radius;
+  cursor: pointer;
+}

@@ -9,8 +9,17 @@ import type { MediaRuntime } from '../media/MediaRuntime';
 import { BUBBLE_NODE_ITEMS, BUBBLE_TEXT_ITEMS } from './bubble-toolbar';
 import { zhText, type I18nManager } from './I18nManager';
 import type { LinkPanel } from './LinkPanel';
+import { StyleOptionPanel, type StylePanelSpec } from './StyleOptionPanel';
+import {
+  FONT_FAMILIES,
+  FONT_SIZES,
+  HIGHLIGHT_COLORS,
+  TEXT_COLORS,
+  type StyleOption,
+} from './style-presets';
 import { TableGridPanel } from './TableGridPanel';
 import { canInsertTable } from '../utils/table';
+import { canUseTextStyle, hasMark, type TextStyleAttr } from '../utils/formatting';
 import { icons } from './icons';
 
 /**
@@ -59,6 +68,14 @@ const TOOLTIP_KEYS: Record<string, string> = {
   insertTable: 'editor.table',
   insertLink: 'editor.link',
   delete: 'editor.delete',
+  textColor: 'editor.textColor',
+  highlight: 'editor.highlight',
+  highlightColor: 'editor.highlightColor',
+  fontSize: 'editor.fontSize',
+  fontFamily: 'editor.fontFamily',
+  subscript: 'editor.subscript',
+  superscript: 'editor.superscript',
+  clearFormat: 'editor.clearFormat',
 };
 
 /**
@@ -82,6 +99,8 @@ export class ToolbarManager {
   private createdElements: HTMLElement[] = [];
   private panel: InsertPanel | null = null;
   private tablePanel: TableGridPanel | null = null;
+  /** 颜色 / 字号 / 字体四个入口共用一个面板实例：同时只会开一个 */
+  private stylePanel: StyleOptionPanel | null = null;
 
   constructor(
     editor: Editor,
@@ -186,6 +205,81 @@ export class ToolbarManager {
     return canInsertTable(this.editor);
   }
 
+  /** 格式面板按需创建：没点开过就不该有一个实例挂在编辑器上 */
+  private get styleOptionPanel(): StyleOptionPanel {
+    this.stylePanel ??= new StyleOptionPanel({
+      editor: this.editor,
+      i18n: this.i18n,
+      // 开合不改文档，等不到 transaction，得主动刷一次按钮状态
+      onOpenChange: () => this.updateButtonStates(),
+    });
+    return this.stylePanel;
+  }
+
+  private tOr(key: string, fallback: string): string {
+    return this.i18n?.tOr(key, fallback) ?? fallback;
+  }
+
+  /**
+   * 面板文案在这里现取，不在建项时算好存下来：
+   * 语言切换后重开面板要拿到新词条，而项定义只在建栏时求值一次
+   */
+  private styleSpec(
+    key: string,
+    parts: {
+      shape: 'grid' | 'list';
+      options: StyleOption[];
+      swatch: boolean;
+      attr: TextStyleAttr | 'highlight';
+    }
+  ): StylePanelSpec {
+    return {
+      key,
+      label: this.tOr(`editor.${key}`, key),
+      shape: parts.shape,
+      options: parts.options,
+      // 色板才有"其他颜色"这一行；字号字体用原生控件选不出任意值
+      customColorLabel: parts.swatch ? this.tOr('formatting.customColor', '其他颜色…') : undefined,
+      // 清除行的措辞按形状分：颜色去掉是"无"，字号字体退回的是"默认"
+      clearLabel: parts.swatch
+        ? this.tOr('formatting.noColor', '无')
+        : this.tOr('formatting.defaultValue', '默认'),
+      onPick: (value) => this.applyStyle(parts.attr, value),
+    };
+  }
+
+  /**
+   * 空串是"清除"而不是"设成空值"：设成空串会留下一个属性为空串的 mark，
+   * 而 textStyle 的 renderHTML 对空值照样会吐出一个 `<span style="">`，
+   * 那种节点既看不见又会在往返里产噪音（见 extensions/formatting.ts 的发出侧）
+   */
+  private applyStyle(attr: TextStyleAttr | 'highlight', value: string): void {
+    const chain = this.editor.chain().focus();
+    if (attr === 'highlight') {
+      if (value === '') chain.unsetHighlight().run();
+      else chain.setHighlight({ color: value }).run();
+      return;
+    }
+    switch (attr) {
+      case 'color':
+        if (value === '') chain.unsetColor().run();
+        else chain.setColor(value).run();
+        return;
+      case 'backgroundColor':
+        if (value === '') chain.unsetBackgroundColor().run();
+        else chain.setBackgroundColor(value).run();
+        return;
+      case 'fontSize':
+        if (value === '') chain.unsetFontSize().run();
+        else chain.setFontSize(value).run();
+        return;
+      case 'fontFamily':
+        if (value === '') chain.unsetFontFamily().run();
+        else chain.setFontFamily(value).run();
+        return;
+    }
+  }
+
   /**
    * 创建工具栏 DOM - 直接将按钮插入 container
    */
@@ -210,16 +304,22 @@ export class ToolbarManager {
       ['heading1', 'heading2', 'heading3', 'paragraph'],
       // 链接跟着行内格式走：它也是一段文字上的标记，只是要填地址所以带浮层
       ['bold', 'italic', 'underline', 'strike', 'code', 'insertLink'],
+      // 颜色与字号字体自成一组：都是"这段文字长什么样"，且除 highlight 外都带浮层
+      ['textColor', 'highlight', 'highlightColor', 'fontSize', 'fontFamily'],
       ['bulletList', 'orderedList', 'taskList', 'blockquote', 'codeBlock'],
       ['alignLeft', 'alignCenter', 'alignRight', 'alignJustify'],
-      // 分割线与表格自成一组：都是"往正文里插一块"的动作，没有激活态。
-      // 表格节点没注册时（table:false 或被顶掉）这项不存在，组里只剩分割线，不会吊出空组
-      ['horizontalRule', ...(this.itemDefs.has('insertTable') ? ['insertTable'] : [])],
-      // 「附件样式」不再常驻：切换形态改由选中附件时的浮动工具栏承接（bubble 默认开）
-      ...(this.itemDefs.has('insertImage') ? [['insertImage', 'insertAttachment']] : []),
+      // 分割线与表格是一组：都是"往正文里插一块"的动作，没有激活态
+      ['horizontalRule', 'insertTable'],
+      // 上下标与清除格式：作用于选区已有的格式，而不是加一种新格式
+      ['subscript', 'superscript', 'clearFormat'],
+      ['insertImage', 'insertAttachment'],
     ];
 
-    layout.forEach((group, groupIndex) => {
+    // 整组一项都不存在就不摆这一组：分隔符是按组序插的，留下一组空的就会多出
+    // 一根光杆（formatting:false 时那两组全空，table:false / media:false 同理）
+    const groups = layout.filter((group) => group.some((itemId) => this.itemDefs.has(itemId)));
+
+    groups.forEach((group, groupIndex) => {
       if (groupIndex > 0) {
         const separator = document.createElement('div');
         separator.className = 'atri-editor-toolbar-separator';
@@ -390,6 +490,132 @@ export class ToolbarManager {
         isDisabled: (editor) => !editor.isEditable,
       });
     }
+
+    // 基础格式：按能力摆项。formatting:false 没注册、或宿主用同名扩展顶掉内置 mark 时，
+    // 一条都不出——判据是"命令在不在 + schema 里有没有那个属性"两条，见 utils/formatting.ts。
+    // 这一组全部按能力各自判定，不是一荣俱荣：宿主完全可能只顶掉 textStyle 而留着 highlight。
+    const textStyleReady = (attr: TextStyleAttr) => canUseTextStyle(this.editor, attr);
+
+    if (textStyleReady('color')) {
+      items.set('textColor', {
+        id: 'textColor',
+        icon: icons.textColor,
+        popup: true,
+        command: (_editor, button) =>
+          this.styleOptionPanel.toggle(
+            button,
+            this.styleSpec('textColor', {
+              shape: 'grid',
+              options: TEXT_COLORS,
+              swatch: true,
+              attr: 'color',
+            })
+          ),
+        // 浮层项的按下态只跟浮层走：选区里有没有颜色是文档事实，不是"这个按钮正按着"
+        isActive: () => this.stylePanel?.openKey === 'textColor',
+        isDisabled: (editor) => !editor.isEditable,
+      });
+    }
+
+    if (hasMark(this.editor, 'highlight')) {
+      // 无色的 ==text== 是个纯开关，与"挑一个高亮色"是两件事，所以分成两项
+      items.set('highlight', {
+        id: 'highlight',
+        icon: icons.highlight,
+        command: (editor) => editor.chain().focus().toggleHighlight().run(),
+        isActive: (editor) => editor.isActive('highlight'),
+        isDisabled: (editor) => !editor.isEditable,
+      });
+
+      items.set('highlightColor', {
+        id: 'highlightColor',
+        icon: icons.highlightColor,
+        popup: true,
+        command: (_editor, button) =>
+          this.styleOptionPanel.toggle(
+            button,
+            this.styleSpec('highlightColor', {
+              shape: 'grid',
+              options: HIGHLIGHT_COLORS,
+              swatch: true,
+              attr: 'highlight',
+            })
+          ),
+        isActive: () => this.stylePanel?.openKey === 'highlightColor',
+        isDisabled: (editor) => !editor.isEditable,
+      });
+    }
+
+    if (textStyleReady('fontSize')) {
+      items.set('fontSize', {
+        id: 'fontSize',
+        icon: icons.fontSize,
+        popup: true,
+        command: (_editor, button) =>
+          this.styleOptionPanel.toggle(
+            button,
+            this.styleSpec('fontSize', {
+              shape: 'list',
+              options: FONT_SIZES,
+              swatch: false,
+              attr: 'fontSize',
+            })
+          ),
+        isActive: () => this.stylePanel?.openKey === 'fontSize',
+        isDisabled: (editor) => !editor.isEditable,
+      });
+    }
+
+    if (textStyleReady('fontFamily')) {
+      items.set('fontFamily', {
+        id: 'fontFamily',
+        icon: icons.fontFamily,
+        popup: true,
+        command: (_editor, button) =>
+          this.styleOptionPanel.toggle(
+            button,
+            this.styleSpec('fontFamily', {
+              shape: 'list',
+              options: FONT_FAMILIES,
+              swatch: false,
+              attr: 'fontFamily',
+            })
+          ),
+        isActive: () => this.stylePanel?.openKey === 'fontFamily',
+        isDisabled: (editor) => !editor.isEditable,
+      });
+    }
+
+    if (hasMark(this.editor, 'subscript')) {
+      items.set('subscript', {
+        id: 'subscript',
+        icon: icons.subscript,
+        command: (editor) => editor.chain().focus().toggleSubscript().run(),
+        isActive: (editor) => editor.isActive('subscript'),
+        isDisabled: (editor) => !editor.isEditable,
+      });
+    }
+
+    if (hasMark(this.editor, 'superscript')) {
+      items.set('superscript', {
+        id: 'superscript',
+        icon: icons.superscript,
+        command: (editor) => editor.chain().focus().toggleSuperscript().run(),
+        isActive: (editor) => editor.isActive('superscript'),
+        isDisabled: (editor) => !editor.isEditable,
+      });
+    }
+
+    // 清除格式：把选区上所有 mark 与块级类型一起退回默认。
+    // 常驻不禁用——unsetAllMarks 对空格式光标是无操作，而不是报错，
+    // 要为"有没有可清除的东西"做判定就得遍历选区，不值当
+    items.set('clearFormat', {
+      id: 'clearFormat',
+      icon: icons.clearFormat,
+      command: (editor) => editor.chain().focus().unsetAllMarks().clearNodes().run(),
+      isActive: () => false,
+      isDisabled: (editor) => !editor.isEditable,
+    });
 
     // 删除作用于选中的整节点：一段文字该交给 Delete 键，所以它不进顶栏默认布局
     items.set('delete', {
@@ -650,6 +876,8 @@ export class ToolbarManager {
     this.panel = null;
     this.tablePanel?.destroy();
     this.tablePanel = null;
+    this.stylePanel?.destroy();
+    this.stylePanel = null;
     this.buttons.clear();
     this.customTooltips.clear();
     // 浮层元素归门面所有，要活过重建编辑器，所以这里既不 remove 也不清空它

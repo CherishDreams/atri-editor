@@ -3,6 +3,7 @@
 @use './media' as *;
 @use './table' as *;
 @use './link' as *;
+@use './formatting' as *;
 
 // CSS Custom Properties for runtime theme switching
 :root {
@@ -125,12 +126,19 @@
   background-color: var(--atri-bg-color);
   box-shadow: $shadow-md;
   z-index: $z-dropdown;
+  // 文字组从 5 项涨到 8 项，不设上限就会宽过所选的那段字、把自己盖在选区上面。
+  // 折行而不是截断：多出来的一行落在选区下方，仍比横向盖住选区可读
+  max-width: min(90vw, 320px);
+  flex-wrap: wrap;
+  justify-content: center;
 
   // 两组按钮一次都渲染出来，谁占宽度看下面按 mode 开的口子
   .atri-editor-bubble-group {
     display: none;
     align-items: center;
     gap: 2px;
+    flex-wrap: wrap;
+    justify-content: center;
   }
 }
 

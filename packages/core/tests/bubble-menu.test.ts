@@ -13,6 +13,33 @@ import {
   toolbarButtons,
 } from './utils';
 
+/**
+ * 文字组的全部按钮 id。这里再列一份是有意的：本文件要验的正是"浮出来的到底是这一批"，
+ * 直接 import BUBBLE_TEXT_ITEMS 就会变成拿定义验证定义、永远绿。
+ * 但一个文件里抄五遍就是给漂移留位置，所以收成一份常量。
+ */
+const TEXT_GROUP = [
+  'bold',
+  'italic',
+  'underline',
+  'strike',
+  'code',
+  'highlight',
+  'subscript',
+  'superscript',
+];
+const TEXT_GROUP_TITLES = ['加粗', '斜体', '下划线', '删除线', '行内代码', '高亮', '下标', '上标'];
+const TEXT_GROUP_TITLES_EN = [
+  'Bold',
+  'Italic',
+  'Underline',
+  'Strikethrough',
+  'Inline Code',
+  'Highlight',
+  'Subscript',
+  'Superscript',
+];
+
 /** 选中一段文字并等插件把浮层挂进文档 */
 async function selectRange(editor: AtriEditor, from: number, to: number): Promise<void> {
   editor.editor.commands.setTextSelection({ from, to });
@@ -57,7 +84,7 @@ describe('选区浮动工具栏', () => {
     await selectRange(editor, 2, 6);
 
     expect(bubbleMode(editor)).toBe('text');
-    expect(toolbarButtons(editor)).toHaveLength(25);
+    expect(toolbarButtons(editor)).toHaveLength(33);
   });
 
   it('bubble:false 时不注册浮层', async () => {
@@ -67,22 +94,22 @@ describe('选区浮动工具栏', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     // 顶栏照常，但没有第二个工具栏
-    expect(toolbarButtons(editor)).toHaveLength(25);
+    expect(toolbarButtons(editor)).toHaveLength(33);
     expect(rootOf(editor).querySelector('.atri-editor-bubble-toolbar')).toBeNull();
   });
 
-  it('bubble 打开时浮出，只放行内格式五项', async () => {
+  it('bubble 打开时浮出，只放行内格式开关（带浮层的选择面板进不来）', async () => {
     const editor = await mount({ content: '<p>hello world</p>', toolbar: { bubble: true } });
     stubGeometry(editor);
 
     await selectRange(editor, 2, 6);
 
-    expect(bubbleItems(editor)).toEqual(['bold', 'italic', 'underline', 'strike', 'code']);
+    expect(bubbleItems(editor)).toEqual(TEXT_GROUP);
     expect(bubbleMode(editor)).toBe('text');
     // 节点组一次就渲染好了，藏它的是 CSS 而不是"没建"，所以此刻就能查到它的结构
     expect(bubbleGroupItems(editor, 'node')).toEqual(['attachmentDisplay', 'delete']);
     // 顶栏不受影响，浮层挂在正文自己的滚动盒里
-    expect(toolbarButtons(editor)).toHaveLength(25);
+    expect(toolbarButtons(editor)).toHaveLength(33);
     expect(bubbleRoot(editor)?.parentElement?.className).toBe('atri-editor-content-wrapper');
   });
 
@@ -94,7 +121,7 @@ describe('选区浮动工具栏', () => {
     await collapse(editor, 7);
 
     await selectRange(editor, 7, 11);
-    expect(bubbleItems(editor)).toHaveLength(5);
+    expect(bubbleItems(editor)).toHaveLength(TEXT_GROUP.length);
   });
 
   it('只框到空白时不浮出', async () => {
@@ -142,7 +169,7 @@ describe('选区浮动工具栏', () => {
     stubGeometry(editor);
     await selectRange(editor, 2, 6);
     expect(bubbleRoot(editor)).toBe(element);
-    expect(bubbleItems(editor)).toEqual(['bold', 'italic', 'underline', 'strike', 'code']);
+    expect(bubbleItems(editor)).toEqual(TEXT_GROUP);
   });
 
   it('切换语言时浮层按钮的提示文字跟着变', async () => {
@@ -154,17 +181,11 @@ describe('选区浮动工具栏', () => {
     stubGeometry(editor);
     await selectRange(editor, 2, 6);
 
-    expect(bubbleTitles(editor)).toEqual(['加粗', '斜体', '下划线', '删除线', '行内代码']);
+    expect(bubbleTitles(editor)).toEqual(TEXT_GROUP_TITLES);
     expect(bubbleGroupTitles(editor, 'node')).toEqual(['附件样式', '删除']);
 
     await editor.setLanguage('en');
-    expect(bubbleTitles(editor)).toEqual([
-      'Bold',
-      'Italic',
-      'Underline',
-      'Strikethrough',
-      'Inline Code',
-    ]);
+    expect(bubbleTitles(editor)).toEqual(TEXT_GROUP_TITLES_EN);
     expect(bubbleGroupTitles(editor, 'node')).toEqual(['Attachment style', 'Delete']);
   });
 
@@ -255,7 +276,7 @@ describe('选中图片 / 附件时浮出节点组', () => {
       expect(bubbleMode(editor)).toBe('text');
     });
     expect(bubbleRoot(editor)?.dataset.atriBubbleNode).toBe('');
-    expect(bubbleItems(editor)).toHaveLength(5);
+    expect(bubbleItems(editor)).toHaveLength(TEXT_GROUP.length);
   });
 
   it('关掉 media 后节点组退化到只剩删除', async () => {
@@ -269,6 +290,6 @@ describe('选中图片 / 附件时浮出节点组', () => {
     await selectRange(editor, 2, 6);
 
     expect(bubbleGroupItems(editor, 'node')).toEqual(['delete']);
-    expect(bubbleItems(editor)).toEqual(['bold', 'italic', 'underline', 'strike', 'code']);
+    expect(bubbleItems(editor)).toEqual(TEXT_GROUP);
   });
 });

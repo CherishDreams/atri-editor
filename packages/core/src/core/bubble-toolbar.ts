@@ -10,8 +10,23 @@ import type { EditorState } from '@tiptap/pm/state';
 /** 浮层的作用对象：一段文字，还是一个整节点 */
 export type BubbleGroup = 'text' | 'node';
 
-/** 文字组只放行内格式：块级与列表留在顶栏，浮层短到不遮住所选的字 */
-export const BUBBLE_TEXT_ITEMS = ['bold', 'italic', 'underline', 'strike', 'code'] as const;
+/**
+ * 文字组只放行内格式：块级与列表留在顶栏，浮层短到不遮住所选的字。
+ *
+ * 只收纯开关——带浮层的选择面板进不了这里（按钮随浮层一起被摘出文档，面板无处可锚，
+ * 见 ToolbarManager.attachBubbleToolbar 的告警）。所以是"高亮"这个开关而不是"挑高亮色"。
+ * 项 id 必须与 mark 名同形，allowsBubbleMark 就是拿它去查 schema 的。
+ */
+export const BUBBLE_TEXT_ITEMS = [
+  'bold',
+  'italic',
+  'underline',
+  'strike',
+  'code',
+  'highlight',
+  'subscript',
+  'superscript',
+] as const;
 
 /** 节点组换一批：附件能切形态，图片与附件都能删 */
 export const BUBBLE_NODE_ITEMS = ['attachmentDisplay', 'delete'] as const;

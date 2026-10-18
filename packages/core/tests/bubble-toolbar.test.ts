@@ -50,9 +50,27 @@ function showFor(editor: AtriEditor, element: HTMLElement): boolean {
 }
 
 describe('shouldShowBubbleMenu', () => {
-  it('浮层两组分别放行内格式五项与附件那两项', () => {
-    expect([...BUBBLE_TEXT_ITEMS]).toEqual(['bold', 'italic', 'underline', 'strike', 'code']);
+  it('浮层两组分别放行内格式八项与附件那两项', () => {
+    expect([...BUBBLE_TEXT_ITEMS]).toEqual([
+      'bold',
+      'italic',
+      'underline',
+      'strike',
+      'code',
+      'highlight',
+      'subscript',
+      'superscript',
+    ]);
     expect([...BUBBLE_NODE_ITEMS]).toEqual(['attachmentDisplay', 'delete']);
+  });
+
+  /**
+   * 文字组宽度上限的守卫：这一组每加一项，浮层就更可能宽过所选的那段字、
+   * 把自己盖在选区上（样式侧有 max-width + flex-wrap 兜着）。
+   * 超过 8 项必须先显式改这里，好让人是有意识地抬这个数
+   */
+  it('文字组不超过 8 项，否则浮层会宽过选区', () => {
+    expect(BUBBLE_TEXT_ITEMS.length).toBeLessThanOrEqual(8);
   });
 
   it('选中一段文字就浮出，不要求编辑器有焦点', async () => {
@@ -106,7 +124,7 @@ describe('shouldShowBubbleMenu', () => {
     expect(element.dataset.atriBubbleNode).toBe('image');
   });
 
-  it('代码块里的文字五项标记一个都挂不上，不浮出', async () => {
+  it('代码块里的文字八项标记一个都挂不上，不浮出', async () => {
     const editor = await mount({ content: '<pre><code>const a = 1</code></pre>' });
     editor.editor.commands.setTextSelection({ from: 3, to: 8 });
     const element = menuWith('bold');
@@ -122,7 +140,7 @@ describe('shouldShowBubbleMenu', () => {
     expect(showFor(editor, menuWith())).toBe(false);
     expect(showFor(editor, menuWith('bold'))).toBe(true);
 
-    // 节点组也一样：只往里塞文字那五项就等于没塞（media:false 时它压根不存在）
+    // 节点组也一样：只往里塞文字那一组就等于没塞（media:false 时它压根不存在）
     editor.insertAttachment({ src: 'https://cdn.test/a.pdf', name: 'a.pdf' });
     expect(showFor(editor, menuWith('bold'))).toBe(false);
   });

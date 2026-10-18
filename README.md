@@ -8,7 +8,7 @@
 - **Tiptap v3 内核** - 使用最新的 Tiptap v3.30.4 作为编辑引擎
 - **TypeScript 7** - 使用 TypeScript 7.x 开发，享受 10x 编译速度提升
 - **Markdown 支持** - 内置双向 Markdown 支持，AI 输出自动转换；颜色 / 上下标 / 彩色高亮以内联 HTML 承载，导出与载入逐字节幂等（见「Markdown 往返能力矩阵」）
-- **基础格式** - 文字颜色、背景色、字号、字体、高亮（含多色）、上下标，`formatting: false` 可整片关掉；这组能力只有命令没有 UI 的历史包袱最重，本条先补通了数据链路，按钮与取色面板在路上
+- **基础格式** - 文字颜色、背景色、字号、字体、高亮（含多色）、上下标、清除格式，顶栏开箱就有；取色与字号是选择面板，颜色还能用原生取色器取任意值。`formatting: false` 可整片关掉
 - **表格** - 工具栏网格选择器快捷插入，光标进入表格浮出操作菜单（增删行列、合并拆分、切换表头、单元格对齐）、列宽可拖拽，pipe table 与 Markdown 双向转换开箱可用（对齐也随分隔行往返）
 - **链接** - 工具栏插入 / 编辑浮层，编辑态点击链接就地编辑而不是跳走
 - **任务列表** - 工具栏一键转换，勾选框写回状态，`- [ ]` / `- [x]` 双向往返，嵌套不丢
@@ -311,7 +311,9 @@ atri-editor/
 | `toolbar.items` | `(string \| ToolbarItem)[]` | 按顺序渲染，省略时使用默认全集 |
 | `toolbar.bubble` | `boolean` | 选中文字或图片 / 附件时在选区旁浮出的工具栏，默认 true；`false` 显式关闭。与固定顶栏共存 |
 
-内置项 id：`undo` `redo` `heading1` `heading2` `heading3` `paragraph` `bold` `italic` `underline` `strike` `code` `insertLink` `bulletList` `orderedList` `taskList` `blockquote` `codeBlock` `horizontalRule` `alignLeft` `alignCenter` `alignRight` `alignJustify` `insertTable` `insertImage` `insertAttachment` `attachmentDisplay` `delete`。媒体两项与媒体扩展绑定（`media: false` 时不存在），打开插入浮层；`insertTable` 与表格扩展绑定（`table: false` 时不存在），打开网格选择器，与 `horizontalRule` 同组（都是"往正文里插一块"的动作）；`insertLink` 打开链接浮层（选区有链接时是编辑那一条）；`attachmentDisplay` 不再进默认布局——切换形态由选中附件时的浮动工具栏承接，想常驻就写进 `items`。`delete` 只在选中整节点（图片 / 附件）时有作用对象，所以不在顶栏默认布局里——浮层的节点组会带上它，想摆上顶栏就自己写进 `items`。
+内置项 id：`undo` `redo` `heading1` `heading2` `heading3` `paragraph` `bold` `italic` `underline` `strike` `code` `insertLink` `textColor` `highlight` `highlightColor` `fontSize` `fontFamily` `bulletList` `orderedList` `taskList` `blockquote` `codeBlock` `horizontalRule` `alignLeft` `alignCenter` `alignRight` `alignJustify` `insertTable` `subscript` `superscript` `clearFormat` `insertImage` `insertAttachment` `attachmentDisplay` `delete`。媒体两项与媒体扩展绑定（`media: false` 时不存在），打开插入浮层；`insertTable` 与表格扩展绑定（`table: false` 时不存在），打开网格选择器，与 `horizontalRule` 同组（都是"往正文里插一块"的动作）；`insertLink` 打开链接浮层（选区有链接时是编辑那一条）；`attachmentDisplay` 不再进默认布局——切换形态由选中附件时的浮动工具栏承接，想常驻就写进 `items`。`delete` 只在选中整节点（图片 / 附件）时有作用对象，所以不在顶栏默认布局里——浮层的节点组会带上它，想摆上顶栏就自己写进 `items`。
+
+格式那五项按能力逐项判定，不是同生共死：`textColor` / `fontSize` / `fontFamily` 看 `textStyle` mark 上有没有对应属性**并且**相应命令存在（两条都要对上，判据见下），`highlight` / `highlightColor` 看 `highlight` 是否在册，`subscript` / `superscript` 各看自己那个 mark。`formatting: false` 时这七项一起消失，而 `clearFormat` 不受它牵连——清除格式走 `unsetAllMarks` + `clearNodes`，加粗斜体本来就有，把它绑在这批 mark 上是错绑。整组一项都不剩时那一组连分隔符一起撤掉，不会在顶栏上吊出两根相邻的光杆。
 
 `ToolbarItem` 只能挂在内置项上：`icon`（SVG 字符串）优先于 `label`（文字按钮）优先于内置图标；`tooltip` 优先于当前语言的内置词条；`children` 尚未实现，声明后会被忽略。未知 id 会告警并跳过。
 
@@ -321,7 +323,7 @@ toolbar: {
 }
 ```
 
-`toolbar.bubble`（默认开启）打开的是选区旁边浮出来的一小排按钮，按选中的对象分两组：选中文字给 `bold` `italic` `underline` `strike` `code`（块级与列表仍留在顶栏，免得浮层长到盖住所选的字；代码块里这五项一个都挂不上，于是索性不浮出），选中附件给 `attachmentDisplay` + `delete`，选中图片只给 `delete`。浮层挂在编辑区内部，所以随正文一起滚动、也被编辑区裁切；选区在首行放不下时会翻到选区下方。该开关只在创建时生效——tiptap v3 没有运行时注册扩展的入口，改配置需要重建编辑器。
+`toolbar.bubble`（默认开启）打开的是选区旁边浮出来的一小排按钮，按选中的对象分两组：选中文字给 `bold` `italic` `underline` `strike` `code` `highlight` `subscript` `superscript`（只放纯开关——带选择面板的那几项进不来，面板要锚在按钮上，而按钮跟着浮层一起被摘出文档；代码块里这八项一个都挂不上，于是索性不浮出），选中附件给 `attachmentDisplay` + `delete`，选中图片只给 `delete`。八项是有意设的上限并有测试守着：再宽就会盖住所选的那段字。浮层挂在编辑区内部，所以随正文一起滚动、也被编辑区裁切；选区在首行放不下时会翻到选区下方。该开关只在创建时生效——tiptap v3 没有运行时注册扩展的入口，改配置需要重建编辑器。
 
 ### 表格配置
 
@@ -367,7 +369,9 @@ editor.editor.commands.unsetAllMarks(); // 清除格式
 
 行高（`LineHeight`）**刻意不提供**：上游它是 span 级属性，挂在选中的文字片段上，而用户心里的行高是段落属性——span 级改动在视觉上几乎看不出来，给个按钮反而误导。段落级行高要自己实现，且没有 Markdown 归宿。
 
-工具栏按钮、取色面板与字号选择器尚未接上，届时按"能力存在才出按钮"的规则挂进 `toolbar.items`。
+顶栏开箱就带这一排：`textColor` `highlight` `highlightColor` `fontSize` `fontFamily` `subscript` `superscript` `clearFormat`。颜色是 12 格色板加一行「其他颜色」（原生取色器）与「无」，字号是 10 档加「默认」，字体是 7 项加「默认」；色板与字号/字体是内置默认值，暂不可配置——想换成自己的品牌色，眼下可以关掉这两项、用 `toolbar.items` 自己摆入口。
+
+原生取色器只监听 `change` 而不是 `input`：`input` 在拖动取色器的过程中每移动一像素就发一次，每次都是一条进撤销历史的事务，用户按一次撤销只能退一格，得按上百次才回得到起点。
 
 ### Markdown 配置
 

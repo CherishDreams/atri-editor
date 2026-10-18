@@ -43,6 +43,12 @@ describe('ToolbarManager', () => {
       'code',
       // 链接也是一段文字上的标记，跟在行内格式后面
       'insertLink',
+      // 颜色与字号字体一组：都是"这段文字长什么样"，除 highlight 外都带浮层
+      'textColor',
+      'highlight',
+      'highlightColor',
+      'fontSize',
+      'fontFamily',
       'bulletList',
       'orderedList',
       // 任务列表与无序 / 有序同族，跟它们一组
@@ -57,11 +63,15 @@ describe('ToolbarManager', () => {
       // 分割线与插入表格同组：都是往正文里插一块的动作
       'horizontalRule',
       'insertTable',
+      // 上下标与清除格式：作用在选区已有的格式上，而不是加一种新格式
+      'subscript',
+      'superscript',
+      'clearFormat',
       // 媒体扩展默认注册，末组是插入图片与附件；「附件样式」改由选中附件时的浮动工具栏承接
       'insertImage',
       'insertAttachment',
     ]);
-    expect(separators).toBe(6);
+    expect(separators).toBe(8);
   });
 
   it('attachmentDisplay 不再常驻，但可显式写回 items 恢复', async () => {
