@@ -139,6 +139,13 @@ export interface AtriEditorOptions {
    * 也不会再变成带样式的文字。导出行为见 `markdown.inlineStyles`。
    */
   formatting?: boolean;
+  /**
+   * 内置代码块开关，默认开。`false` 时不注册 StarterKit 的 CodeBlock，
+   * `codeBlock` 这个节点名让给你自己（或 @atri-editor/code-highlight）的实现。
+   * 需要关掉而不是"传个同名的顶掉"：节点确实后者赢，但两个同名实现并存时
+   * lowlight 的装饰插件不工作，且不报错
+   */
+  codeBlock?: false;
   /** 创建完成回调 */
   onCreate?: (editor: IAtriEditor) => void;
   /** 内容变更回调 */

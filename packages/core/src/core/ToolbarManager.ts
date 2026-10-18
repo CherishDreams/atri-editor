@@ -893,14 +893,19 @@ export class ToolbarManager {
       isDisabled: (editor) => !editor.can().toggleBlockquote(),
     });
 
-    // 代码块
-    items.set('codeBlock', {
-      id: 'codeBlock',
-      icon: icons.codeBlock,
-      command: (editor) => editor.chain().toggleCodeBlock().run(),
-      isActive: (editor) => editor.isActive('codeBlock'),
-      isDisabled: (editor) => !editor.can().toggleCodeBlock(),
-    });
+    // 代码块。节点不在就不注册这一项：codeBlock:false 且接入方没给替代实现时，
+    // toggleCodeBlock 这个命令根本不存在，而 isDisabled 会在每次状态刷新里调它——
+    // 不注册的话编辑器直接抛（实测 editor.can(...).toggleCodeBlock is not a function，
+    // 每次事务都抛一遍）。与表格、媒体同一套做法：能力不在，项就不在
+    if (this.editor.schema.nodes.codeBlock) {
+      items.set('codeBlock', {
+        id: 'codeBlock',
+        icon: icons.codeBlock,
+        command: (editor) => editor.chain().toggleCodeBlock().run(),
+        isActive: (editor) => editor.isActive('codeBlock'),
+        isDisabled: (editor) => !editor.can().toggleCodeBlock(),
+      });
+    }
 
     // 分割线：插入型操作，没有"激活"态可言
     items.set('horizontalRule', {

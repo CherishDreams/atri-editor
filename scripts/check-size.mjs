@@ -29,6 +29,14 @@ const BUDGETS = {
     jsGzip: 32 * 1024,
     cssGzip: 6 * 1024,
   },
+  // 实测 500 B / 309 B gzip。给到 4 KB 已经够放好几个 token 主题之外的胶水代码，
+  // 而它的意义主要是"语法库不许进来"：lowlight / highlight.js 一旦被内联，
+  // 这个数会当场涨几十倍，预算就是为了让那种事变成红 CI 而不是悄悄发生
+  'code-highlight': {
+    jsMinified: 8_000,
+    jsGzip: 4 * 1024,
+    cssGzip: 4 * 1024,
+  },
 };
 
 function listPublishablePackages() {
@@ -42,6 +50,17 @@ function listPublishablePackages() {
       if (!fs.existsSync(manifest)) return false;
       return JSON.parse(fs.readFileSync(manifest, 'utf-8')).private !== true;
     });
+}
+
+/** dist 下的样式产物（各包名字不同） */
+function listCssArtifacts(pkgDir) {
+  const distDir = path.join(pkgDir, 'dist');
+  if (!fs.existsSync(distDir)) return [];
+  return fs
+    .readdirSync(distDir)
+    .filter((file) => file.endsWith('.css'))
+    .sort()
+    .map((file) => path.join('dist', file));
 }
 
 /** 与 vite.config.ts:7-29 同一条规则，改动必须两处同改 */
@@ -139,13 +158,18 @@ async function main() {
     console.log(formatRow('index.js gzip', js.gzip, budget?.jsGzip));
     console.log(formatRow('index.js brotli', js.brotli));
 
-    const cssFile = path.join(pkgDir, 'dist/style.css');
-    if (fs.existsSync(cssFile)) {
-      const css = fs.readFileSync(cssFile);
-      console.log(
-        formatRow('style.css gzip', zlib.gzipSync(css, { level: 9 }).length, budget?.cssGzip)
-      );
-      console.log(formatRow('style.css raw', css.length));
+    // 逐个量 dist 下的 css：core 叫 style.css、code-highlight 叫 theme.css，
+    // 写死一个文件名会让另一个包的 cssGzip 预算永远不参与测量（预算写了却从不检查，
+    // 比不写更容易骗人）
+    let cssGzipTotal = 0;
+    for (const file of listCssArtifacts(pkgDir)) {
+      const css = fs.readFileSync(path.join(pkgDir, file));
+      const gzipped = zlib.gzipSync(css, { level: 9 }).length;
+      cssGzipTotal += gzipped;
+      console.log(formatRow(path.basename(file) + ' gzip', gzipped));
+    }
+    if (cssGzipTotal > 0) {
+      console.log(formatRow('css gzip 合计', cssGzipTotal, budget?.cssGzip));
     }
 
     if (!budget) {
@@ -159,6 +183,9 @@ async function main() {
     }
     if (js.gzip > budget.jsGzip) {
       failures.push(`packages/${dir} index.js gzip ${js.gzip} > ${budget.jsGzip}`);
+    }
+    if (budget?.cssGzip !== undefined && cssGzipTotal > budget.cssGzip) {
+      failures.push(`packages/${dir} css gzip ${cssGzipTotal} > ${budget.cssGzip}`);
     }
     if (wantWhy) await printTopModules(pkgDir, external);
   }

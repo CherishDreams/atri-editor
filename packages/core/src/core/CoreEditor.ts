@@ -45,6 +45,11 @@ export interface CoreEditorConfig {
   /** 基础格式（颜色 / 字号 / 字体 / 高亮 / 上下标）开关，默认开 */
   formatting?: boolean;
   /**
+   * 内置代码块开关，默认开。
+   * false 时不注册 StarterKit 的 CodeBlock，节点名让给接入方自己的实现
+   */
+  codeBlock?: boolean;
+  /**
    * 复用外部的上传运行时
    * AtriEditor 重建编辑器时会把同一个实例传进来，进行中的上传才不会丢
    */
@@ -96,6 +101,13 @@ export class CoreEditor {
             target: this.config.link?.target ?? LINK_HTML_ATTRIBUTES.target,
           },
         },
+        // 关掉内置代码块，让接入方（通常就是 @atri-editor/code-highlight）的实现独占这个节点名。
+        // 为什么提供一个开关而不是让宿主直接传同名扩展顶掉：实测同名确实赢（后注册的赢，
+        // 节点与标记都是），所以不关也能工作——但 tiptap 会打一句
+        // "Duplicate extension names found: ['codeBlock']" 的 warning，而且这件事靠的是
+        // ExtensionManager 的去重顺序这个内部行为，不是对外承诺。
+        // 多一个包就多一处"看起来正常但踩在实现细节上"的配置，不如把意图写成显式的一档
+        codeBlock: this.config.codeBlock === false ? false : undefined,
       }),
     ];
 

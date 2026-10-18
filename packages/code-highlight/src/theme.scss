@@ -1,0 +1,69 @@
+// @atri-editor/code-highlight 的最小 token 主题
+//
+// 为什么要在包里带一份：lowlight 只产出 <span class="hljs-keyword"> 这类标记，
+// 一个颜色都不给。不带主题的话"装上高亮"在屏幕上看不出任何差别——
+// 功能存在但不可见，比没有功能更容易让人误会。
+// 这份只覆盖常用 token、跟着 core 的主题变量走，想要完整配色请换 highlight.js 官方主题。
+//
+// 作用域限定在 .atri-editor 内：宿主页面常常自己已经有一份 hljs 主题（文档站、
+// 代码预览组件），全局选择器会跟它抢。
+
+.atri-editor {
+  pre code.hljs {
+    display: block;
+    padding: 10px 12px;
+    overflow-x: auto;
+    color: var(--atri-text-color);
+  }
+
+  .hljs-keyword,
+  .hljs-selector-tag,
+  .hljs-built_in,
+  .hljs-doctag,
+  .hljs-section,
+  .hljs-name,
+  .hljs-strong {
+    color: var(--atri-color-primary);
+  }
+
+  .hljs-string,
+  .hljs-regexp,
+  .hljs-addition,
+  .hljs-attribute,
+  .hljs-meta .hljs-string {
+    color: var(--atri-color-success);
+  }
+
+  .hljs-number,
+  .hljs-literal,
+  .hljs-variable,
+  .hljs-template-variable,
+  .hljs-type,
+  .hljs-class .hljs-title {
+    color: var(--atri-color-warning);
+  }
+
+  .hljs-comment,
+  .hljs-quote {
+    color: var(--atri-text-color-secondary);
+    font-style: italic;
+  }
+
+  .hljs-title,
+  .hljs-attr,
+  .hljs-selector-id,
+  .hljs-selector-class,
+  .hljs-params {
+    color: var(--atri-text-color);
+    font-weight: 600;
+  }
+
+  .hljs-deletion,
+  .hljs-emphasis {
+    color: var(--atri-color-error);
+  }
+
+  .hljs-emphasis {
+    font-style: italic;
+  }
+}

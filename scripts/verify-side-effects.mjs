@@ -94,14 +94,22 @@ async function bundleBareImport(pkgDir) {
 }
 
 async function verifyPackage(pkgDir) {
+  const manifest = JSON.parse(
+    readFileSync(path.join(repoRoot, 'packages', pkgDir, 'package.json'), 'utf-8')
+  );
   const expected = registrationsInSource(pkgDir);
   const { bytes, defines } = await bundleBareImport(pkgDir);
 
-  if (bytes === 0) {
+  // 入口是否被声明为有副作用
+  const sideful =
+    manifest.sideEffects === true ||
+    (Array.isArray(manifest.sideEffects) && manifest.sideEffects.includes('dist/index.js'));
+
+  if (bytes === 0 && sideful) {
     throw new Error(
-      `Bare-importing the "${pkgDir}" entry produced an empty bundle. Its package.json ` +
-        'most likely declares the JS entry as side-effect-free while the entry itself ' +
-        'is all the package exports.'
+      `Bare-importing the "${pkgDir}" entry produced an empty bundle even though its ` +
+        'package.json declares the JS entry as having side effects. The entry registers things ' +
+        'at module top level, so a bundler is entitled to drop the whole module.'
     );
   }
 
@@ -114,15 +122,19 @@ async function verifyPackage(pkgDir) {
     );
   }
 
-  return { bytes, defines, expected };
+  return { bytes, defines, expected, sideful };
 }
 
 async function main() {
   const lines = [];
   for (const pkgDir of listPublishablePackages()) {
-    const { bytes, defines, expected } = await verifyPackage(pkgDir);
+    const { bytes, defines, expected, sideful } = await verifyPackage(pkgDir);
+    // 空产物只在 sideful 时才算问题：sideEffects:false 的纯函数包裸导入打成 0 字节，
+    // 正是诚实声明该有的回报（宿主不用就一个字节都不背）。统一要求非等号于
+    // 惩罚声明得最准的那个包
     lines.push(
-      `packages/${pkgDir}: bare import bundles ${bytes} bytes with ${defines}/${expected} registration(s)`
+      `packages/${pkgDir}: bare import -> ${bytes} bytes, ${defines}/${expected} registration(s), ` +
+        `sideEffects: ${sideful ? 'entry declared sideful' : 'declared side-effect-free'}`
     );
   }
   console.log(`sideEffects OK:\n  ${lines.join('\n  ')}`);
