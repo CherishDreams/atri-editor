@@ -31,10 +31,20 @@ import { dirname, join, resolve } from 'node:path';
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const registryUrl = 'https://registry.npmjs.org/';
 
-/** packages/ 下所有非 private 的包，按目录名排序保证顺序可复现 */
+/**
+ * packages/ 下所有非 private 的包，按依赖拓扑排序：被依赖的一方先发布。
+ *
+ * 不能按目录名排。两个理由叠在一起，第二个是致命的：
+ * 1. code-highlight 的 peer 指向 core，core 的新版本还不在 registry 上就先发它，
+ *    装出来那一刻就是一个引用着不存在版本的包；
+ * 2. 更要紧的是下面主循环是"一失败就停"（为了不留下半发布状态）。字母序下
+ *    code-highlight 排在 core 前面，而新包名的 npm Trusted Publishing 要先在 org 里登记
+ *    才能发——没登记就是第一个失败，于是主包永远发不出去。
+ *    一个可选扩展包的配置缺失，不该有能力挡住核心包的发布。
+ */
 function listPublishable() {
   const packagesDir = join(repoRoot, 'packages');
-  return readdirSync(packagesDir, { withFileTypes: true })
+  const found = readdirSync(packagesDir, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
     .map((entry) => entry.name)
     .sort()
@@ -43,9 +53,36 @@ function listPublishable() {
       if (!existsSync(manifest)) return null;
       const pkg = JSON.parse(readFileSync(manifest, 'utf8'));
       if (pkg.private === true) return null;
-      return { dir, name: pkg.name, version: pkg.version };
+      return {
+        dir,
+        name: pkg.name,
+        version: pkg.version,
+        // peer 也要算边：code-highlight 对 core 的依赖就写在 peerDependencies 里，
+        // 只读 dependencies 的话这条边不存在，上面的拓扑排序会静默退化成字母序
+        deps: { ...(pkg.dependencies ?? {}), ...(pkg.peerDependencies ?? {}) },
+      };
     })
     .filter((entry) => entry !== null);
+
+  const publishableNames = new Set(found.map((entry) => entry.name));
+  const placed = new Set();
+  const ordered = [];
+
+  // 只在"本仓库内部的依赖"这条边上排序，外部依赖不参与；有环就退到字母序，
+  // 不让一个意外循环把发布卡死
+  function visit(entry) {
+    if (placed.has(entry.name)) return;
+    placed.add(entry.name);
+    for (const depName of Object.keys(entry.deps)) {
+      if (depName === entry.name || !publishableNames.has(depName)) continue;
+      const dep = found.find((candidate) => candidate.name === depName);
+      if (dep) visit(dep);
+    }
+    ordered.push(entry);
+  }
+
+  found.forEach(visit);
+  return ordered;
 }
 
 /**
