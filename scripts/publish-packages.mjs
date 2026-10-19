@@ -26,7 +26,7 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join, relative, resolve } from 'node:path';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const registryUrl = 'https://registry.npmjs.org/';
@@ -54,7 +54,12 @@ function listPublishable() {
       const pkg = JSON.parse(readFileSync(manifest, 'utf8'));
       if (pkg.private === true) return null;
       return {
-        dir,
+        // relDir 从我们真正读过的那个 manifest 路径倒推，不拿 dir 再拼一次。
+        // 上一版就是这么错的：dir 只是 packages/ 下的目录名，别处都拼绝对路径所以没事，
+        // 唯独 npm publish ./<dir> 少了 packages/ 前缀，CI 里报
+        // ENOENT .../atri-editor/core/package.json。这个分支本地从来走不到，
+        // 所以只有真发布才会暴露
+        relDir: relative(repoRoot, dirname(manifest)),
         name: pkg.name,
         version: pkg.version,
         // peer 也要算边：code-highlight 对 core 的依赖就写在 peerDependencies 里，
@@ -146,7 +151,14 @@ if (isDirectRun) {
     process.exit(0);
   }
 
-  for (const { dir, name, version } of publishable) {
+  for (const { relDir, name, version } of publishable) {
+    // 发布前再确认一次这个路径上真有 manifest：这一行的意义不是防重复，
+    // 而是让"路径拼错"在最开始就报成一句人话，而不是 npm 的 ENOENT 堆栈
+    if (!existsSync(join(repoRoot, relDir, 'package.json'))) {
+      console.error(`[publish] ${name}: no package.json at ./${relDir} — refusing to publish.`);
+      process.exit(1);
+    }
+
     if (await isPublished(name, version)) {
       console.log(`[publish] ${name}@${version} is already on the registry — skipping.`);
       continue;
@@ -155,7 +167,7 @@ if (isDirectRun) {
     console.log(`[publish] ${name}@${version} not published yet — running npm publish…`);
     const code = run('npm', [
       'publish',
-      `./${dir}`,
+      `./${relDir}`,
       '--provenance',
       '--access',
       'public',
