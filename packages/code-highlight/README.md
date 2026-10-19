@@ -1,39 +1,55 @@
 # @atri-editor/code-highlight
 
-给 [`@atri-editor/core`](../core) 的代码块加语法高亮。**语法库由你自己带**。
+为 [`@atri-editor/core`](https://www.npmjs.com/package/@atri-editor/core) 的代码块提供语法高亮，基于 [lowlight](https://github.com/wooorm/lowlight) / [highlight.js](https://highlightjs.org/)。需要高亮的语言由调用方注册。
 
-## 为什么单独成一个包
+## 安装
 
-高亮的实际成本是 highlight.js：整包未压缩约 5.5 MB。lowlight 提供
-`createLowlight(grammars)`，让你只注册这一页真正用到的语言。所以这份开销该由宿主按页面决定，
-而不是让每个装了 `@atri-editor/core` 的人都背一份 `common` 甚至 `all`。
+```bash
+npm install @atri-editor/core @atri-editor/code-highlight lowlight @tiptap/extension-code-block-lowlight
+```
 
-本包产物 **500 B**（minified）。语法库一个字节都不进来，有 CI 的体积预算守着这条线。
+`lowlight` 与 `@tiptap/extension-code-block-lowlight` 是 peer 依赖，需一并安装。
 
-## 用法
+## 使用
 
 ```ts
 import { AtriEditor } from '@atri-editor/core';
 import '@atri-editor/core/styles';
-import { createLowlight, common } from 'lowlight';
 import { withCodeHighlight } from '@atri-editor/code-highlight';
 import '@atri-editor/code-highlight/theme';
-
-const lowlight = createLowlight(common); // 约 35 个常用语言
+import { createLowlight, common } from 'lowlight';
 
 const editor = new AtriEditor({
   element: '#editor',
-  ...withCodeHighlight({ lowlight }),
+  ...withCodeHighlight({ lowlight: createLowlight(common) }),
 });
 ```
 
-`withCodeHighlight` 一次给出两样东西：`codeBlock: false`（关掉 core 内置的那个代码块）
-和 `extensions: [CodeBlockLowlight…]`。**请用它而不是只传 `extensions`**——
-只传扩展会让两个实现都叫 `codeBlock` 并存，虽然实测仍然能工作（后注册的赢），
-但那是踩在 Tiptap `ExtensionManager` 的去重顺序这个内部行为上，
-而且每建一次编辑器都喊一嗓子 `Duplicate extension names found: ['codeBlock']`。
+`withCodeHighlight()` 返回 `{ codeBlock: false, extensions }`，按上面的方式展开进编辑器配置即可。
 
-只要个别语言时自己建实例，体积可以压到几 KB：
+## API
+
+### `withCodeHighlight(config)`
+
+返回 `{ codeBlock: false, extensions }`。
+
+建议优先使用它而不是只传 `createCodeHighlightExtensions()` 的结果：只传扩展时 core 内置的 `CodeBlock` 仍然在册，两份同名实现并存会触发 Tiptap 的 `Duplicate extension names found: ['codeBlock']` 告警。
+
+### `createCodeHighlightExtensions(config)`
+
+只返回扩展，不关闭 core 内置的代码块。
+
+#### config
+
+| 选项                  | 类型             | 默认值        | 说明                            |
+| --------------------- | ---------------- | ------------- | ------------------------------- |
+| `lowlight`            | `Lowlight`       | —             | 必填，`createLowlight()` 的实例 |
+| `defaultLanguage`     | `string \| null` | `null`        | 代码块未标注语言时采用的语言    |
+| `languageClassPrefix` | `string`         | `'language-'` | 写在 `<code>` 上的类名前缀      |
+
+## 语言
+
+`createLowlight(common)` 注册约 35 种常用语言。只需要少数几种时按需引入：
 
 ```ts
 import { createLowlight } from 'lowlight';
@@ -43,41 +59,20 @@ import bash from 'highlight.js/lib/languages/bash';
 const lowlight = createLowlight({ javascript, bash });
 ```
 
-## 两件必须知道的事
+`createLowlight()` 不带参数则不注册任何语言，可稍后调用 `lowlight.register()` 追加。
 
-**1. 高亮不会出现在 `getHTML()` 里。**
+## 主题
 
-lowlight 的分词是 ProseMirror 的 **decoration**，只存在于编辑器的视图 DOM；
-而 `getHTML()` 走 schema 的 `renderHTML` 序列化，永远看不到 decoration。
-所以保存下来的 HTML、以及服务端渲染出来的片段，都不带着色——着色只在浏览器里、
-只在编辑期的那个 `contenteditable` 内发生。
+`@atri-editor/code-highlight/theme` 是一份覆盖常见 `hljs-*` token 的样式表：取值来自 core 的 CSS 变量，因此跟随编辑器亮/暗主题；作用域限定在 `.atri-editor` 内，不会与页面已有的 hljs 主题冲突。也可以用任意 highlight.js 官方主题替代。
 
-要导出带高亮的 HTML，得在渲染端自己再跑一遍 highlight（或者接受导出版本没有颜色）。
-同理，这一条也意味着高亮与 `@atri-editor/core` 的 SSR 安全性不冲突：服务端不渲染 decoration，
-也就不会因此报错。
+本包只输出 `hljs-*` 类名、不输出颜色，因此不引入样式表时页面上看不到高亮效果。
 
-**2. 得带一份主题 CSS，否则屏幕上看不出任何变化。**
+## 注意
 
-lowlight 只产出 `<span class="hljs-keyword">` 这类标记，一个颜色都不给。本包附了一份
-最小主题（`import '@atri-editor/code-highlight/theme'`），只覆盖常用 token、颜色跟着
-core 的主题变量走，因此暗色主题自动适配；它的作用域限定在 `.atri-editor` 内，
-不会和宿主页面自己已有的 hljs 主题抢。想要完整配色就换 highlight.js 官方主题，
-不用本包那份即可。
+- 高亮只存在于编辑器视图 DOM。它通过 ProseMirror decoration 实现，因此 `editor.getHTML()` 与服务端渲染得到的是不含 token span 的 `<pre><code class="language-…">`。
+- 不影响 Markdown 往返：围栏语法与 `language` 属性双向保留。
+- 单独设置 `codeBlock: false` 而不提供实现时，代码块节点将不存在，对应的工具栏项也不会注册。
 
-## 与其它能力的关系
+## License
 
-- **Markdown 往返不受影响。** `CodeBlockLowlight` 是 `CodeBlock.extend(...)` 出来的，
-  自己不定义任何 markdown 字段，因此继承围栏语法与 `language` 属性的双向钩子。
-  换它上来不会动 `.md` 的往返能力，` ```javascript ` 照原样回来。
-- **`codeBlock: false` 且没有替代实现时**，代码块节点不存在，工具栏的「代码块」项
-  随之不注册（与 `table: false` / `media: false` 同一套做法），而不是摆一个按不动的灰按钮。
-- 顶栏按钮、Markdown 输入规则、`editor.isActive('codeBlock')` 全部照常。
-
-## 依赖
-
-`lowlight` 与 `@tiptap/extension-code-block-lowlight` 都是 **peer** 依赖，要自己装。
-
-关于第二个 peer 有一句实话：本仓库的 demo 里只装了 `lowlight`，跑起来没问题——但那是因为
-它在 monorepo 里本来就躺在 workspace 的 store 中（是 `packages/code-highlight` 自己的
-devDependency），**这个实验证明不了外部消费者的处境**。两个 peer 都显式装上，别依赖提升
-带来的运气。
+MIT
