@@ -59,7 +59,7 @@ function listPublishable() {
         version: pkg.version,
         // peer 也要算边：code-highlight 对 core 的依赖就写在 peerDependencies 里，
         // 只读 dependencies 的话这条边不存在，上面的拓扑排序会静默退化成字母序
-        deps: { ...(pkg.dependencies ?? {}), ...(pkg.peerDependencies ?? {}) },
+        deps: { ...pkg.dependencies, ...pkg.peerDependencies },
       };
     })
     .filter((entry) => entry !== null);
