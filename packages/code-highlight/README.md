@@ -76,5 +76,8 @@ core 的主题变量走，因此暗色主题自动适配；它的作用域限定
 ## 依赖
 
 `lowlight` 与 `@tiptap/extension-code-block-lowlight` 都是 **peer** 依赖，要自己装。
-用 pnpm 的宿主请把 `lowlight` 装在你自己的 `dependencies` 里（不要指望它从
-`@tiptap/extension-code-block-lowlight` 的 peer 链上被提升到可解析位置）。
+
+关于第二个 peer 有一句实话：本仓库的 demo 里只装了 `lowlight`，跑起来没问题——但那是因为
+它在 monorepo 里本来就躺在 workspace 的 store 中（是 `packages/code-highlight` 自己的
+devDependency），**这个实验证明不了外部消费者的处境**。两个 peer 都显式装上，别依赖提升
+带来的运气。

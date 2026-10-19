@@ -7,7 +7,9 @@
     "dev": "vite"
   },
   "dependencies": {
-    "@atri-editor/core": "workspace:*"
+    "@atri-editor/code-highlight": "workspace:*",
+    "@atri-editor/core": "workspace:*",
+    "lowlight": "^3.3.0"
   },
   "devDependencies": {
     "vite": "^5.4.0"

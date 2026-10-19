@@ -183,11 +183,34 @@
         <h3>输出:</h3>
         <pre id="output-content"></pre>
       </div>
+      <div class="media-demo">
+        <h3>基础格式与代码高亮</h3>
+        <p class="hint">
+          颜色 / 字号 /
+          字体在顶栏那排（带浮层的是选择面板，不是按钮）；上下标与「清除格式」也在顶栏。 代码块由
+          @atri-editor/code-highlight 着色——注意高亮只存在于编辑器视图里， 「获取
+          HTML」拿到的产物不带着色标记。
+        </p>
+        <div class="controls">
+          <button id="btn-fmtColor">给选中文字上蓝</button>
+          <button id="btn-fmtHighlight">给选中文字加高亮</button>
+          <button id="btn-fmtSize">选中文字设 24px</button>
+          <button id="btn-fmtFamily">选中文字换等宽字体</button>
+          <button id="btn-fmtSub">下标</button>
+          <button id="btn-fmtSup">上标</button>
+          <button id="btn-fmtClear">清除格式</button>
+          <button id="btn-fmtCode">插入一段 javascript 代码块</button>
+          <button id="btn-fmtRoundTrip">导出 Markdown 再载回（验幂等）</button>
+        </div>
+      </div>
     </div>
 
     <script type="module">
       import { AtriEditor } from '@atri-editor/core';
       import '@atri-editor/core/styles';
+      import { withCodeHighlight } from '@atri-editor/code-highlight';
+      import '@atri-editor/code-highlight/theme';
+      import { createLowlight, common } from 'lowlight';
 
       // 全局错误捕获
       window.addEventListener('error', (e) => {
@@ -317,8 +340,15 @@
       }
 
       // 编辑器配置：toolbar.bubble 只在创建时生效，改它得走下面的「重建编辑器」
+      // 语法库由这一页决定要哪些语言：createLowlight(common) 约 35 个语言，
+      // 换成 createLowlight({ javascript }) 就只背 javascript 一份
+      const lowlight = createLowlight(common);
+
       const editorOptions = {
         element: '#editor',
+        // 一次给全：关内置 codeBlock + 换上 lowlight 版。只传 extensions 会留下
+        // 两个同名实现并存，虽然实测也能工作，但每建一次编辑器都要喊一句重名 warning
+        ...withCodeHighlight({ lowlight }),
         placeholder: '开始输入内容...',
         theme: 'light',
         content:
@@ -644,6 +674,47 @@
           )
         );
       }
+
+      // ---- 基础格式与代码高亮 ----
+      function fmt(command) {
+        const ed = window.editor && window.editor.editor;
+        if (!ed) return console.warn('编辑器还没建好');
+        command(ed.chain().focus());
+      }
+
+      document.getElementById('btn-fmtColor').onclick = () =>
+        fmt((c) => c.setColor('#1890ff').run());
+      document.getElementById('btn-fmtHighlight').onclick = () =>
+        fmt((c) => c.setHighlight({ color: 'rgb(255, 241, 184)' }).run());
+      document.getElementById('btn-fmtSize').onclick = () =>
+        fmt((c) => c.setFontSize('24px').run());
+      document.getElementById('btn-fmtFamily').onclick = () =>
+        fmt((c) => c.setFontFamily('"SFMono-Regular", Consolas, Menlo, monospace').run());
+      document.getElementById('btn-fmtSub').onclick = () => fmt((c) => c.toggleSubscript().run());
+      document.getElementById('btn-fmtSup').onclick = () => fmt((c) => c.toggleSuperscript().run());
+      document.getElementById('btn-fmtClear').onclick = () =>
+        fmt((c) => c.unsetAllMarks().clearNodes().run());
+      document.getElementById('btn-fmtCode').onclick = () =>
+        fmt((c) =>
+          c
+            .insertContent(
+              '<pre><code class="language-javascript">function greet(name) {\n  return `hi ${name}`;\n}\n</code></pre>'
+            )
+            .run()
+        );
+
+      // 幂等是这轮功能的验收线：导出→载回→再导出，两份必须逐字节相同
+      document.getElementById('btn-fmtRoundTrip').onclick = () => {
+        const editor = window.editor;
+        const first = editor.getMarkdown();
+        editor.setMarkdown(first);
+        const second = editor.getMarkdown();
+        showOutput(
+          first === second
+            ? '幂等 ✓ 两轮导出逐字节相同\n\n' + first
+            : '幂等 ✗ 第二轮变了\n\n--- 第一次 ---\n' + first + '\n\n--- 第二次 ---\n' + second
+        );
+      };
     </script>
   </body>
 </html>

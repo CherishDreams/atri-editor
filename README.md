@@ -236,13 +236,17 @@ atri-editor/
 │       │   └── index.ts         # 主入口
 │       ├── tests/               # 回归测试（vitest + jsdom）
 │       └── dist/                # 构建输出
+│   └── code-highlight/          # 可选包：代码块语法高亮（语法库由宿主带）
 ├── demos/
 │   ├── vanilla/                 # 原生 JS 示例
 │   ├── vue/                     # Vue 3 示例（元素 + 类两种用法）
 │   └── react/                   # React 19 示例（同上，StrictMode 开启）
 └── .github/
-    └── workflows/               # CI：build → check → test
+    └── workflows/               # CI：build → size 预算 → check → test
 ```
+
+包边界按"主包只依赖自身零运行时依赖的上游扩展"划分——语法高亮要拉 highlight.js，
+所以它在 `@atri-editor/code-highlight` 里，主包产物不背这个债（两个包的体积都有 CI 预算守着）。
 
 ## API 参考
 
