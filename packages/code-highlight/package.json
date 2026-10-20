@@ -2,10 +2,20 @@
   "name": "@atri-editor/code-highlight",
   "version": "0.1.0",
   "description": "Syntax highlighting for Atri Editor code blocks — brings your own lowlight instance",
+  "keywords": [
+    "code-block",
+    "editor",
+    "highlight.js",
+    "lowlight",
+    "rich-text",
+    "syntax-highlighting",
+    "tiptap"
+  ],
   "homepage": "https://github.com/CherishDreams/atri-editor/tree/main/packages/code-highlight#readme",
   "bugs": {
     "url": "https://github.com/CherishDreams/atri-editor/issues"
   },
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/CherishDreams/atri-editor.git"

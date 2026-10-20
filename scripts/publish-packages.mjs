@@ -23,10 +23,11 @@
  * npm publish 子进程继承环境自行处理。注意 Trusted Publishing 是按包名授权的，
  * 全新的包名第一次发必须先在 npm org 里登记，否则只会拿到 401/403。
  */
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, relative, resolve } from 'node:path';
+import { tmpdir } from 'node:os';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const registryUrl = 'https://registry.npmjs.org/';
@@ -114,10 +115,75 @@ async function isPublished(name, version) {
   }
 }
 
-function run(cmd, args) {
-  const result = spawnSync(cmd, args, { cwd: repoRoot, stdio: 'inherit', shell: false });
+function run(cmd, args, cwd = repoRoot) {
+  const result = spawnSync(cmd, args, { cwd, stdio: 'inherit', shell: false });
   if (result.error) throw result.error;
   return result.status ?? 1;
+}
+
+/**
+ * 产出发布用的目录：交给 `pnpm pack`，解包后取 package/。
+ *
+ * 为什么 npm 不直接 publish 仓库里那个目录：仓库写的是 pnpm 的 `workspace:` 协议
+ * （code-highlight 的 peer 就是 `"@atri-editor/core": "workspace:^"`），而 npm 既不认
+ * 这个协议也不改写它。0.1.0 就是这么原样上了 registry，结果任何外部
+ * `npm install @atri-editor/code-highlight` 在解析 peer range 时就
+ * `EUNSUPPORTEDPROTOCOL` 失败——包发出去了，谁也没装得上。
+ *
+ * 为什么不在仓库里直接写 `^0.4.0`：changesets 的 apply-release-plan 不动
+ * peerDependencies（实测 8.1.0 全文无一处），写死的范围不会跟着 core 一起升，
+ * core 到 0.5.0 之后 `^0.4.0` 正好把它排除在外，变成一条看起来完全合法的 ERESOLVE 冲突。
+ *
+ * 打包仍由 npm publish 对目录做，而不是 publish pnpm 产出的 tarball：provenance 是 npm
+ * 在自己打包那一刻算的，沿用 core@0.4.0 已经跑通的那条路径，不改供应链证明的来源。
+ */
+function preparePublishDir(relDir) {
+  const workDir = mkdtempSync(join(tmpdir(), 'atri-publish-'));
+  try {
+    if (run('pnpm', ['pack', '--pack-destination', workDir], join(repoRoot, relDir)) !== 0) {
+      throw new Error('pnpm pack failed');
+    }
+    const tarball = readdirSync(workDir).find((file) => file.endsWith('.tgz'));
+    if (!tarball) throw new Error('pnpm pack produced no tarball');
+    if (run('tar', ['-xzf', join(workDir, tarball), '-C', workDir]) !== 0) {
+      throw new Error('unpacking the pnpm tarball failed');
+    }
+    const pkgDir = join(workDir, 'package');
+    if (!existsSync(join(pkgDir, 'package.json'))) throw new Error('no package.json in tarball');
+    return { workDir, pkgDir };
+  } catch (error) {
+    rmSync(workDir, { recursive: true, force: true });
+    throw error;
+  }
+}
+
+/**
+ * 发布前的最后一道闸：产物 manifest 里不该再有 workspace: 协议，也不该没有 license。
+ *
+ * 这两条都不是假设——前者是 0.1.0 已经踩过的坑，后者让 npm 页面把协议显示成 none。
+ * 拦在这里是因为两种失败都要到 registry 上才发现，而 registry 上的版本改不了也删不回来。
+ */
+function assertPublishable(manifest, name) {
+  const specs = {
+    ...manifest.dependencies,
+    ...manifest.peerDependencies,
+    ...manifest.devDependencies,
+  };
+  const leaked = Object.entries(specs).filter(([, spec]) => String(spec).startsWith('workspace:'));
+  if (leaked.length > 0) {
+    console.error(
+      `[publish] ${name}: unresolved workspace: protocol in the publish manifest — ` +
+        `npm cannot read these ranges. ${JSON.stringify(Object.fromEntries(leaked))}`
+    );
+    return false;
+  }
+  if (!manifest.license) {
+    console.error(
+      `[publish] ${name}: no "license" field — the registry would list this package as unlicensed.`
+    );
+    return false;
+  }
+  return true;
 }
 
 function tagRelease(name, version) {
@@ -132,6 +198,17 @@ function tagRelease(name, version) {
 }
 
 const publishable = listPublishable();
+
+/**
+ * `--dry-run` 对每个包跑 pack + manifest 校验，不查 registry 判重、不发任何东西。
+ * 这是这条管线唯一的本地验证手段：0.1.0 那个 workspace: 泄漏只有到 registry 上才看得见，
+ * 而 registry 上的版本既改不了也删不回同名。
+ *
+ * （不用 npm publish --dry-run 来做这件事：它照样查 registry 并要求版本不冲突，
+ * 对已发布的版本直接 "You cannot publish over the previously published versions" 退出，
+ * 于是本地一个包都验不了。）
+ */
+const dryRun = process.argv.includes('--dry-run');
 
 /**
  * 只有被直接执行时才真的发布。
@@ -159,27 +236,51 @@ if (isDirectRun) {
       process.exit(1);
     }
 
-    if (await isPublished(name, version)) {
+    if (!dryRun && (await isPublished(name, version))) {
       console.log(`[publish] ${name}@${version} is already on the registry — skipping.`);
       continue;
     }
 
-    console.log(`[publish] ${name}@${version} not published yet — running npm publish…`);
-    const code = run('npm', [
-      'publish',
-      `./${relDir}`,
-      '--provenance',
-      '--access',
-      'public',
-      `--registry=${registryUrl}`,
-    ]);
-    if (code !== 0) {
+    // pnpm pack 换协议 → 校验产物 → npm publish 打包目录。
+    // 校验的是 pack 出来的那份 manifest，不是仓库里那份：出问题的是转换之后的结果。
+    // 这条检查与 pack 本身在 --dry-run 里照跑，因为要验的恰恰是它
+    const { workDir, pkgDir } = preparePublishDir(relDir);
+    let failure = 0;
+    try {
+      const packed = JSON.parse(readFileSync(join(pkgDir, 'package.json'), 'utf8'));
+      if (!assertPublishable(packed, name)) {
+        failure = 1;
+      } else if (dryRun) {
+        console.log(
+          `[publish] ${name}@${version} manifest 可用：license=${packed.license} ` +
+            `peer=${JSON.stringify(packed.peerDependencies)}`
+        );
+      } else {
+        console.log(`[publish] ${name}@${version} — npm publish…`);
+        failure = run('npm', [
+          'publish',
+          pkgDir,
+          '--provenance',
+          '--access',
+          'public',
+          // prepublishOnly 会在一个只有产物的临时目录里再跑一次 build，而那里没有 src
+          '--ignore-scripts',
+          `--registry=${registryUrl}`,
+        ]);
+      }
+    } finally {
+      rmSync(workDir, { recursive: true, force: true });
+    }
+
+    if (failure !== 0) {
       // 不继续往后发：宁可让人来看，也不要留下"一半包发出去了"这种没人预期的中间态
       console.error(
-        `[publish] ${name}@${version} failed (exit ${code}); stopping before later packages.`
+        `[publish] ${name}@${version} failed (exit ${failure}); stopping before later packages.`
       );
-      process.exit(code);
+      process.exit(failure);
     }
+
+    if (dryRun) continue;
 
     tagRelease(name, version);
     console.log(`[publish] ${name}@${version} published.`);
