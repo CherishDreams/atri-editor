@@ -114,7 +114,7 @@ if (editor.hasPendingUploads()) await editor.retryFailedUploads();
 </script>
 ```
 
-`theme` / `editable` / `lang` / `placeholder` 四个属性是响应式的，改了立即生效；`placeholder` 置为空串即移除占位符。初始内容只读一次 `data-content`，运行期改内容请用 `setContent()`。媒体配置不是属性可表达的，用 `setOptions({ media })` 传入；`insertImage()` / `insertAttachment()` / `insertTable()` / `uploadFiles()` / `retryFailedUploads()` / `hasPendingUploads()` 在自定义元素上同名可用。
+`theme` / `editable` / `lang` / `placeholder` 四个属性是响应式的，改了立即生效；`placeholder` 置为空串即移除占位符。初始内容只读一次 `data-content`，运行期改内容请用 `setContent()`。媒体配置不是属性可表达的，用 `setOptions({ media })` 传入；`insertImage()` / `insertAttachment()` / `insertTable()` / `uploadFiles()` / `retryFailedUploads()` / `hasPendingUploads()` 在自定义元素上同名可用；`getMarkdownLosses()` 同名，只是元素尚未初始化时返回 `null` 而不是空数组——「没东西可丢」和「编辑器还没建起来」是两件事。
 
 搬动节点（`appendChild` 重挂、框架 re-parent、虚拟列表滚动）不会丢内容：拆除排在微任务边界上，届时若元素已回到文档就取消。真的卸载后在同一元素上重新挂载，会接回断连前的内容而不是退回 `data-content`；要连这次快照一起放弃、并让后续重挂不再自动重建，调用 `destroy()`（框架的 unmount 钩子里对应它）。
 
@@ -257,6 +257,8 @@ atri-editor/
 | `getHTML()` | 获取 HTML 内容 |
 | `getJSON()` | 获取 JSON 内容 |
 | `getMarkdown()` | 获取 Markdown 内容 |
+| `getMarkdownLosses()` | 这次 `getMarkdown()` 会丢掉什么，见下方丢失报告 |
+| `hasLossyContent()` | 上面那份报告是否非空，保存前当闸门用 |
 | `setContent(content, options?)` | 设置内容；整篇替换后收拢残留选区到文档末尾（防止全选未取消时下一次输入吞掉全文） |
 | `setMarkdown(content)` | 设置 Markdown 内容（同上收拢选区） |
 | `clearContent()` | 清空内容 |
@@ -408,18 +410,37 @@ Markdown 没有"这段字是红的"这种表示法。上游 Tiptap 对这些 mar
 | 标题 1–6 / 列表 / 任务列表 / 引用 / 分割线 | `# …` `- ` `- [x]` `> ` `---` | ✅ | Markdown 原生 |
 | 代码块与语言 | ` ```js … ``` ` | ✅ | 语言属性随围栏信息串往返 |
 | 表格与单元格对齐 | pipe table + `:---` / `---:` | ✅ | 对齐落在单元格的 `align` 属性上 |
+| 合并单元格 / 拖过的列宽 | — | ❌ | **会丢**。pipe table 表达不了跨列跨行与列宽；合并会退化成一格有内容、一格空着 |
 | 图片 / 附件 | `![alt](src)`、`!file[名字](url "大小")` | ✅ | 附件是自定义语法 |
 | 无色高亮 | `==text==` | ✅ | Markdown 社区语法，上游本就支持 |
 | 文字颜色 / 背景色 / 字号 / 字体 | `<span style="…">…</span>` | ✅ | `inlineStyles: 'drop'` 时不输出 |
 | 下标 / 上标 | `<sub>…</sub>` / `<sup>…</sup>` | ✅ | **不采用** `~x~` / `^x^`：marked 把单波浪线当 GFM 删除线，`H~2~O` 会回来成 `<s>2</s>` |
 | 彩色高亮 | `<mark data-color="…">…</mark>` | ✅ | 上游的 `==` 写法从不读颜色属性，multicolor 一开即丢 |
-| 段落 / 标题对齐 | — | ❌ | **会丢**。node 属性没有 Markdown 归宿，`:::div` 那类方案会毁掉 CommonMark 兼容性。此为本包之前既有的行为，非本次引入 |
+| 段落 / 标题对齐 | — | ❌ | **会丢**。node 属性没有 Markdown 归宿，`:::div` 那类方案会毁掉 CommonMark 兼容性。此为本包之前既有的行为，非本次引入；可由 `getMarkdownLosses()` 查出 |
 
 发出与载入都做了**逐字节幂等**保障：`getMarkdown → setMarkdown → getMarkdown` 输出不变。这一点比"能不能带上样式"更要紧——带不上样式只是少个特性，不幂等则是每存一次都再损坏一点。为此内联 HTML 片段必须自己写 tokenizer 重新分词内层内容，否则 `<span>` 里的 `**粗体**` 会回来成字面文本（那条路径走的是 HTML 解析而非 Markdown 解析），而正文里的反斜杠每轮翻倍。
 
 `'drop'` 是给要严格 CommonMark 的下游用的：导出最纯净，代价是这次导出丢内容。两种模式下**导入都照常解析** `<span style>`——关掉一个导出偏好不该连带把导入能力也削掉。
 
 发到 GitHub 一类渲染器时，`<span>` 的 `style` 会被剥掉但标签本身参与渲染，读者看到的是干净纯文本，而不是 `<span style="color:red">` 这样的字面标记。
+
+### 导出丢失报告
+
+丢弃是静默的——`getMarkdown()` 的返回值里看不出少了什么，所以导出之前可以问一遍。
+
+```ts
+const losses = editor.getMarkdownLosses();
+// [{ kind: 'attribute', type: 'paragraph', attribute: 'textAlign', count: 2 }]
+
+if (losses.length && !window.confirm('有内容不会出现在导出的 Markdown 里，仍要保存吗？')) return;
+save(editor.getMarkdown());
+```
+
+`kind` 分三档：`node` 是整个节点连同子树没了；`mark` 是样式没了、正文留下；`attribute` 是类型能渲染但某个属性没人读——属性单列是必要的，`paragraph` 有 renderer，`textAlign` 照样丢。`count` 是这一趟丢了几处，连续区间合并：一个被加粗切成三段的红色短语算一处。
+
+判据是**能力**，不是内容 diff。一个类型有没有 `renderMarkdown` 钩子，正是序列化器自己会做的判断；diff 则会被良性归一化骗到（空段落导出时补成 `&nbsp;`、markdown 转义改写文本字节，任何一条都能凭空报出丢失）。表格的行列单元格自己没钩子而内容不丢——`table` 的 renderer 直接遍历它们拼出 pipe table，不经过"按类型查 handler"那条路——所以它们被豁免，否则每一张表格都会误报。
+
+当前会进报告的：段落 / 标题对齐；合并单元格与拖过的列宽（`tableCell.colspan` / `rowspan` / `colwidth`）；`inlineStyles: 'drop'` 下的 `textStyle` / `subscript` / `superscript`（`kind: 'mark'`）与 `highlight` 的 `color`（`kind: 'attribute'`）；以及第三方注册但没有 markdown 钩子的节点（`kind: 'node'`）。
 
 ### 媒体配置
 

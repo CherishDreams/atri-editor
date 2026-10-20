@@ -9,8 +9,9 @@ import {
 } from '@tiptap/core';
 import { DOMParser as ProseMirrorDOMParser, Node as ProseMirrorNode } from '@tiptap/pm/model';
 import type { MarkdownManager } from '@tiptap/markdown';
-import type { AtriMarkdownConfig } from '../types';
+import type { AtriMarkdownConfig, MarkdownLoss } from '../types';
 import { simpleMarkdownToHtml, simpleHtmlToMarkdown } from '../utils/markdown';
+import { collectMarkdownLosses } from './markdown-losses';
 
 export class MarkdownService {
   private editor: Editor;
@@ -103,6 +104,28 @@ export class MarkdownService {
         },
       ],
     };
+  }
+
+  /**
+   * 这一趟 getMarkdown() 会丢掉什么，判据见 markdown-losses.ts
+   *
+   * Markdown 关闭时返回空数组：那时 getMarkdown() 走的是整篇 HTML 的降级转换，
+   * 不按类型分派，也就没有"哪个类型没有 renderer"可问。
+   */
+  getLosses(): MarkdownLoss[] {
+    if (!this.manager) {
+      return [];
+    }
+    return collectMarkdownLosses(this.editor, {
+      inlineStyles: this.config.inlineStyles ?? 'html',
+    });
+  }
+
+  /**
+   * 有没有内容在导出 Markdown 时会丢，命名对齐 hasPendingUploads()
+   */
+  hasLossyContent(): boolean {
+    return this.getLosses().length > 0;
   }
 
   /**

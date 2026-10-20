@@ -8,6 +8,7 @@ import type {
   InsertAttachmentOptions,
   InsertImageOptions,
   InsertTableOptions,
+  MarkdownLoss,
   MediaKind,
   SetContentOptions,
   AtriAIConfig,
@@ -305,6 +306,24 @@ export class AtriEditor implements IAtriEditor {
    */
   getMarkdown(): string {
     return this.markdownService.getMarkdown();
+  }
+
+  /**
+   * 这一次 getMarkdown() 会丢掉哪些内容
+   *
+   * 序列化器对没钩子的类型是静默丢弃，所以"导出完看不出少了什么"是常态。接入方在保存前
+   * 拿它决定要不要提示用户，配 `markdown.inlineStyles: 'drop'` 时尤其需要——那个开关
+   * 就是把样式导出成最纯粹的 CommonMark，代价是丢内容。
+   */
+  getMarkdownLosses(): MarkdownLoss[] {
+    return this.markdownService.getLosses();
+  }
+
+  /**
+   * 当前内容里有没有导出 Markdown 时会丢的东西
+   */
+  hasLossyContent(): boolean {
+    return this.markdownService.hasLossyContent();
   }
 
   /**

@@ -1,6 +1,6 @@
 import type { Editor, Extensions, JSONContent } from '@tiptap/core';
 import type { AtriAIConfig } from './ai';
-import type { AtriMarkdownConfig } from './markdown';
+import type { AtriMarkdownConfig, MarkdownLoss } from './markdown';
 import type {
   AtriMediaConfig,
   InsertAttachmentOptions,
@@ -171,6 +171,10 @@ export interface IAtriEditor {
   getJSON(): object;
   /** 获取 Markdown 内容 */
   getMarkdown(): string;
+  /** 这一次 getMarkdown() 会丢掉哪些内容 */
+  getMarkdownLosses(): MarkdownLoss[];
+  /** 当前内容里有没有导出 Markdown 时会丢的东西 */
+  hasLossyContent(): boolean;
   /** 设置内容 */
   setContent(content: string | object, options?: SetContentOptions): void;
   /** 设置 Markdown 内容 */

@@ -40,3 +40,23 @@ export interface AtriMarkdownConfig {
    */
   inlineStyles?: 'html' | 'drop';
 }
+
+/** 导出 Markdown 时丢失的类别：整个节点、整个标记，还是类型上一个没被 renderer 读到的属性 */
+export type MarkdownLossKind = 'node' | 'mark' | 'attribute';
+
+/**
+ * 一处会在 `getMarkdown()` 中丢失的内容，由 `AtriEditor.getMarkdownLosses()` 产出
+ *
+ * Tiptap 的序列化器对没有 `renderMarkdown` 钩子的类型是静默丢弃——不抛错、不降级成 HTML、
+ * 不留痕迹，所以光看返回值看不出这一趟少了什么。
+ */
+export interface MarkdownLoss {
+  /** 丢的是节点、标记，还是一个属性 */
+  kind: MarkdownLossKind;
+  /** schema 里的类型名，如 `'paragraph'` */
+  type: string;
+  /** `kind === 'attribute'` 时给出属性名，其余情况省略 */
+  attribute?: string;
+  /** 这一趟导出里会丢几处。标记按连续区间计，一个红色短语不会数出三处 */
+  count: number;
+}

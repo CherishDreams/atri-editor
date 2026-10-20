@@ -7,6 +7,7 @@ import type {
   InsertAttachmentOptions,
   InsertImageOptions,
   InsertTableOptions,
+  MarkdownLoss,
   MediaKind,
 } from './types';
 
@@ -210,6 +211,23 @@ export class AtriEditorElement extends AtriEditorBase {
    */
   getMarkdown(): string {
     return this.editor?.getMarkdown() || '';
+  }
+
+  /**
+   * 这一次 getMarkdown() 会丢掉哪些内容
+   *
+   * 元素还没初始化时是 null 而不是空数组——"没什么可丢"和"还没建起来"是两件事，
+   * 混在一起会让接入方把没就绪当成安全。
+   */
+  getMarkdownLosses(): MarkdownLoss[] | null {
+    return this.editor?.getMarkdownLosses() ?? null;
+  }
+
+  /**
+   * 当前内容里有没有导出 Markdown 时会丢的东西
+   */
+  hasLossyContent(): boolean {
+    return this.editor?.hasLossyContent() ?? false;
   }
 
   /**

@@ -189,7 +189,9 @@
           颜色 / 字号 /
           字体在顶栏那排（带浮层的是选择面板，不是按钮）；上下标与「清除格式」也在顶栏。 代码块由
           @atri-editor/code-highlight 着色——注意高亮只存在于编辑器视图里， 「获取
-          HTML」拿到的产物不带着色标记。
+          HTML」拿到的产物不带着色标记。 这一节能碰上的「编辑器里做得到、Markdown
+          导出接不住」的一项是段落对齐（Markdown 没有对齐的写法），归 这次 Markdown 导出会丢什么
+          那份报告管。
         </p>
         <div class="controls">
           <button id="btn-fmtColor">给选中文字上蓝</button>
@@ -200,6 +202,8 @@
           <button id="btn-fmtSup">上标</button>
           <button id="btn-fmtClear">清除格式</button>
           <button id="btn-fmtCode">插入一段 javascript 代码块</button>
+          <button id="btn-fmtAlign">本段居中对齐</button>
+          <button id="btn-fmtLosses">这次 Markdown 导出会丢什么</button>
           <button id="btn-fmtRoundTrip">导出 Markdown 再载回（验幂等）</button>
         </div>
       </div>
@@ -702,6 +706,24 @@
             )
             .run()
         );
+
+      document.getElementById('btn-fmtAlign').onclick = () =>
+        fmt((c) => c.setTextAlign('center').run());
+
+      // 序列化器对没钩子的类型是静默丢弃，所以"导出完看不出少了什么"是常态，得主动问
+      document.getElementById('btn-fmtLosses').onclick = () => {
+        const editor = window.editor;
+        const losses = editor.getMarkdownLosses();
+        const lines = losses.map(
+          (loss) =>
+            `${loss.kind === 'attribute' ? `${loss.type}.${loss.attribute}` : loss.type} ×${loss.count}`
+        );
+        showOutput(
+          losses.length
+            ? `会丢 ${losses.length} 类：\n${lines.join('\n')}\n\n--- 导出结果 ---\n${editor.getMarkdown()}`
+            : `没有丢失，这份 Markdown 是完整的\n\n--- 导出结果 ---\n${editor.getMarkdown()}`
+        );
+      };
 
       // 幂等是这轮功能的验收线：导出→载回→再导出，两份必须逐字节相同
       document.getElementById('btn-fmtRoundTrip').onclick = () => {
