@@ -1,6 +1,5 @@
 ---
 '@atri-editor/core': minor
-'@atri-editor/code-highlight': patch
 ---
 
 新增 `getMarkdownLosses()` 与 `hasLossyContent()`
