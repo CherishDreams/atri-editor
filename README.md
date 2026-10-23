@@ -90,7 +90,7 @@ if (editor.hasPendingUploads()) await editor.retryFailedUploads();
 ```
 
 - **进度与失败**：附件卡片自带逐文件进度条，失败后图片与卡片显示失败态，编辑区右下角状态条汇总「上传中 2 个 · 60%」「1 个文件上传失败 / 重试」。撤销一步回到插入前，不会停在带预览地址的中间态。
-- **上传失败后的 base64 兜底**：`image.fallbackToBase64: true` 时，图片传失败会就地读成 data URL（原位换 `src`，不插新节点，位置与撤销语义都不变），内容不再依赖一刷新就失效的本地预览地址。图片仍标着失败态、状态条仍给「重试」，重试成功后换成服务端地址；但 `hasPendingUploads()` 不再把它算作待处理——闸门挡的是「现在保存会丢内容」，不是「必须传到服务端」。兜底只对图片开：附件内联等于把几 MB 塞进 `!file[名字](data:…)` 那一行 Markdown。
+- **上传失败后的 base64 兜底**：`image.fallbackToBase64: true` 时，图片传失败会就地读成 data URL（原位换 `src`，不插新节点，位置与撤销语义都不变），内容不再依赖一刷新就失效的本地预览地址。图片仍标着失败态、状态条仍给「重试」，重试成功后换成服务端地址；但 `hasPendingUploads()` 不再把它算作待处理——它判断的是「现在保存会丢内容」，而不是「必须传到服务端」。兜底只对图片开：附件内联等于把几 MB 塞进 `!file[名字](data:…)` 那一行 Markdown。
   - 它连带打开 `image.allowBase64`：编辑器重建时按 `getHTML()` 回填，节点不认 data URL 的话图片重建一次就静默没了。
   - 代价是体积：data URL 约为原始文件的 1.37×，而 `maxFileSize` 校验的是文件本身，开启时建议把上限调小。
   - `status` 是「写得出、读不回」的瞬时态，所以编辑器重建后这张图就是一张普通 data URL 图片，重试机会随之丢失（内容不丢）。
@@ -125,7 +125,7 @@ if (editor.hasPendingUploads()) await editor.retryFailedUploads();
 编辑器框架无关：类用法挂进框架生命周期（卸载时记得 `destroy()`），元素用法在模板里直接写 `<atri-editor>`。`demos/vue` 与 `demos/react` 两种用法都有活例，且都直接消费 `dist` 构建产物。要点：
 
 - **Vue 3**：模板里的 `<atri-editor>` 需要告知 Vue 它是自定义元素：`vue({ template: { compilerOptions: { isCustomElement: (tag) => tag.startsWith('atri-') } } })`（见 `demos/vue/vite.config.ts`）。
-- **React 19**：原生支持自定义元素，TS 只需补一个 `atri-editor` 的 `JSX.IntrinsicElements` 声明（见 `demos/react/src/atri-editor.d.ts`）。类用法在 `useEffect` 里 `new`、cleanup 里 `destroy`；StrictMode 下 effect 开发期跑两遍，"建→销→再建"路径已实测干净。
+- **React 19**：原生支持自定义元素，TS 只需补一个 `atri-editor` 的 `JSX.IntrinsicElements` 声明（见 `demos/react/src/atri-editor.d.ts`）。类用法在 `useEffect` 里 `new`、cleanup 里 `destroy`；StrictMode 下 effect 开发期会跑两遍，重复创建与销毁没有问题。
 - 模板声明的元素只能带 `theme` / `editable` / `lang` / `placeholder` 属性与 `data-content`；**媒体 / AI 配置要走类用法**，或 `document.createElement('atri-editor')` → `setOptions({ media, ai })` → 再插入文档（`setOptions` 只在元素 connected 前生效）。
 - 包为 ESM-only（跟随上游 Tiptap v3），vite 消费不需要额外的 optimizeDeps 配置；`import '@atri-editor/core'` 在 Node / SSR 环境安全（无 DOM 时只是不注册元素），编辑器功能只在浏览器生效。
 
@@ -238,7 +238,7 @@ atri-editor/
 │       │   └── index.ts         # 主入口
 │       ├── tests/               # 回归测试（vitest + jsdom）
 │       └── dist/                # 构建输出
-│   └── code-highlight/          # 可选包：代码块语法高亮（语法库由宿主带）
+│   └── code-highlight/          # 可选包：代码块语法高亮
 ├── demos/
 │   ├── vanilla/                 # 原生 JS 示例
 │   ├── vue/                     # Vue 3 示例（元素 + 类两种用法）
@@ -248,7 +248,7 @@ atri-editor/
 ```
 
 包边界按"主包只依赖自身零运行时依赖的上游扩展"划分——语法高亮要拉 highlight.js，
-所以它在 `@atri-editor/code-highlight` 里，主包产物不背这个债（两个包的体积都有 CI 预算守着）。
+所以它在 `@atri-editor/code-highlight` 里，主包里只有编辑器本身。
 
 ## API 参考
 
@@ -260,7 +260,7 @@ atri-editor/
 | `getJSON()` | 获取 JSON 内容 |
 | `getMarkdown()` | 获取 Markdown 内容 |
 | `getMarkdownLosses()` | 这次 `getMarkdown()` 会丢掉什么，见下方丢失报告 |
-| `hasLossyContent()` | 上面那份报告是否非空，保存前当闸门用 |
+| `hasLossyContent()` | 上面那份报告是否非空，保存前检查用 |
 | `setContent(content, options?)` | 设置内容；整篇替换后收拢残留选区到文档末尾（防止全选未取消时下一次输入吞掉全文） |
 | `setMarkdown(content)` | 设置 Markdown 内容（同上收拢选区） |
 | `clearContent()` | 清空内容 |
@@ -323,7 +323,7 @@ atri-editor/
 
 `heading` 与 `align` 是**下拉菜单**：默认布局只摆这两个触发器，展开才给全六级标题 + 正文、四种对齐。收成下拉是因为这两组都是"多选一"，七个加四个平铺要占十一个格子而一次只用得上一个。触发器的图标与悬停提示跟着当前值走——光标在三级标题里时按钮上就是 H3、提示写「标题 3」，不点开也知道现在是什么。`heading4`…`heading6` 也能单独写进 `items`（schema 与输入规则一直支持到六级，这批只是补上入口），但它们只用通用标题图标加文字标签，因为数字字形在手搓 SVG 的情况下没法验证好不好看，而 tooltip 已经带着级别。
 
-格式那五项按能力逐项判定，不是同生共死：`textColor` / `fontSize` / `fontFamily` 看 `textStyle` mark 上有没有对应属性**并且**相应命令存在（两条都要对上，判据见下），`highlight` / `highlightColor` 看 `highlight` 是否在册，`subscript` / `superscript` 各看自己那个 mark。`formatting: false` 时这七项一起消失，而 `clearFormat` 不受它牵连——清除格式走 `unsetAllMarks` + `clearNodes`，加粗斜体本来就有，把它绑在这批 mark 上是错绑。整组一项都不剩时那一组连分隔符一起撤掉，不会在顶栏上吊出两根相邻的光杆。
+格式那五项按能力逐项判定：`textColor` / `fontSize` / `fontFamily` 需要 `textStyle` mark 上存在对应属性**并且**命令可用；`highlight` / `highlightColor` 看 `highlight` 是否已注册；`subscript` / `superscript` 各自看对应 mark。`formatting: false` 时这七项一起消失，而 `clearFormat` 不受影响——它走 `unsetAllMarks` + `clearNodes`，与这批 mark 无关。一组里一项都不剩时，该组连同分隔符一起隐藏。
 
 `ToolbarItem` 只能挂在内置项上：`icon`（SVG 字符串）优先于 `label`（文字按钮）优先于内置图标；`tooltip` 优先于当前语言的内置词条。未知 id 会告警并跳过。
 

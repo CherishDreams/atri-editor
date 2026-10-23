@@ -1,6 +1,6 @@
 # 代码高亮
 
-代码块的语法高亮在独立包里：`@atri-editor/code-highlight`。语法库由你自己带，主包一个语法字节都不含。
+代码块的语法高亮由 `@atri-editor/code-highlight` 提供，语法库按需注册。
 
 ## 安装
 
@@ -8,7 +8,7 @@
 npm install @atri-editor/code-highlight lowlight @tiptap/extension-code-block-lowlight
 ```
 
-`lowlight` 与 `@tiptap/extension-code-block-lowlight` 是 peer 依赖。本仓库 demo 只装 `lowlight` 也能跑，那是因为它本来就躺在 workspace 的 store 里；外部消费者请把两个都显式装上。
+`lowlight` 与 `@tiptap/extension-code-block-lowlight` 是 peer 依赖，需要与本包一起安装。
 
 ## 使用
 
@@ -27,7 +27,7 @@ const editor = new AtriEditor({
 });
 ```
 
-`withCodeHighlight` 一次给出两样东西：`codeBlock: false`（关掉 core 内置的代码块）和替换用的扩展。请用它，而不是只传 `extensions`——只传扩展会让两个实现都叫 `codeBlock`，虽然实测后注册的赢，但那依赖 Tiptap 的去重顺序，而且每次建编辑器都会打一句重复扩展告警。
+`withCodeHighlight` 一次给出两样东西：`codeBlock: false`（关掉 core 内置的代码块）和替换用的扩展。请用它而不是只传 `extensions`——只传扩展会让两个 `codeBlock` 同名并存，控制台会打印重复扩展告警。
 
 只要个别语言时自己建实例，体积能压到几 KB：
 

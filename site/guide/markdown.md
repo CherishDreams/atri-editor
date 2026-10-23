@@ -40,7 +40,7 @@ editor.htmlToMarkdown('<h1>标题</h1>');
 
 ## 导出丢失报告
 
-序列化器对没有 `renderMarkdown` 钩子的类型是**静默丢弃**：不抛错、不降级、不留痕迹。所以 `getMarkdown()` 的返回值本身看不出这一趟少了什么。
+Markdown 表达不了的内容会被**静默跳过**：不报错、不降级、不留痕迹。所以只看 `getMarkdown()` 的返回值，看不出这一趟少了什么。
 
 ```ts
 const losses = editor.getMarkdownLosses();
@@ -60,24 +60,24 @@ save(editor.getMarkdown());
 | `mark`      | 样式没了，正文留下           |
 | `attribute` | 类型能渲染，但某个属性没人读 |
 
-属性单列是必要的：`paragraph` 有 renderer，`textAlign` 照样丢。
+属性要单列：段落本身能导出，但它的对齐不能。
 
 `count` 是这一趟丢了几处，连续区间合并——一个被加粗切成三段的红色短语算一处，不算三处。
 
-### 判据是能力，不是内容 diff
+### 报告是怎么判断的
 
-一个类型有没有 `renderMarkdown` 钩子，正是序列化器自己会做的判断。内容 diff 会被良性归一化骗到：空段落在导出时补成 `&nbsp;`、markdown 转义会改写文本字节，任何一条都能凭空报出丢失。
+依据的是「这个类型能不能被 Markdown 表达」，而不是对导出结果做逐字比对。逐字比对会被良性归一化干扰：空段落导出时会补成 `&nbsp;`、Markdown 转义会改写文本字节——这些都不是丢失。
 
-表格的行列单元格自己没钩子而内容不丢——`table` 的 renderer 直接遍历它们拼出 pipe table，不经过「按类型查 handler」那条路——所以它们被豁免，否则每一张表格都会误报。
+表格的行列单元格由表格自身输出，内容不丢，也不会出现在报告里。
 
 ### 当前会进报告的东西
 
 - 段落 / 标题对齐
 - 合并单元格与拖过的列宽（合并会退化成一格有内容、一格空着）
 - `inlineStyles: 'drop'` 下的 `textStyle` / `subscript` / `superscript` 与 `highlight` 的颜色
-- 第三方注册、但没有 markdown 钩子的节点
+- 第三方注册、但 Markdown 表达不了的节点
 
-`hasLossyContent()` 是同一件事的布尔版本，可以直接当保存前的闸门。
+`hasLossyContent()` 是同一件事的布尔版本，可以直接用在保存前的检查里。
 
 ## 配置
 

@@ -62,7 +62,7 @@ const editor = new AtriEditor({
 
 拖拽与粘贴投放都走同一条通道。上传中不污染撤销历史；逐文件进度画在附件卡片上，整体进度由状态条表达。
 
-## 保存前的闸门
+## 保存前先检查
 
 ```ts
 if (editor.hasPendingUploads()) {
@@ -71,7 +71,7 @@ if (editor.hasPendingUploads()) {
 }
 ```
 
-图片开了 `fallbackToBase64` 并且已经内联成功时，`hasPendingUploads()` 不再把它算作待处理——闸门挡的是「现在保存会丢内容」，不是「必须传到服务端」。
+图片开了 `fallbackToBase64` 并且已经内联成功时，`hasPendingUploads()` 不再把它算作待处理——它判断的是「现在保存会丢内容」，而不是「必须已经传到服务端」。
 
 ## 命令
 

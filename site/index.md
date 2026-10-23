@@ -27,6 +27,6 @@ features:
     details: 网格选择器插入、行列操作菜单、列宽拖拽；Markdown 一侧是可读的 pipe table。合并单元格与列宽这类 pipe table 表达不了的东西，会如实进丢失报告。
   - title: 主题与多语言
     details: 亮/暗主题、中英文开箱可用，主题色走 CSS 变量；语言包可以自己注册，实例之间互不影响。
-  - title: 代码高亮是独立包
-    details: highlight.js 的体积不该由每个使用者承担。语法库按需注册，不装就只有代码块、没有着色；主包因此守住 32 KB 的体积闸门。
+  - title: 代码高亮按需安装
+    details: 高亮与语法库在独立的 @atri-editor/code-highlight 包里，只注册用得到的语言。不装它，代码块照常可用，只是没有着色。
 ---
