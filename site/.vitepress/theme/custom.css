@@ -59,6 +59,13 @@
   border-radius: 0;
 }
 
+/* .vp-doc 的正文排版会渗进编辑器：段落的行高被改成 28px，任务列表的勾选框
+   和文字因此错位。这里把正文行高收回 core 的 1.6，其余排版仍由编辑器自己负责 */
+.playground-editor .atri-editor-content,
+.playground-editor .atri-editor-content p {
+  line-height: 1.6;
+}
+
 .playground-editor .atri-editor-content-wrapper {
   height: 360px;
   max-height: 360px;

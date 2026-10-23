@@ -273,6 +273,9 @@
   }
 
   table {
+    // 宿主页面的正文样式常把 table 改成 display: block（配合自身横向滚动），
+    // 那样会绕开 .tableWrapper 与固定列宽，这里显式声明
+    display: table;
     border-collapse: collapse;
     width: 100%;
     margin: 0.5em 0;
@@ -341,6 +344,17 @@
     li {
       display: flex;
       align-items: flex-start;
+
+      // 段落自带 0.5em 上下边距，放进 flex 行里会把正文压到勾选框下方；
+      // 任务项里由行高对齐，正文一律不吃外边距
+      > div {
+        flex: 1;
+        min-width: 0;
+
+        > p {
+          margin: 0;
+        }
+      }
 
       label {
         margin-right: $spacing-sm;
