@@ -2,6 +2,8 @@
 
 一个基于 Tiptap v3 的框架无关富文本编辑器，支持 Web Component、Markdown、AI 集成。
 
+在线体验：<https://cherishdreams.github.io/atri-editor/>（首页内嵌真实编辑器）· 完整示例：<https://cherishdreams.github.io/atri-editor/demo/>
+
 ## 特性
 
 - **框架无关** - 基于 Web Component，可在 React/Vue/Angular/jQuery 等任意框架中使用

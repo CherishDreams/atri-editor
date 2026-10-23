@@ -11,15 +11,16 @@
     "build": "pnpm -r build",
     "build:core": "pnpm -C packages/core build",
     "typecheck": "pnpm -r --if-present typecheck",
-    "lint": "oxlint packages demos scripts",
+    "lint": "oxlint packages demos site scripts",
     "verify:side-effects": "node scripts/verify-side-effects.mjs",
     "size": "node scripts/check-size.mjs",
-    "format": "oxfmt --write packages demos scripts",
-    "check": "pnpm typecheck && pnpm lint && pnpm verify:side-effects && pnpm size && oxfmt --check packages demos scripts",
+    "format": "oxfmt --write packages demos site scripts",
+    "check": "pnpm typecheck && pnpm lint && pnpm verify:side-effects && pnpm size && oxfmt --check packages demos site scripts",
     "test": "pnpm -r --if-present test",
     "clean": "rimraf packages/*/dist",
     "changeset": "changeset",
-    "version-packages": "changeset version"
+    "version-packages": "changeset version",
+    "site": "pnpm -C site dev"
   },
   "devDependencies": {
     "@changesets/cli": "^3.0.2",
