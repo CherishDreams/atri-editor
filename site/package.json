@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "typecheck": "tsc --noEmit"
+    "dev": "vitepress dev",
+    "build": "vitepress build",
+    "preview": "vitepress preview"
   },
   "dependencies": {
     "@atri-editor/code-highlight": "workspace:*",
@@ -15,7 +15,7 @@
     "lowlight": "^3.3.0"
   },
   "devDependencies": {
-    "typescript": "^7.0.0",
-    "vite": "^5.4.0"
+    "sass": "^1.103.1",
+    "vitepress": "^1.6.4"
   }
 }

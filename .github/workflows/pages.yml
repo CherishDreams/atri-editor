@@ -43,11 +43,11 @@ jobs:
       - name: Build packages
         run: pnpm build
 
-      # 站点与 demo 的 vite 配置里 base 都是 './'，构建产物可以直接放在任意子路径下
+      # 站点由 VitePress 构建，产物在 .vitepress/dist；demo 是独立的 vite 应用
       - name: Assemble site
         run: |
           mkdir -p _site/demo
-          cp -r site/dist/. _site/
+          cp -r site/.vitepress/dist/. _site/
           cp -r demos/vanilla/dist/. _site/demo/
 
       - uses: actions/configure-pages@v5
