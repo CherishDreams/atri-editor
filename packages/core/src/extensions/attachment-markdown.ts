@@ -14,6 +14,10 @@ import type {
   RenderContext,
 } from '@tiptap/core';
 import { formatFileSize, parseFileSize } from '../media/file-policy';
+import { decodeEntities, escapeHtml } from '../utils/escape';
+
+// The image lexer scans the remaining line too; avoid recursively tokenizing its attachments.
+let parsingImage = false;
 
 export interface AttachmentMarkdownSpec {
   markdownTokenName: string;
@@ -37,11 +41,6 @@ export function makeAttachmentMarkdown(options: {
   const { name, level, nodeName } = options;
   // 语法指令：!file / !filelink，方括号是名称组的开括号，不并入指令
   const directive = `!${name}`;
-  // 块级语法要求行尾收束，行内语法不限制
-  const trailing = level === 'block' ? '(?:\\n|$)' : '';
-  const pattern = new RegExp(
-    `^${directive.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\[([^\\]]*)\\]\\(\\s*([^\\s)]+)(?:\\s+"([^"]*)")?\\s*\\)${trailing}`
-  );
 
   return {
     markdownTokenName: name,
@@ -50,16 +49,39 @@ export function makeAttachmentMarkdown(options: {
       name,
       level,
       start: (src) => src.indexOf(`${directive}[`),
-      tokenize: (src): MarkdownToken | undefined => {
-        const match = pattern.exec(src);
-        if (!match) return undefined;
+      tokenize: (src, _tokens, lexer): MarkdownToken | undefined => {
+        if (parsingImage || !src.startsWith(`${directive}[`)) return undefined;
+        // The image lexer already handles balanced brackets, escaped labels and <destinations>.
+        const line = src.split('\n', 1)[0];
+        let image: MarkdownToken | undefined;
+        parsingImage = true;
+        try {
+          image = lexer.inlineTokens(`!${line.slice(directive.length)}`)[0];
+        } finally {
+          parsingImage = false;
+        }
+        if (image?.type !== 'image' || typeof image.raw !== 'string') return undefined;
+        let length = image.raw.length + directive.length - 1;
+        if (level === 'block') {
+          const ending = /^[ \t]*(?:\r?\n|$)/.exec(src.slice(length));
+          if (!ending) return undefined;
+          length += ending[0].length;
+        }
+        const label =
+          image.tokens
+            ?.map((token) =>
+              token.type === 'escape'
+                ? (token.text ?? '')
+                : decodeEntities(token.raw ?? token.text ?? '')
+            )
+            .join('') ?? decodeEntities(image.text ?? '');
 
         return {
           type: name,
-          raw: match[0],
-          text: match[1] ?? '',
-          href: match[2] ?? '',
-          title: match[3],
+          raw: src.slice(0, length),
+          text: label,
+          href: image.href,
+          title: image.title,
         };
       },
     },
@@ -77,13 +99,14 @@ export function makeAttachmentMarkdown(options: {
       ),
 
     renderMarkdown: (node) => {
-      const src = node.attrs?.src ?? '';
-      const label = node.attrs?.name ?? '';
+      const src = String(node.attrs?.src ?? '');
+      const label = escapeHtml(String(node.attrs?.name ?? '')).replace(/[\\[\]`*_!]/g, '\\$&');
+      const target = /[\s()<>\\]/.test(src) ? `<${src.replace(/[\\<>]/g, '\\$&')}>` : src;
       const size = node.attrs?.size;
 
       return size
-        ? `${directive}[${label}](${src} "${formatFileSize(size)}")`
-        : `${directive}[${label}](${src})`;
+        ? `${directive}[${label}](${target} "${formatFileSize(size)}")`
+        : `${directive}[${label}](${target})`;
     },
   };
 }
