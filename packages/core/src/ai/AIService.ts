@@ -2,8 +2,9 @@
  * AIService - AI 功能调度服务
  */
 import type { Editor } from '@tiptap/core';
+import type { Transaction } from '@tiptap/pm/state';
 import type { AtriAIConfig, AtriAIFunction, AIRequestContext } from '../types';
-import { AIInterceptor } from './AIInterceptor';
+import { AIInterceptor, executeAIChain } from './AIInterceptor';
 import { MarkdownService } from '../core/MarkdownService';
 import { runSafely } from '../utils/safe-call';
 import { getSelectedText, getCursorContext, getDocumentText } from '../utils/selection';
@@ -92,21 +93,92 @@ export class AIService {
     }
 
     const context = this.buildContext(func);
+    const mode = func.outputMode ?? 'insert';
+    let { from, to } = this.editor.state.selection;
+    const original = this.editor.state.doc.slice(from, to);
     const timeout = this.config.timeout ?? 0;
     // 超时只能"停止等待"：请求是宿主发的，库无权取消。
     // 晚到的响应靠这个标记挡在插入之前，不能让它覆盖用户之后的光标位置
     let timedOut = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
-
-    const chain = this.interceptor.executeChain(context, this.config.requestEndpoint, (content) => {
-      if (timedOut) return;
-      this.insertContent(content, func.outputMode || 'insert');
+    let finished = false;
+    let invalidated: Error | undefined;
+    let rejectInvalidation!: (error: Error) => void;
+    const cancelled = new Promise<never>((_resolve, reject) => {
+      rejectInvalidation = reject;
     });
+    const invalidate = () => {
+      if (finished || invalidated) return;
+      invalidated = new Error('The AI request target changed before the response was applied.');
+      invalidated.name = 'AIResultInvalidatedError';
+      rejectInvalidation(invalidated);
+    };
+    const onTransaction = ({ transaction }: { transaction: Transaction }) => {
+      if (!transaction.docChanged) return;
+      for (let index = 0; index < transaction.steps.length; index++) {
+        const map = transaction.steps[index].getMap();
+        map.forEach((start, end) => {
+          if (start === 0 && end === transaction.docs[index].content.size && end > start) {
+            invalidate();
+          }
+          const touches =
+            from === to
+              ? start <= from && end >= from
+              : start === end
+                ? start > from && start < to
+                : start < to && end > from;
+          if (touches) invalidate();
+        });
+        if (from === to) from = to = map.map(from, 1);
+        else {
+          from = map.map(from, 1);
+          to = map.map(to, -1);
+        }
+      }
+      if (!invalidated && !transaction.doc.slice(from, to).eq(original)) {
+        invalidate();
+      }
+    };
+    const onUpdate = () => {
+      if (!this.editor.isEditable) invalidate();
+    };
+    const stopWatching = () => {
+      this.editor.off('transaction', onTransaction);
+      this.editor.off('update', onUpdate);
+      this.editor.off('destroy', invalidate);
+    };
+    this.editor.on('transaction', onTransaction);
+    this.editor.on('update', onUpdate);
+    this.editor.on('destroy', invalidate);
+
+    const assertActive = () => {
+      if (
+        finished ||
+        timedOut ||
+        invalidated ||
+        this.editor.isDestroyed ||
+        !this.editor.isEditable
+      ) {
+        throw invalidated ?? new Error('The AI request is no longer active.');
+      }
+    };
+    const chain = executeAIChain(
+      this.interceptor,
+      context,
+      this.config.requestEndpoint,
+      (content) => {
+        assertActive();
+        stopWatching();
+        this.insertContent(content, mode, { from, to });
+      },
+      assertActive
+    );
 
     try {
       if (timeout > 0) {
         await Promise.race([
           chain,
+          cancelled,
           new Promise<never>((_resolve, reject) => {
             timer = setTimeout(() => {
               timedOut = true;
@@ -115,18 +187,21 @@ export class AIService {
           }),
         ]);
       } else {
-        await chain;
+        await Promise.race([chain, cancelled]);
       }
     } catch (error) {
       // 不 rethrow：门面调用 execute 时不 await，抛出只会变成 unhandled rejection。
       // 但没配 onError 也不能就这么静默——端点 500 与"这次确实没结果"得区分得开
       const err = error instanceof Error ? error : new Error(String(error));
+      if (this.editor.isDestroyed) return;
       if (this.config.onError) {
         runSafely(this.config.onError, 'ai.onError', [err, context]);
       } else {
         console.error(`[Atri Editor] AI function "${functionId}" failed:`, err);
       }
     } finally {
+      finished = true;
+      stopWatching();
       if (timer !== undefined) clearTimeout(timer);
     }
   }
@@ -134,33 +209,16 @@ export class AIService {
   /**
    * 插入内容到编辑器
    */
-  private insertContent(content: string, mode: 'replace' | 'insert' | 'append'): void {
-    const { selection } = this.editor.state;
-
-    switch (mode) {
-      case 'replace':
-        // 替换选区内容
-        if (!selection.empty) {
-          this.editor
-            .chain()
-            .deleteRange({ from: selection.from, to: selection.to })
-            .insertContent(content)
-            .run();
-        } else {
-          this.editor.commands.insertContent(content);
-        }
-        break;
-
-      case 'insert':
-        // 插入到光标位置
-        this.editor.commands.insertContent(content);
-        break;
-
-      case 'append':
-        // 追加到文档末尾
-        this.editor.commands.insertContentAt(this.editor.state.doc.content.size, content);
-        break;
-    }
+  private insertContent(
+    content: string,
+    mode: 'replace' | 'insert' | 'append',
+    target: { from: number; to: number }
+  ): void {
+    this.editor.commands.insertContentAt(
+      mode === 'append' ? this.editor.state.doc.content.size : target,
+      content,
+      { parseOptions: { preserveWhitespace: 'full' }, updateSelection: false }
+    );
   }
 
   /**

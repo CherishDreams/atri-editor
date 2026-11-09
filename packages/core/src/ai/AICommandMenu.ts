@@ -30,6 +30,7 @@ export class AICommandMenuManager {
   private onSelect?: (func: AtriAIFunction) => void;
   private detachKeyListener?: () => void;
   private detachTransactionListener?: () => void;
+  private triggerRange: { from: number; to: number } | null = null;
 
   constructor(
     editor: Editor,
@@ -43,7 +44,18 @@ export class AICommandMenuManager {
     this.onSelect = onSelect;
     this.setupKeyboardListener();
     this.setupMenuKeyListener();
+    this.editor.on('blur', this.onBlur);
+    this.editor.on('update', this.onUpdate);
   }
+
+  private onBlur = (): void => this.hide();
+  private onScroll = (): void => {
+    void this.positionMenu();
+  };
+
+  private onUpdate = (): void => {
+    if (!this.editor.isEditable) this.hide();
+  };
 
   /**
    * 让键盘导航可达
@@ -63,11 +75,30 @@ export class AICommandMenuManager {
 
   private setupKeyboardListener(): void {
     const handler = ({ transaction }: { editor: Editor; transaction: Transaction }) => {
+      if (this.isVisible && this.triggerRange) {
+        const from = transaction.mapping.mapResult(this.triggerRange.from, 1);
+        const to = transaction.mapping.mapResult(this.triggerRange.to, -1);
+        const selection = this.editor.state.selection;
+        if (
+          from.deletedAcross ||
+          to.deletedAcross ||
+          from.pos >= to.pos ||
+          !selection.empty ||
+          selection.from !== to.pos ||
+          this.editor.state.doc.textBetween(from.pos, to.pos) !== this.triggerChar
+        ) {
+          this.hide();
+          return;
+        }
+        this.triggerRange = { from: from.pos, to: to.pos };
+      }
       // 检测触发字符输入
-      if (transaction.docChanged) {
+      if (transaction.docChanged && this.editor.isEditable) {
         const lastChar = this.getLastTypedChar();
         if (lastChar === this.triggerChar && !this.isVisible) {
           this.show();
+          const to = this.editor.state.selection.from;
+          this.triggerRange = { from: to - 1, to };
         }
       }
     };
@@ -89,11 +120,13 @@ export class AICommandMenuManager {
   show(): void {
     // 没有可选项就没什么可浮出的：空菜单是个看不懂的空盒子，
     // 还会把 Enter/方向键吃掉（selectedIndex 对 0 取模得 NaN）
-    if (this.isVisible || !this.functions.length) return;
+    if (this.isVisible || !this.functions.length || !this.editor.isEditable) return;
     this.isVisible = true;
     this.selectedIndex = 0;
     this.createMenuElement();
     this.positionMenu();
+    document.addEventListener('scroll', this.onScroll, true);
+    window.addEventListener('resize', this.onScroll);
   }
 
   /**
@@ -102,6 +135,9 @@ export class AICommandMenuManager {
   hide(): void {
     if (!this.isVisible) return;
     this.isVisible = false;
+    document.removeEventListener('scroll', this.onScroll, true);
+    window.removeEventListener('resize', this.onScroll);
+    this.triggerRange = null;
     if (this.menuElement) {
       this.menuElement.remove();
       this.menuElement = null;
@@ -112,6 +148,7 @@ export class AICommandMenuManager {
     this.menuElement = document.createElement('div');
     this.menuElement.className = 'atri-ai-command-menu';
     this.menuElement.setAttribute('role', 'listbox');
+    this.menuElement.addEventListener('mousedown', (event) => event.preventDefault());
 
     this.functions.forEach((func, index) => {
       const item = document.createElement('div');
@@ -167,6 +204,7 @@ export class AICommandMenuManager {
       };
 
       ({ x, y } = await computePosition(virtualReference, menuElement, {
+        strategy: 'fixed',
         placement: 'bottom-start',
         middleware: panelMiddleware(),
       }));
@@ -183,7 +221,7 @@ export class AICommandMenuManager {
 
   private selectItem(index: number): void {
     const func = this.functions[index];
-    if (func && this.onSelect) {
+    if (func && this.onSelect && this.editor.isEditable) {
       // 删除触发字符
       this.deleteTriggerChar();
       this.onSelect(func);
@@ -210,11 +248,10 @@ export class AICommandMenuManager {
 
   private deleteTriggerChar(): void {
     const { state, view } = this.editor;
-    const { from } = state.selection;
-    if (from <= 0 || state.doc.textBetween(from - 1, from) !== this.triggerChar) {
-      return;
-    }
-    const tr = state.tr.delete(from - 1, from);
+    const range = this.triggerRange;
+    if (!range || state.doc.textBetween(range.from, range.to) !== this.triggerChar) return;
+    this.hide();
+    const tr = state.tr.delete(range.from, range.to);
     view.dispatch(tr);
   }
 
@@ -222,7 +259,7 @@ export class AICommandMenuManager {
    * 处理键盘事件
    */
   handleKeyDown(event: KeyboardEvent): boolean {
-    if (!this.isVisible) return false;
+    if (!this.isVisible || !this.editor.isEditable) return false;
 
     switch (event.key) {
       case 'ArrowDown':
@@ -256,6 +293,8 @@ export class AICommandMenuManager {
    * 销毁
    */
   destroy(): void {
+    this.editor.off('blur', this.onBlur);
+    this.editor.off('update', this.onUpdate);
     this.detachKeyListener?.();
     this.detachKeyListener = undefined;
     this.detachTransactionListener?.();

@@ -3,6 +3,7 @@
  */
 import type { AIRequestContext, AIResponse, AtriAIInterceptors } from '../types';
 import type { MarkdownService } from '../core/MarkdownService';
+import { escapeHtml } from '../utils/escape';
 
 /**
  * 端点由宿主实现，返回值没有任何编译期保证：
@@ -75,6 +76,9 @@ export class AIInterceptor {
    * 在 beforeRender 之后执行，自动将 Markdown 转为 HTML
    */
   async runAutoTranslateMarkdown(content: string, response: AIResponse): Promise<string> {
+    if (response.contentType === 'text') {
+      return escapeHtml(content).replace(/\r\n?|\n/g, '<br>');
+    }
     if (!this.autoTranslateMarkdown) {
       return content;
     }
@@ -112,31 +116,42 @@ export class AIInterceptor {
     requestEndpoint: (ctx: AIRequestContext) => Promise<AIResponse>,
     insertCallback: (content: string) => void
   ): Promise<void> {
-    // 1. beforePost
-    const processedContext = await this.runBeforePost(context);
-    if (processedContext === false) {
-      return; // 取消请求
-    }
-
-    // 2. requestEndpoint
-    let response = requireResponse(
-      await requestEndpoint(processedContext),
-      `requestEndpoint("${processedContext.functionId}")`
-    );
-
-    // 3. afterPost
-    response = requireResponse(await this.runAfterPost(response, processedContext), 'afterPost');
-
-    // 4. beforeRender
-    let content = await this.runBeforeRender(response.content, processedContext);
-
-    // 5. autoTranslateMarkdownToHTML
-    content = await this.runAutoTranslateMarkdown(content, response);
-
-    // 6. 插入编辑器
-    insertCallback(content);
-
-    // 7. afterRender
-    await this.runAfterRender(content, processedContext);
+    return executeAIChain(this, context, requestEndpoint, insertCallback);
   }
+}
+
+/** Internal request lifecycle checks leave the public interceptor API unchanged. */
+export async function executeAIChain(
+  interceptor: AIInterceptor,
+  context: AIRequestContext,
+  requestEndpoint: (ctx: AIRequestContext) => Promise<AIResponse>,
+  insertCallback: (content: string) => void,
+  assertActive: () => void = () => {}
+): Promise<void> {
+  const processedContext = await interceptor.runBeforePost(context);
+  assertActive();
+  if (processedContext === false) return;
+
+  let response = requireResponse(
+    await requestEndpoint(processedContext),
+    `requestEndpoint("${processedContext.functionId}")`
+  );
+  assertActive();
+
+  response = requireResponse(
+    await interceptor.runAfterPost(response, processedContext),
+    'afterPost'
+  );
+  assertActive();
+
+  let content = await interceptor.runBeforeRender(response.content, processedContext);
+  assertActive();
+  if (content === '') return;
+
+  content = await interceptor.runAutoTranslateMarkdown(content, response);
+  assertActive();
+
+  insertCallback(content);
+  assertActive();
+  await interceptor.runAfterRender(content, processedContext);
 }
