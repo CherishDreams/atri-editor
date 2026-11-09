@@ -90,10 +90,11 @@ if (editor.hasPendingUploads()) await editor.retryFailedUploads();
 ```
 
 - **进度与失败**：附件卡片自带逐文件进度条，失败后图片与卡片显示失败态，编辑区右下角状态条汇总「上传中 2 个 · 60%」「1 个文件上传失败 / 重试」。撤销一步回到插入前，不会停在带预览地址的中间态。
+- **撤销与恢复**：撤销上传或删除未完成的媒体节点会中止该次请求并释放预览地址；重做插入或撤销删除会生成新预览并自动重新上传。旧请求的进度与结果不会覆盖恢复后的任务，原 `uploadFiles()` 在中止后正常结束。文档外的任务不计入进度、重试和 `hasPendingUploads()`；为支持历史恢复，原文件会保留在内存中，直到历史因编辑器重建而重置或编辑器销毁。
 - **上传失败后的 base64 兜底**：`image.fallbackToBase64: true` 时，图片传失败会就地读成 data URL（原位换 `src`，不插新节点，位置与撤销语义都不变），内容不再依赖一刷新就失效的本地预览地址。图片仍标着失败态、状态条仍给「重试」，重试成功后换成服务端地址；但 `hasPendingUploads()` 不再把它算作待处理——它判断的是「现在保存会丢内容」，而不是「必须传到服务端」。兜底只对图片开：附件内联等于把几 MB 塞进 `!file[名字](data:…)` 那一行 Markdown。
-  - 它连带打开 `image.allowBase64`：编辑器重建时按 `getHTML()` 回填，节点不认 data URL 的话图片重建一次就静默没了。
+  - 它连带打开 `image.allowBase64`，确保载入含 data URL 的 HTML 时仍能识别图片。
   - 代价是体积：data URL 约为原始文件的 1.37×，而 `maxFileSize` 校验的是文件本身，开启时建议把上限调小。
-  - `status` 是「写得出、读不回」的瞬时态，所以编辑器重建后这张图就是一张普通 data URL 图片，重试机会随之丢失（内容不丢）。
+  - 注册 NodeView 导致的编辑器重建使用 JSON 快照，保留上传 ID、自定义属性、内容与选区，以及最新只读状态；上传中、失败和已内联图片仍可按原任务继续上传或重试。
 - **不配上传通道时**：这是另一条 base64 退路，由 `image.allowBase64: true` 决定（外链图片与粘贴远程 `<img>` 都不需要上传通道）；附件没有合理退路，回调 `onError({ reason: 'no-upload' })` 且不插节点。
 - **两种形态**：附件默认是块级卡片；`attachment.display: 'link'` 改为行内链接（文件图标 + 蓝色下划线文字，与正文同流），`insertAttachment({ display })` 可逐次覆盖。同一篇文档里卡片与链接可混排。附件点一下先选中（选区旁浮出的「附件样式」随即可以切；常驻顶栏入口已被浮动工具栏取代，需要可把 `attachmentDisplay` 写回 `toolbar.items`），已选中再点它的链接文字才打开文件——「点击选中」与「点击下载」不会互相抢第一次点击。切换是整节点替换（两种形态是两个节点类型）：句中行链接转卡片会把所在段落劈开，这是块级语义使然；一步撤销只回切换。链接形态渲染成 `<a href download>`：`download` 只对同源地址触发下载，跨域时浏览器会退化成导航。
 - **Markdown**：图片走标准 `![alt](src)`；附件用自定义语法，卡片 `!file[名字](url "大小")`、行内链接 `!filelink[名字](url "大小")`，双向不丢。关闭 `markdown.enabled` 时两者都以字面文本进来——与其余标记语法在同样条件下的行为一致。
@@ -185,7 +186,11 @@ const editor = new AtriEditor({
 
 ### AI 命令菜单
 
-配置了 `ai.functions` 后，在编辑区输入 `/` 会在光标旁浮出命令菜单（Floating UI 定位，下方放不下时自动翻到上方并做视口避让），列出全部 AI 功能：图标、名称，`description` 作为悬停提示。↑ / ↓ 循环选择，Enter 选中，Esc 关闭；选中会先删掉触发字符 `/` 再执行对应功能。键盘监听挂在 document 捕获阶段，Enter 不会被 ProseMirror 的 keymap 抢去拆段落。未配置 `ai` 时命令菜单不注册。
+配置了 `ai.functions` 后，在编辑区输入 `/` 会在光标旁浮出命令菜单（Floating UI 定位，下方放不下时自动翻到上方并做视口避让），列出全部 AI 功能：图标、名称，`description` 作为悬停提示。↑ / ↓ 循环选择，Enter 选中，Esc 关闭；选中会先删掉有效触发位置的 `/` 再执行对应功能。删除触发字符、移动选区、失焦或切只读会关闭菜单。公开 `show()` 仍可手动打开菜单，不会删除无关字符。未配置 `ai` 时命令菜单不注册。
+
+AI 的 `insert` / `replace` 始终作用于请求发起时的目标范围，并随其他位置的编辑映射；移动选区或编辑其他段落不会改变目标。修改或删除目标、在原空光标处输入、整体替换内容或切只读会使响应永久作废，`ai.onError` 收到名称为 `AIResultInvalidatedError` 的普通错误。`append` 在响应时追加到当前文档末尾。超时、销毁和重建后不会应用旧响应；销毁后也不会继续调用宿主拦截器或错误回调。
+
+`beforeRender` 处理结果为空串时不修改文档，也不调用 `afterRender`。`contentType: 'text'` 会先转义 HTML 并保留换行与连续空白，不受 Markdown 自动转换开关影响；HTML 与 Markdown 响应保持各自的格式语义。
 
 ### 国际化
 
@@ -497,6 +502,10 @@ pnpm check
 
 # 运行测试（vitest + jsdom，用例在 packages/core/tests/）
 pnpm test
+
+# Chromium 回归（桌面与移动视口，首次运行前安装浏览器）
+pnpm exec playwright install chromium
+pnpm test:browser
 
 # 运行示例（端口 3000，自动打开浏览器；
 # demo 的 vite 配置把 @atri-editor/core 直接 alias 到 packages/core/src，
