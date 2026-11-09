@@ -33,6 +33,7 @@ export class ExtensionManager {
     // 动态创建 Tiptap Node 扩展
     const nodeExtension = Node.create({
       name: config.name,
+      inline: config.inline ?? false,
       group: config.group || (config.inline ? 'inline' : 'block'),
       atom: config.atom ?? true,
 

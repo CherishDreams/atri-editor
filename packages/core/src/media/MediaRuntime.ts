@@ -49,7 +49,7 @@ interface MediaTask {
   id: string;
   kind: MediaKind;
   file: File;
-  /** 落地前的本地预览地址，也是编辑器重建后找回节点的钥匙（uploadId 不进 HTML） */
+  /** 落地前的本地预览地址；重建时优先通过 JSON 中的 uploadId 绑定 */
   previewUrl: string | null;
   status: MediaStatus;
   /** 未收到任何进度事件时为 null，让进度条走不定长动画 */
@@ -57,6 +57,8 @@ interface MediaTask {
   /** 失败后已内联成 data URL：src 不再指向 previewUrl，但节点仍标着 error 等重试 */
   inlined: boolean;
   controller: AbortController;
+  active: boolean;
+  attempt: number;
 }
 
 /** 读文件为 data URL：本地文件仅有的两条不经过服务端的退路都靠它，前提是图片认 data URL */
@@ -76,6 +78,7 @@ export class MediaRuntime {
   private tasks: Map<string, MediaTask> = new Map();
   private listeners: Set<(state: MediaState) => void> = new Set();
   private sequence = 0;
+  private detachEditor?: () => void;
 
   constructor(config: AtriMediaConfig = {}) {
     this.config = config;
@@ -86,14 +89,21 @@ export class MediaRuntime {
    * 换绑到新的 Editor 实例，并把瞬时态补回重建后的文档
    */
   bind(editor: Editor): void {
+    this.detachEditor?.();
+    // A new Editor has a new history; detached files from its predecessor cannot return.
+    this.tasks.forEach((task) => {
+      if (!task.active) this.dropTask(task);
+    });
     this.editor = editor;
     this.restoreTransientState();
 
     // 上传中删掉卡片、或撤销掉刚插入的节点时，顺手把任务摘掉，
     // 否则 hasPendingUploads() 会一直为 true
-    editor.on('transaction', ({ transaction }) => {
+    const handler = ({ transaction }: { transaction: import('@tiptap/pm/state').Transaction }) => {
       if (transaction.docChanged && this.tasks.size) this.prune();
-    });
+    };
+    editor.on('transaction', handler);
+    this.detachEditor = () => editor.off('transaction', handler);
   }
 
   /**
@@ -156,7 +166,7 @@ export class MediaRuntime {
    */
   retryFailed(): Promise<void> {
     const retried = Array.from(this.tasks.values())
-      .filter((task) => task.status === 'error')
+      .filter((task) => task.active && task.status === 'error')
       .map((task) => this.startUpload(task));
 
     return Promise.all(retried).then(() => undefined);
@@ -170,11 +180,11 @@ export class MediaRuntime {
    * 服务端地址只是可选的优化，别让一个一直失败的上传把保存永久卡住
    */
   hasPendingUploads(): boolean {
-    return Array.from(this.tasks.values()).some((task) => !task.inlined);
+    return Array.from(this.tasks.values()).some((task) => task.active && !task.inlined);
   }
 
   getState(): MediaState {
-    const tasks = Array.from(this.tasks.values());
+    const tasks = Array.from(this.tasks.values()).filter((task) => task.active);
     const uploading = tasks.filter((task) => task.status === 'uploading');
     const total = uploading.reduce((sum, task) => sum + task.file.size, 0);
     const loaded = uploading.reduce(
@@ -199,6 +209,8 @@ export class MediaRuntime {
   }
 
   destroy(): void {
+    this.detachEditor?.();
+    this.detachEditor = undefined;
     this.tasks.forEach((task) => {
       task.controller.abort();
       revokePreviewUrl(task);
@@ -243,6 +255,8 @@ export class MediaRuntime {
       percent: null,
       inlined: false,
       controller: new AbortController(),
+      active: true,
+      attempt: 0,
     };
     this.tasks.set(task.id, task);
     return task;
@@ -293,7 +307,7 @@ export class MediaRuntime {
   }
 
   private async startUpload(task: MediaTask): Promise<void> {
-    if (!this.uploader) return;
+    if (!this.uploader || !task.active || this.tasks.get(task.id) !== task) return;
 
     task.status = 'uploading';
     task.percent = null;
@@ -301,30 +315,44 @@ export class MediaRuntime {
     // 但闸门回到"有上传在飞"，再失败也会重新判一次要不要内联
     task.inlined = false;
     task.controller = new AbortController();
+    const controller = task.controller;
+    const attempt = ++task.attempt;
+    const isCurrent = () =>
+      this.tasks.get(task.id) === task && task.active && task.attempt === attempt;
     this.patch(task, this.stateAttrs(task, 'uploading'));
+    if (!isCurrent()) return;
     this.emit();
 
+    let detachAbort: (() => void) | undefined;
     try {
-      const result = await this.uploader.upload(task.file, {
-        onProgress: (progress) => this.updateProgress(task, progress),
-        signal: task.controller.signal,
+      const cancelled = new Promise<never>((_resolve, reject) => {
+        const abort = () => reject(new DOMException('Aborted', 'AbortError'));
+        controller.signal.addEventListener('abort', abort, { once: true });
+        detachAbort = () => controller.signal.removeEventListener('abort', abort);
       });
+      const result = await Promise.race([
+        this.uploader.upload(task.file, {
+          onProgress: (progress) => {
+            if (isCurrent()) this.updateProgress(task, progress);
+          },
+          signal: controller.signal,
+        }),
+        cancelled,
+      ]);
 
       // 请求期间节点可能已被删掉，那时任务已经清理过了
-      if (!this.tasks.has(task.id)) return;
+      if (!isCurrent()) return;
       this.applyResult(task, result);
     } catch (cause) {
-      if (task.controller.signal.aborted) {
-        this.dropTask(task);
-        return;
-      }
+      if (controller.signal.aborted || !isCurrent()) return;
 
       task.status = 'error';
       task.percent = null;
 
       // 只有图片有 base64 退路：附件内联等于把几 MB 塞进 !file[..](data:…) 那一行
       const canInline = task.kind === 'image' && this.config.image?.fallbackToBase64 === true;
-      const inlined = canInline && (await this.inlineAfterFailure(task));
+      const inlined = canInline && (await this.inlineAfterFailure(task, isCurrent));
+      if (!isCurrent()) return;
 
       if (!inlined) {
         this.patch(task, this.stateAttrs(task, 'error'));
@@ -333,6 +361,8 @@ export class MediaRuntime {
       }
       // 内联成不成功都该让宿主知道这次上传失败了；图片能不能显示是另一件事
       this.reject(task.file, 'upload-failed', cause);
+    } finally {
+      detachAbort?.();
     }
   }
 
@@ -342,7 +372,7 @@ export class MediaRuntime {
    * 是 patch 而不是插新节点：位置与"撤销一步回到插入前"这两条语义都靠它才不碎。
    * error 态留着——重试按钮还在，网络恢复后能把 data URL 换成服务端地址
    */
-  private async inlineAfterFailure(task: MediaTask): Promise<boolean> {
+  private async inlineAfterFailure(task: MediaTask, isCurrent: () => boolean): Promise<boolean> {
     // 请求期间节点可能已被删掉，那时任务已经清理过了
     if (!this.tasks.has(task.id)) return false;
 
@@ -353,6 +383,7 @@ export class MediaRuntime {
       return false;
     }
 
+    if (!isCurrent()) return false;
     this.patch(task, { src, ...this.stateAttrs(task, 'error') });
     // patch 找不到节点时会把任务摘掉，那时没什么可内联的
     if (!this.tasks.has(task.id)) return false;
@@ -381,8 +412,8 @@ export class MediaRuntime {
       attrs.alt = result.name ?? file.name;
     }
 
-    this.patch(task, attrs);
     this.tasks.delete(task.id);
+    this.patch(task, attrs);
     revokePreviewUrl(task);
     this.emit();
   }
@@ -423,9 +454,7 @@ export class MediaRuntime {
 
     const position = this.findPosition(task);
     if (position === null) {
-      // 找不到节点说明用户删了它，继续传上去也没人接收
-      task.controller.abort();
-      this.dropTask(task);
+      this.suspend(task);
       return;
     }
 
@@ -437,8 +466,7 @@ export class MediaRuntime {
       ...attrs,
     });
 
-    // 撤销一步回到插入前，而不是回到"带预览地址的中间态"；
-    // 代价是重做后节点退回预览地址，需要重新上传
+    // Upload state is not a user edit; undo/redo is reconciled against the task registry.
     tr.setMeta('addToHistory', false);
     if (options.silent) tr.setMeta('preventUpdate', true);
 
@@ -446,7 +474,7 @@ export class MediaRuntime {
   }
 
   /**
-   * 编辑器重建后 uploadId 不在 HTML 里，靠本地预览地址把瞬时态补回文档
+   * 编辑器重建后通过稳定 ID 补回瞬时态，兼容预览地址绑定
    */
   private restoreTransientState(): void {
     const editor = this.editor;
@@ -454,8 +482,8 @@ export class MediaRuntime {
 
     const pending: { position: number; node: PmNode; task: MediaTask }[] = [];
     editor.state.doc.descendants((node, position) => {
-      const task = this.taskByPreviewUrl(node.attrs.src);
-      if (task && node.attrs.uploadId == null) pending.push({ position, node, task });
+      const task = this.tasks.get(node.attrs.uploadId) ?? this.taskByPreviewUrl(node.attrs.src);
+      if (task && task.active) pending.push({ position, node, task });
     });
     if (!pending.length) return;
 
@@ -490,11 +518,38 @@ export class MediaRuntime {
 
     this.tasks.forEach((task) => {
       const exists = alive.has(task.id) || (task.previewUrl !== null && alive.has(task.previewUrl));
-      if (exists) return;
-
-      task.controller.abort();
-      this.dropTask(task);
+      if (!exists) {
+        this.suspend(task);
+      } else if (!task.active) {
+        task.active = true;
+        task.inlined = false;
+        task.status = 'uploading';
+        task.previewUrl = createPreviewUrl(task.file);
+        const attempt = task.attempt;
+        // Reconciliation runs after dispatch, so it must not dispatch recursively here.
+        queueMicrotask(() => {
+          if (
+            !task.active ||
+            task.attempt !== attempt ||
+            this.tasks.get(task.id) !== task ||
+            this.editor?.isDestroyed
+          )
+            return;
+          if (task.previewUrl) this.patch(task, { src: task.previewUrl });
+          void this.startUpload(task);
+        });
+        this.emit();
+      }
     });
+  }
+
+  private suspend(task: MediaTask): void {
+    if (!task.active) return;
+    task.active = false;
+    task.attempt += 1;
+    task.controller.abort();
+    revokePreviewUrl(task);
+    this.emit();
   }
 
   private findPosition(task: MediaTask): number | null {

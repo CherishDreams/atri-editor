@@ -248,7 +248,7 @@ export class AtriEditor implements IAtriEditor {
   private recreateEditor(): void {
     // 保存当前内容与光标位置，待新视图就绪后恢复选区
     const previousEditor = this.coreEditor.getEditor();
-    const currentContent = this.coreEditor.getHTML();
+    const currentContent = this.coreEditor.getJSON();
     const { from, to } = previousEditor.state.selection;
     this.pendingViewState = { from, to };
 
@@ -274,8 +274,7 @@ export class AtriEditor implements IAtriEditor {
     this.createCoreEditor({
       element: newEditorElement,
       content: currentContent,
-      // 当前内容取自 getHTML()，重建时按 html 回填，不能沿用用户的 contentFormat
-      contentFormat: 'html',
+      contentFormat: 'json',
     });
     this.setupSubsystems();
   }
@@ -485,6 +484,7 @@ export class AtriEditor implements IAtriEditor {
    * 设置可编辑状态
    */
   setEditable(editable: boolean): void {
+    this.options.editable = editable;
     this.coreEditor.setEditable(editable);
   }
 
