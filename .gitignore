@@ -37,3 +37,7 @@ yarn-error.log*
 
 # npm pack 产物
 *.tgz
+
+# Browser test artifacts
+test-results/
+playwright-report/

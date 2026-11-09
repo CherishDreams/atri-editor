@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Editor regression fixture</title>
+    <style>
+      body {
+        margin: 16px;
+        min-height: 2400px;
+        padding-top: 420px;
+      }
+      .scroll-shell {
+        height: 460px;
+        overflow: auto;
+        max-width: 940px;
+      }
+      .inner {
+        padding-top: 100px;
+        padding-bottom: 800px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="scroll-shell">
+      <div class="inner"><div id="editor"></div></div>
+    </div>
+    <script type="module">
+      import { AtriEditor } from '../../packages/core/src/index.ts';
+      import '../../packages/core/src/styles/index.scss';
+      window.aiCalls = 0;
+      window.editor = new AtriEditor({
+        element: '#editor',
+        content: '<p>alpha beta</p><p>tail</p>',
+        toolbar: { bubble: false },
+        ai: {
+          functions: [{ id: 'rewrite', name: 'Rewrite', outputMode: 'replace' }],
+          requestEndpoint: async () => {
+            window.aiCalls++;
+            return { content: 'AI result', contentType: 'text' };
+          },
+        },
+      });
+    </script>
+  </body>
+</html>

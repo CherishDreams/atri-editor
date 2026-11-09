@@ -36,3 +36,9 @@ jobs:
 
       - name: Test
         run: pnpm test
+
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Browser regressions
+        run: pnpm test:browser
