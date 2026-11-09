@@ -142,6 +142,7 @@ export class ToolbarMenuPanel {
     if (row.active) button.classList.add('active');
 
     button.addEventListener('click', () => {
+      if (!this.editor.isEditable) return;
       row.run();
       this.close();
       // 焦点要还给编辑器：顶栏普通按钮的路径是在 createButton 里补这一手的，

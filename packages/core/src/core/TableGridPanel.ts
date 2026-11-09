@@ -154,6 +154,7 @@ export class TableGridPanel {
   }
 
   private insert(rows: number, cols: number): void {
+    if (!this.editor.isEditable) return;
     this.editor.chain().focus().insertTable({ rows, cols, withHeaderRow: true }).run();
     this.close();
   }

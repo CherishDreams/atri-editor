@@ -50,6 +50,7 @@ export function positionPanel(
     if (!isCurrent()) return;
     try {
       const { x, y } = await computePosition(trigger, panel, {
+        strategy: 'fixed',
         placement: 'bottom-start',
         middleware: panelMiddleware(),
       });

@@ -82,7 +82,12 @@ export class LinkPanel {
     // 面板是即时创建的，但可能开着的时候宿主切了语言
     this.unsubscribeLanguage = this.i18n?.onLanguageChanged(() => this.applyLabels());
     this.root.addEventListener('click', this.onEditorClick);
+    this.editor.on('update', this.onEditableUpdate);
   }
+
+  private onEditableUpdate = (): void => {
+    if (!this.editor.isEditable) this.close();
+  };
 
   get isOpen(): boolean {
     return this.element !== null;
@@ -97,6 +102,7 @@ export class LinkPanel {
   }
 
   open(anchor: HTMLElement): void {
+    if (!this.editor.isEditable) return;
     this.close();
     this.editing = this.editor.isActive('link');
     this.build();
@@ -128,6 +134,7 @@ export class LinkPanel {
   }
 
   destroy(): void {
+    this.editor.off('update', this.onEditableUpdate);
     this.root.removeEventListener('click', this.onEditorClick);
     this.close();
     this.unsubscribeLanguage?.();
@@ -240,6 +247,7 @@ export class LinkPanel {
 
   /** 有链接就整条改（extendMarkRange 把范围摊到整段链接），没链接就看选区：套住它，或者把地址本身当链接文字插进去 */
   private apply(): void {
+    if (!this.editor.isEditable) return;
     const href = normalizeHref(this.urlInput?.value ?? '');
     if (!href) return;
 
@@ -265,6 +273,7 @@ export class LinkPanel {
   }
 
   private remove(): void {
+    if (!this.editor.isEditable) return;
     this.editor.chain().focus().extendMarkRange('link').unsetLink().run();
     this.close();
   }

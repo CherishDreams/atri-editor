@@ -220,6 +220,7 @@ export class InsertPanel {
     urlInput: HTMLInputElement | null,
     altInput: HTMLInputElement | null
   ): void {
+    if (!this.editor.isEditable) return;
     const src = urlInput?.value.trim();
     if (!src) return;
 
@@ -232,7 +233,7 @@ export class InsertPanel {
   }
 
   private upload(files: File[], kind: MediaKind): void {
-    if (!files.length) return;
+    if (!files.length || !this.editor.isEditable) return;
 
     void this.runtime.handleFiles(files, { kind });
     this.close();

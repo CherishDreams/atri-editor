@@ -302,6 +302,7 @@ export class TableMenu {
       button.addEventListener('click', (event) => {
         event.preventDefault();
         event.stopPropagation();
+        if (!this.editor.isEditable || button.disabled) return;
         item.command(this.editor);
       });
       panel.appendChild(button);
@@ -379,6 +380,7 @@ export class TableMenu {
     let y: number;
     try {
       ({ x, y } = await computePosition(reference, panel, {
+        strategy: 'fixed',
         // 贴在单元格上沿：菜单跟着当前格走，长表格里也不会跑到视口外
         placement: 'top-start',
         middleware: panelMiddleware(),

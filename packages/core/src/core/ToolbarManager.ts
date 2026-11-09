@@ -537,6 +537,7 @@ export class ToolbarManager {
     button.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
+      if (!this.editor.isEditable || itemDef.isDisabled(this.editor)) return;
       itemDef.command(this.editor, button);
       // 浮层项自己管焦点：抢回编辑器会让浮层里的输入框根本打不了字
       if (!itemDef.popup) this.editor.commands.focus();
@@ -985,16 +986,27 @@ export class ToolbarManager {
    * 绑定编辑器事件，更新按钮状态
    */
   private bindEditorEvents(): void {
-    const refresh = () => this.updateButtonStates();
+    const refresh = () => {
+      if (!this.editor.isEditable) {
+        this.panel?.close();
+        this.tablePanel?.close();
+        this.stylePanel?.close();
+        this.menuPanel?.close();
+        this.linkPanel?.close();
+      }
+      this.updateButtonStates();
+    };
 
     this.editor.on('transaction', refresh);
     this.editor.on('selectionUpdate', refresh);
+    this.editor.on('update', refresh);
 
     // 工具栏是公开导出的类：宿主单独用它、只销毁工具栏而留着编辑器时，
     // 这两条订阅会常驻到编辑器结束，每次事务空跑一遍按钮刷新
     this.unsubscribeEditor = () => {
       this.editor.off('transaction', refresh);
       this.editor.off('selectionUpdate', refresh);
+      this.editor.off('update', refresh);
     };
 
     // 初始状态
@@ -1014,7 +1026,7 @@ export class ToolbarManager {
 
       // 更新 active 状态
       const active = itemDef.isActive(this.editor);
-      const disabled = itemDef.isDisabled(this.editor);
+      const disabled = !this.editor.isEditable || itemDef.isDisabled(this.editor);
 
       buttons.forEach((button) => {
         button.classList.toggle('active', active);

@@ -194,6 +194,7 @@ export class StyleOptionPanel {
     }
 
     row.addEventListener('click', () => {
+      if (!this.editor.isEditable) return;
       if (option.isClear) {
         spec.onPick('');
       } else {
@@ -221,6 +222,7 @@ export class StyleOptionPanel {
     input.className = 'atri-style-panel-custom-input';
     input.value = '#1890ff';
     input.addEventListener('change', () => {
+      if (!this.editor.isEditable) return;
       spec.onPick(input.value);
       this.close();
     });
